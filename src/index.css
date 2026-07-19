@@ -1,0 +1,116 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Outfit", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Playfair Display", serif;
+  --color-her-bg: var(--bg-color, #0a0502);
+  --color-her-ink: var(--ink-color, #f5f2ed);
+  --color-her-accent: var(--accent-color, #ff4e00);
+  --color-her-muted: var(--muted-color, rgba(245, 242, 237, 0.5));
+  --color-her-glass: var(--glass-color, rgba(255, 78, 0, 0.1));
+}
+
+@layer base {
+  body {
+    @apply font-sans antialiased overflow-hidden;
+    background-color: var(--color-her-bg);
+    color: var(--color-her-ink);
+  }
+
+  body[data-theme="her"] {
+    --bg-color: #0a0502;
+    --ink-color: #f5f2ed;
+    --accent-color: #ff4e00;
+    --muted-color: rgba(245, 242, 237, 0.5);
+    --glass-color: rgba(255, 78, 0, 0.1);
+    --bg-gradient: radial-gradient(circle at 50% 50%, #3a1510 0%, #0a0502 100%);
+    --atmosphere-1: #3a1510;
+    --atmosphere-2: var(--accent-color);
+  }
+
+  body[data-theme="cyberpunk"] {
+    --bg-color: #050510;
+    --ink-color: #e0f2fe;
+    --accent-color: #00ffcc;
+    --muted-color: rgba(224, 242, 254, 0.5);
+    --glass-color: rgba(0, 255, 204, 0.1);
+    --bg-gradient: radial-gradient(circle at 50% 50%, #0a1128 0%, #050510 100%);
+    --atmosphere-1: #0a1128;
+    --atmosphere-2: var(--accent-color);
+  }
+
+  body[data-theme="monochrome"] {
+    --bg-color: #000000;
+    --ink-color: #ffffff;
+    --accent-color: #ffffff;
+    --muted-color: rgba(255, 255, 255, 0.5);
+    --glass-color: rgba(255, 255, 255, 0.1);
+    --bg-gradient: radial-gradient(circle at 50% 50%, #111111 0%, #000000 100%);
+    --atmosphere-1: #111111;
+    --atmosphere-2: #333333;
+  }
+  
+  body[data-theme="nature"] {
+    --bg-color: #0a1105;
+    --ink-color: #f0fdf4;
+    --accent-color: #4ade80;
+    --muted-color: rgba(240, 253, 244, 0.5);
+    --glass-color: rgba(74, 222, 128, 0.1);
+    --bg-gradient: radial-gradient(circle at 50% 50%, #142813 0%, #0a1105 100%);
+    --atmosphere-1: #142813;
+    --atmosphere-2: var(--accent-color);
+  }
+
+  body {
+    background: var(--bg-gradient, radial-gradient(circle at 50% 50%, #3a1510 0%, #0a0502 100%));
+  }
+}
+
+.atmosphere {
+  background: 
+    radial-gradient(circle at 50% 30%, var(--atmosphere-1, #3a1510) 0%, transparent 60%),
+    radial-gradient(circle at 10% 80%, var(--atmosphere-2, #ff4e00) 0%, transparent 50%);
+  filter: blur(60px);
+  opacity: 0.4;
+}
+
+.glass-morphism {
+  @apply bg-white/5 backdrop-blur-xl border border-white/10;
+}
+
+.workspace-textarea {
+  @apply w-full h-full bg-transparent border-none focus:ring-0 resize-none font-mono text-base md:text-sm p-4 text-her-ink;
+}
+
+.mic-glow {
+  box-shadow: 0 0 30px rgba(255, 78, 0, 0.4);
+}
+
+.circle-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: .7; transform: scale(1.05); }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-her-glass);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-her-muted);
+}

@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OSONE</title>
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#f27d26" />
+    <link rel="icon" type="image/png" href="https://storage.googleapis.com/static.antigravity.ai/projects/6386d2bd-28da-476a-b186-4e838294c2e4/assets/1743367115161_input_file_0.png" />
+    <link rel="apple-touch-icon" href="https://storage.googleapis.com/static.antigravity.ai/projects/6386d2bd-28da-476a-b186-4e838294c2e4/assets/1743367115161_input_file_0.png" />
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js');
+        });
+      }
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+
