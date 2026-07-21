@@ -10,7 +10,9 @@ interface VoiceSwitcherProps {
   onToggle: () => void;
 }
 
-const VOICES = ['Puck', 'Charon', 'Kore', 'Fenrir', 'Zephyr'];
+const VOICES = [
+  'Kore', 'Puck', 'Charon', 'Fenrir', 'Scarlet'
+];
 
 export const VoiceSwitcher = ({ selectedVoice, onVoiceChange, isOpen, onToggle }: VoiceSwitcherProps) => {
   return (
@@ -23,7 +25,7 @@ export const VoiceSwitcher = ({ selectedVoice, onVoiceChange, isOpen, onToggle }
         )}
       >
         <Volume2 size={12} className={cn(isOpen && "text-her-accent")} />
-        <span>{selectedVoice}</span>
+        <span>{selectedVoice === 'Scarlet' ? 'Sensus' : selectedVoice}</span>
         <ChevronUp size={10} className={cn("transition-transform duration-300", isOpen && "rotate-180")} />
       </button>
 
@@ -33,9 +35,9 @@ export const VoiceSwitcher = ({ selectedVoice, onVoiceChange, isOpen, onToggle }
             initial={{ opacity: 0, y: 10, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.95 }}
-            className="absolute bottom-full left-0 mb-4 p-2 bg-her-bg/95 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-2xl z-50 min-w-[120px]"
+            className="absolute bottom-full left-0 mb-4 p-2 bg-her-bg/95 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-2xl z-50 min-w-[130px]"
           >
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-1 max-h-[240px] overflow-y-auto custom-scrollbar">
               {VOICES.map((voice) => (
                 <button
                   key={voice}
@@ -46,11 +48,11 @@ export const VoiceSwitcher = ({ selectedVoice, onVoiceChange, isOpen, onToggle }
                   className={cn(
                     "px-4 py-2 rounded-xl text-left text-[11px] font-light tracking-wide transition-all",
                     selectedVoice === voice
-                      ? "bg-her-accent/10 text-her-accent"
+                      ? "bg-her-accent/10 text-her-accent font-medium"
                       : "text-her-muted hover:bg-white/5 hover:text-her-ink"
                   )}
                 >
-                  {voice}
+                  {voice === 'Scarlet' ? 'Sensus (Quantum)' : voice}
                 </button>
               ))}
             </div>

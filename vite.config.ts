@@ -1,7 +1,26 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
+import fs from 'fs';
 import {defineConfig, loadEnv} from 'vite';
+
+// Automatically generate a placeholder configuration file if it is missing
+// (e.g. during Vercel builds or GitHub workflows where the .gitignored file does not exist)
+const configPath = path.resolve(__dirname, 'firebase-applet-config.json');
+if (!fs.existsSync(configPath)) {
+  const dummyConfig = {
+    projectId: "",
+    appId: "",
+    apiKey: "",
+    authDomain: "",
+    firestoreDatabaseId: "",
+    storageBucket: "",
+    messagingSenderId: "",
+    measurementId: ""
+  };
+  fs.writeFileSync(configPath, JSON.stringify(dummyConfig, null, 2), 'utf-8');
+  console.log('firebase-applet-config.json was missing (e.g. on Vercel/GitHub). Generated a placeholder dummy file.');
+}
 
 export default defineConfig(({mode}) => {
   const env = loadEnv(mode, '.', '');
