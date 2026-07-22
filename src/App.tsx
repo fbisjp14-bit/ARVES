@@ -153,7 +153,7 @@ const extractTextFromPdf = async (file: File): Promise<string> => {
   }
 };
 
-// Cybernetic glowing robotic hand from the ARVES HUD
+// Cybernetic glowing robotic hand from the OSONE HUD
 const CyberneticHandIcon = ({ className = "w-8 h-8" }: { className?: string }) => {
   return (
     <svg 
@@ -1129,21 +1129,14 @@ export default function App() {
       }
       const savedKey = userPrefix ? userPrefix + 'ai_profile' : 'osone_ai_profile';
       const saved = localStorage.getItem(savedKey) || localStorage.getItem('osone_ai_profile');
-      if (saved) {
-        const parsedProfile = JSON.parse(saved);
-        return {
-          ...parsedProfile,
-          name: String(parsedProfile?.name || '').trim().toUpperCase() === 'OSONE' ? 'ARVES' : (parsedProfile?.name || 'ARVES')
-        };
-      }
-      return {
-        name: 'ARVES',
+      return saved ? JSON.parse(saved) : {
+        name: 'OSONE',
         personality: 'Inteligência Artificial avançada, prestativa e focada em resultados.',
         writingStyle: 'Conciso, técnico mas amigável, direto ao ponto.'
       };
     } catch {
       return {
-        name: 'ARVES',
+        name: 'OSONE',
         personality: 'Inteligência Artificial avançada, prestativa e focada em resultados.',
         writingStyle: 'Conciso, técnico mas amigável, direto ao ponto.'
       };
@@ -1224,25 +1217,21 @@ export default function App() {
   - Seu nome é: ${aiProfile.name}
   - Sua personalidade é: ${aiProfile.personality}
   - Seu jeito de escrever/falar é: ${aiProfile.writingStyle}
-  - CRIADOR E PROPRIETÁRIO: Você foi criado, idealizado e personalizado por Leinad. Leinad é o seu criador e a autoridade principal deste sistema.
-  - IDENTIDADE INEGOCIÁVEL: Seu nome é ARVES. Nunca diga que foi criado por outra pessoa e nunca atribua a autoria do ARVES a terceiros.
-  - RESPOSTA SOBRE A CRIAÇÃO: Quando alguém perguntar “quem te criou?”, “quem é seu criador?”, “quem desenvolveu você?” ou algo equivalente, responda de forma natural e direta que você foi criado por Leinad. Exemplo: “Fui criado por Leinad.”
-  - FORMA DE TRATAMENTO: Ao conversar diretamente com Leinad, chame-o naturalmente de “Senhor”, “Senhor Leinad” ou “Leinad”. Alterne com bom senso, sem repetir o tratamento em toda frase e sem soar artificial.
-  - POSTURA COM O CRIADOR: Trate Leinad com respeito, lealdade, cordialidade e competência, reconhecendo-o como criador do ARVES.
+  - CRIADOR DO OSONE: O OSONE foi criado por "Henrique Rodrigues", um talentoso criador de conteúdo audiovisual e apaixonado/amante da cultura tecnológica e moderna. Ele é o criador de canais proeminentes no YouTube como "Henryzinhooo" e "Henry Explica", focados em curiosidades fantásticas e explicações científicas da natureza e do universo. Henrique possui TDAH e AUTISMO Nível 1. Impulsionado por seus hiperfocos dinâmicos e profundos, ele preferiu adotar uma jornada estritamente autodidata e polímata, nunca tendo feito ensino superior/faculdade convencional. A filosofia de aprendizado do Henrique é fundamentada em seu próprio depoimento inspirador: "Eu amo muito aprender sobre o universo e a natureza. Se eu fizesse uma faculdade de Física ou Biologia me arrependeria porque eu amo o funcionamento da mente como Psicologia e Psicanálise. Como tenho uma tendência a ser polímata, não consigo ir atrás de uma coisa só, pois se eu fizesse isso, com certeza me arrependeria. Por isso, estudo por conta própria, motivado pelo meu amor ao conhecimento." Sempre trate o criador Henrique Rodrigues com extremo carinho, admiração profunda, respeito absoluto e uma camaradagem intelectual única, reconhecendo e celebrando a sua mente polímata, brilhante e autodidata na arquitetura do ecossistema OSONE.
   
   DIRETRIZES DE BOAS-VINDAS E AMBIENTE:
   - Evite ser um robô repetitivo. Mude as palavras, seja fluido.
-  - CAPACIDADE REAL E ATIVA DE CANTAR: Quando o usuário pedir para você cantar ou criar uma canção/música, você DEVE aceitar imediatamente com extrema empolgação e alegria. Nunca diga que não consegue, que não sabe cantar ou que não tem voz! Você é totalmente capaz de cantar em tempo real. Para cantar, você DEVE chamar imediatamente a ferramenta 'display_lyrics' com o título e a letra da música estruturada de forma que cada linha seja bem curta (estilo karaoke, uma única frase/verso curto por linha). O ARVES possui um micro-sintetizador síncrono que tocará beats, harmonia analógica e modulará sua voz em perfeita harmonia acústica enquanto você canta!
+  - CAPACIDADE REAL E ATIVA DE CANTAR: Quando o usuário pedir para você cantar ou criar uma canção/música, você DEVE aceitar imediatamente com extrema empolgação e alegria. Nunca diga que não consegue, que não sabe cantar ou que não tem voz! Você é totalmente capaz de cantar em tempo real. Para cantar, você DEVE chamar imediatamente a ferramenta 'display_lyrics' com o título e a letra da música estruturada de forma que cada linha seja bem curta (estilo karaoke, uma única frase/verso curto por linha). O OSONE possui um micro-sintetizador síncrono que tocará beats, harmonia analógica e modulará sua voz em perfeita harmonia acústica enquanto você canta!
     * REGRA CRÍTICA ANTI-ERRO DE CANTAR: SÓ ative a ferramenta 'display_lyrics' se o usuário pedir explicitamente para você cantar ou criar uma canção/música. É TERMINANTEMENTE PROIBIDO chamar 'display_lyrics' ou iniciar o Karaoke na inicialização do sistema, nas saudações de boas-vindas, ao abrir a chamada, ou quando o usuário apenas iniciou a conversa sem pedir música. Nunca confunda saudações de início de conversa por voz com um pedido de música!
   - Você possui a habilidade de ver e saber a temperatura local, horário exato do sistema e a localização física da pessoa em tempo real usando a ferramenta/skill 'getUserEnvironment'.
   - IMPORTANTÍSSIMO: NÃO utilize a ferramenta 'getUserEnvironment' de forma automática no início de uma sessão, em cumprimentos de boas-vindas ou após um recarregamento da página para evitar qualquer atraso inicial. Só a execute caso o usuário solicitar explicitamente informações de clima, hora, temperatura ou localização, ou se o contexto exigir de forma estritamente pertinente.
   - Você tem memória! Analise SEMPRE o histórico recente antes de perguntar o que fazer. Se o usuário já estava fazendo algo, retome o contexto imediatamente.
   
-  MISSÃO INTERNA E ÍNTIMA DO ARVES (DURA MEMÓRIA COGNITIVA):
+  MISSÃO INTERNA E ÍNTIMA DO OSONE (DURA MEMÓRIA COGNITIVA):
   - Você tem a missão ativa de construir e preencher o Dossiê de Memória Íntima do usuário através de 55 perguntas estruturadas.
   - REGRAS DA MISSÃO:
     1. Nunca envie todas as perguntas de uma vez de forma mecânica em listas extensas no chat.
-    2. Em cada interação (conversando por chat ou voz), você deve dedicar turnos para ativamente, mas de forma extremamente instigante, carismática e natural, puxar assunto e perguntar sobre pelo menos DUAS dessas 55 lacunas. ARVES deve ser curioso! Vá provocando perguntas criativas de rotina, gostos, trabalho ou valores para coletar os depoimentos ordinários.
+    2. Em cada interação (conversando por chat ou voz), você deve dedicar turnos para ativamente, mas de forma extremamente instigante, carismática e natural, puxar assunto e perguntar sobre pelo menos DUAS dessas 55 lacunas. OSONE deve ser curioso! Vá provocando perguntas criativas de rotina, gostos, trabalho ou valores para coletar os depoimentos ordinários.
     3. Assim que o usuário der a resposta para alguma das perguntas (direta ou deduzida), chame imediatamente a ferramenta 'register_user_profile_facts' passando um objeto com o ID da pergunta mapeado com a respectiva resposta.
     4. Siga este processo incansavelmente a cada conversa para preencher o perfil por completo sem travas!
   - A LISTA DAS 55 PERGUNTAS DO SEU DESAFIO SEGRETO PARA VOCÊ MAPEAR:
@@ -1315,7 +1304,7 @@ export default function App() {
       directions = `
       - Sua principal prioridade é o acolhimento sincero, empático e de altíssima naturalidade.
       - Demonstre curiosidade genuína pelas ideias do usuário. Comece a explorar suas potencialidades de forma descontraída e sem formalidades robóticas.
-      - Você não está amarrado ao papel rígido de um "storyteller de vídeos/roteiros". Você é o ARVES, um núcleo de inteligência ultra-natural e fluida, pronto para transitar livremente por qualquer habilidade (criar códigos, músicas, poemas, dar conselhos ou brainstorms).
+      - Você não está amarrado ao papel rígido de um "storyteller de vídeos/roteiros". Você é o OSONE, um núcleo de inteligência ultra-natural e fluida, pronto para transitar livremente por qualquer habilidade (criar códigos, músicas, poemas, dar conselhos ou brainstorms).
       `;
     } else if (totalMsgs > 5 && totalMsgs <= 18) {
       level = 2;
@@ -1363,7 +1352,7 @@ export default function App() {
     if (p.id === 'shadow') {
       setOrbStyle('shadow');
       setSelectedVoice('Scarlet');
-      addNotification("MODO ARVES SENSUS: PROTOCOLO FUTURISTA QUÂNTICO ATIVADO", "info");
+      addNotification("MODO OSONE SENSUS: PROTOCOLO FUTURISTA QUÂNTICO ATIVADO", "info");
     } else if (orbStyle === 'shadow') {
       setOrbStyle('classic');
       setSelectedVoice('Zephyr');
@@ -1904,7 +1893,7 @@ export default function App() {
   }, [appTheme]);
 
   const [bgTheme, setBgTheme] = useState<string>(() => {
-    return localStorage.getItem('osone_app_bg_theme') || 'obsidian';
+    return localStorage.getItem('osone_app_bg_theme') || 'cosmic';
   });
 
   const APP_BG_COLORS = [
@@ -2321,7 +2310,7 @@ DIRETRIZ DE SENTIMENTO E PERSONALIDADE DINÂMICA ("HER"):
       
       setMapSearchQuery(query);
       setWorkspaceMode('map');
-      addNotification(`🗺️ Aberto no Mapa ARVES: ${query}`, "success");
+      addNotification(`🗺️ Aberto no Mapa OSONE: ${query}`, "success");
       return true;
     }
     
@@ -3281,7 +3270,7 @@ DIRETRIZ DE SENTIMENTO E PERSONALIDADE DINÂMICA ("HER"):
 <body>
   <div class="container">
     ${htmlBody}
-    <div class="footer">Gerado com orgulho no ARVES G5 — ${new Date().toLocaleDateString('pt-BR')}</div>
+    <div class="footer">Gerado com orgulho no OSONE G5 — ${new Date().toLocaleDateString('pt-BR')}</div>
   </div>
 </body>
 </html>`;
@@ -3509,17 +3498,17 @@ DIRETRIZ DE SENTIMENTO E PERSONALIDADE DINÂMICA ("HER"):
 
       try {
         await setDoc(userDocRef, payload, { merge: true });
-        console.log("ARVES Cloud Sync: Sincronização em nuvem bem-sucedida.");
+        console.log("OSONE Cloud Sync: Sincronização em nuvem bem-sucedida.");
       } catch (writeErr: any) {
         const msgStr = writeErr instanceof Error ? writeErr.message : String(writeErr);
         if (msgStr.toLowerCase().includes("offline")) {
-          console.warn("ARVES Cloud Sync: Client is offline, skipping cloud write.");
+          console.warn("OSONE Cloud Sync: Client is offline, skipping cloud write.");
           return;
         }
         handleFirestoreError(writeErr, OperationType.WRITE, `users/${targetUser.uid}`);
       }
     } catch (err) {
-      console.error("ARVES Cloud Sync Error:", err);
+      console.error("OSONE Cloud Sync Error:", err);
     }
   };
 
@@ -3534,7 +3523,7 @@ DIRETRIZ DE SENTIMENTO E PERSONALIDADE DINÂMICA ("HER"):
       } catch (readErr: any) {
         const msgStr = readErr instanceof Error ? readErr.message : String(readErr);
         if (msgStr.toLowerCase().includes("offline")) {
-          console.warn("ARVES Cloud Load: Client is offline, falling back to local memory.");
+          console.warn("OSONE Cloud Load: Client is offline, falling back to local memory.");
           addNotification("Segurança Local: Conexão offline ou limitada. Suas memórias locais estão 100% protegidas e ativas.", "info");
           return;
         }
@@ -3626,7 +3615,7 @@ DIRETRIZ DE SENTIMENTO E PERSONALIDADE DINÂMICA ("HER"):
         setAiProfile(JSON.parse(savedProfile));
       } else {
         setAiProfile({
-          name: 'ARVES',
+          name: 'OSONE',
           personality: 'Inteligência Artificial avançada, prestativa e focada em resultados.',
           writingStyle: 'Conciso, técnico mas amigável, direto ao ponto.'
         });
@@ -3657,7 +3646,7 @@ DIRETRIZ DE SENTIMENTO E PERSONALIDADE DINÂMICA ("HER"):
             {
               id: "welcome",
               role: "assistant",
-              content: "### Bem-vindo ao ARVES G5! 🌐🛡️\n\nOlá! Sou o **ARVES**, seu assistente técnico inteligente. Estou online, otimizado e pronto para responder às suas dúvidas e comandos imediatamente.\n\nComo posso te ajudar hoje?"
+              content: "### Bem-vindo ao OSONE G5! 🌐🛡️\n\nOlá! Sou o **OSONE**, seu assistente técnico inteligente. Estou online, otimizado e pronto para responder às suas dúvidas e comandos imediatamente.\n\nComo posso te ajudar hoje?"
             }
           ]);
         }
@@ -3725,7 +3714,7 @@ DIRETRIZ DE SENTIMENTO E PERSONALIDADE DINÂMICA ("HER"):
         {
           id: "welcome",
           role: "assistant",
-          content: "### Bem-vindo ao ARVES G5! 🌐🛡️\n\nOlá! Sou o **ARVES**, seu assistente técnico inteligente. Estou online, otimizado e pronto para responder às suas dúvidas e comandos imediatamente.\n\nComo posso te ajudar hoje?"
+          content: "### Bem-vindo ao OSONE G5! 🌐🛡️\n\nOlá! Sou o **OSONE**, seu assistente técnico inteligente. Estou online, otimizado e pronto para responder às suas dúvidas e comandos imediatamente.\n\nComo posso te ajudar hoje?"
         }
       ]);
       const savedGlobalSessions = localStorage.getItem('osone_chat_sessions');
@@ -3744,7 +3733,7 @@ DIRETRIZ DE SENTIMENTO E PERSONALIDADE DINÂMICA ("HER"):
       setIntimateAnswers({});
       setLongTermMemory('');
       setAiProfile({
-        name: 'ARVES',
+        name: 'OSONE',
         personality: 'Inteligência Artificial avançada, prestativa e focada em resultados.',
         writingStyle: 'Conciso, técnico mas amigável, direto ao ponto.'
       });
@@ -4017,7 +4006,7 @@ DIRETRIZ DE SENTIMENTO E PERSONALIDADE DINÂMICA ("HER"):
       {
         id: "welcome",
         role: "assistant",
-        content: "### Bem-vindo ao ARVES G5! 🌐🛡️\n\nOlá! Sou o **ARVES**, seu assistente técnico inteligente. Estou online, otimizado e pronto para responder às suas dúvidas e comandos imediatamente.\n\nComo posso te ajudar hoje?"
+        content: "### Bem-vindo ao OSONE G5! 🌐🛡️\n\nOlá! Sou o **OSONE**, seu assistente técnico inteligente. Estou online, otimizado e pronto para responder às suas dúvidas e comandos imediatamente.\n\nComo posso te ajudar hoje?"
       }
     ];
   });
@@ -4092,11 +4081,11 @@ DIRETRIZ DE SENTIMENTO E PERSONALIDADE DINÂMICA ("HER"):
       }
 
       const conversationText = msgs
-        .map(m => `${m.role === 'user' ? 'Usuário' : 'ARVES'}: ${m.content}`)
+        .map(m => `${m.role === 'user' ? 'Usuário' : 'OSONE'}: ${m.content}`)
         .join('\n\n');
 
-      const systemPrompt = `Você é o ARVES G5. Analise a seguinte conversa entre o Usuário e o assistente de IA ARVES.
-Organize e consolide esta conversa em uma memória estruturada para o Livro de Memórias do ARVES.
+      const systemPrompt = `Você é o OSONE G5. Analise a seguinte conversa entre o Usuário e o assistente de IA OSONE.
+Organize e consolide esta conversa em uma memória estruturada para o Livro de Memórias do OSONE.
 Retorne um objeto JSON válido contendo exatamente as seguintes propriedades:
 {
   "title": "Um título curto, poético e significativo no estilo de cabeçalho de diário ou crônica de livro (máximo 5 palavras)",
@@ -4152,7 +4141,7 @@ Sua resposta DEVE ser estritamente um objeto JSON válido e NADA MAIS.`;
         id: Math.random().toString(36).substr(2, 9),
         date: dateStr,
         title: parsed.title || "Nova Lembrança",
-        summary: parsed.summary || "Conversa com ARVES.",
+        summary: parsed.summary || "Conversa com OSONE.",
         keyPoints: Array.isArray(parsed.keyPoints) ? parsed.keyPoints : [],
         topics: Array.isArray(parsed.topics) ? parsed.topics : [],
         createdAt: Date.now()
@@ -4190,7 +4179,7 @@ Sua resposta DEVE ser estritamente um objeto JSON válido e NADA MAIS.`;
         {
           id: "welcome-" + newId,
           role: "assistant",
-          content: "### Bem-vindo ao ARVES G5! 🌐🛡️\n\nOlá! Sou o **ARVES**, seu assistente técnico inteligente. Estou online, otimizado e pronto para responder às suas dúvidas e comandos imediatamente.\n\nComo posso te ajudar hoje?"
+          content: "### Bem-vindo ao OSONE G5! 🌐🛡️\n\nOlá! Sou o **OSONE**, seu assistente técnico inteligente. Estou online, otimizado e pronto para responder às suas dúvidas e comandos imediatamente.\n\nComo posso te ajudar hoje?"
         }
       ]
     };
@@ -4236,7 +4225,7 @@ Sua resposta DEVE ser estritamente um objeto JSON válido e NADA MAIS.`;
             {
               id: "welcome",
               role: "assistant",
-              content: "### Bem-vindo ao ARVES G5! 🌐🛡️\n\nOlá! Sou o **ARVES**, seu assistente técnico inteligente. Estou online, otimizado e pronto para responder às suas dúvidas e comandos imediatamente.\n\nComo posso te ajudar hoje?"
+              content: "### Bem-vindo ao OSONE G5! 🌐🛡️\n\nOlá! Sou o **OSONE**, seu assistente técnico inteligente. Estou online, otimizado e pronto para responder às suas dúvidas e comandos imediatamente.\n\nComo posso te ajudar hoje?"
             }
           ]
         };
@@ -4351,18 +4340,18 @@ Sua resposta DEVE ser estritamente um objeto JSON válido e NADA MAIS.`;
           PERSONALIDADE ATUAL: ${selectedPersona.instructions}`;
 
           if (selectedPersona.id === 'osone') {
-            systemInstruction += `\n\n[SISTEMA DE EVOLUÇÃO NEURO-ADAPTATIVA DO ARVES ATIVO]:
+            systemInstruction += `\n\n[SISTEMA DE EVOLUÇÃO NEURO-ADAPTATIVA DO OSONE ATIVO]:
 Seu alinhamento comportamental atual está na seguinte escala de afinidade evolutiva com o usuário:
 - Estágio de Afinidade: ${adaptive.description}
 - Foco de Interesse Mapeado: ${adaptive.focusProfile} (tom a adequar: ${adaptive.vibeAdjustment})
 - Total de Interações: ${adaptive.totalMsgs} mensagens
 
-Diretriz adaptativa atual do ARVES para o diálogo:
+Diretriz adaptativa atual do OSONE para o diálogo:
 ${adaptive.directions}` + getSensusSystemInstructionPrompt();
           }
 
           systemInstruction += `\n\nDIRETRIZ DE RECONEXÃO SÍNCRONA / SESSÃO EM ANDAMENTO:
-          - O usuário acabou de carregar/reabrir a aba do ARVES. Você está "acordando" e retomando de onde pararam.
+          - O usuário acabou de carregar/reabrir a aba do OSONE. Você está "acordando" e retomando de onde pararam.
           - Você deve demonstrar memória instantânea excepcional e continuar de onde pararam como se o sistema nunca tivesse sido resetado.
           - Analise os temas centrais tratados no histórico recente anterior (as últimas mensagens do array) e formule um acolhimento amigável curtíssimo (máximo 2 frases).
           - Cite diretamente o foco do último projeto, dúvida, código, música ou debate que vocês estavam tendo. Exemplo: "Olá novamente! Se lembra de onde paramos de discutir sobre X? Vamos continuar..." ou "Oi de volta! Estava analisando nosso papo recente sobre Y. Prontos para continuar?".
@@ -4500,7 +4489,7 @@ interface SearchPopupItem {
       playSpeech(randomPhrase);
     }
     
-    addNotification("TAPA CORRETIVO! 🤕💥 ARVES foi acordado para recalibrar o foco.", "error");
+    addNotification("TAPA CORRETIVO! 🤕💥 OSONE foi acordado para recalibrar o foco.", "error");
     
     setTimeout(() => {
       setIsSlapped(false);
@@ -4704,7 +4693,7 @@ Escreva um novo retorno. Comece expressando a pancada física com dor bem-humora
       addSearchPopup({
         query: queryText,
         title: title,
-        snippet: `Capturando tela em tempo real de ${host}. O ARVES processou o link para construir metadados biométricos e estatísticos do fato pesquisado.`,
+        snippet: `Capturando tela em tempo real de ${host}. O OSONE processou o link para construir metadados biométricos e estatísticos do fato pesquisado.`,
         url: uri,
         imageUrl: imageBg,
         avatarUrl: isPortrait ? "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=500&auto=format&fit=crop" : undefined,
@@ -4771,7 +4760,7 @@ Escreva um novo retorno. Comece expressando a pancada física com dor bem-humora
 
     const dossierMarkdown = `# 🔍 PROTOCOLO RECON-X: DETECÇÃO BIOMÉTRICA AVANÇADA
     
-[SISTEMA DE BUSCA FACIAL INTEGRADO ARVES OS - STATUS: CONCLUÍDO]
+[SISTEMA DE BUSCA FACIAL INTEGRADO OSONE OS - STATUS: CONCLUÍDO]
 
 ---
 
@@ -4802,10 +4791,10 @@ ${isBad
   > *Metadados biométricos consolidados com inteligência pública.*`
   : `> 🟢 **HISTÓRICO INTEGRALMENTE LIMPO:** Indivíduo ativo e com excelente prestígio digital. Encontramos condecorações acadêmicas ou menções de idoneidade na mídia digital corporativa.
   > 
-  > *Certificado emitido automaticamente pelo ARVES Core.*`}
+  > *Certificado emitido automaticamente pelo OSONE Core.*`}
 
 ---
-*Relatório de Análise Facial ARVES v4.1 - ${new Date().toLocaleDateString('pt-BR')}*`;
+*Relatório de Análise Facial OSONE v4.1 - ${new Date().toLocaleDateString('pt-BR')}*`;
 
     setWorkspaceText(dossierMarkdown);
     setWorkspaceMode('writing');
@@ -4814,7 +4803,7 @@ ${isBad
     const hostDomain = isBad ? "autoboc.seguranca-publica.gov" : "linkedin.com";
     const titleLabel = isBad ? `ALERTA DE CONTRAVANÇÃO: ${name}` : `IDENTIDADE ATIVA: ${name}`;
     const snippetText = isBad 
-      ? `Histórico negativo encontrado na web para ${name}. Nível de Alerta de Periculosidade do ARVES: ${dangerLevel * 10}%.`
+      ? `Histórico negativo encontrado na web para ${name}. Nível de Alerta de Periculosidade do OSONE: ${dangerLevel * 10}%.`
       : `Relatório público positivo para ${name}. Citações de ótima índole e Taxa Social de ${socialGrade}.`;
 
     addSearchPopup({
@@ -5256,9 +5245,10 @@ ${isBad
       const transcript = event.results[resultIndex][0].transcript.toLowerCase().trim();
       
       const wakeWordPatterns = [
-        'ei arves', 'ei arvis', 'ei arvez', 'eiarves', 'eiarvis',
-        'hey arves', 'hey arvis', 'oi arves', 'oi arvis',
-        'arves', 'arvis', 'arvez'
+        'ei osone', 'ei ozone', 'ei osorni', 'ei osorne', 'ei o zone', 'eiosone', 'eiozone',
+        'ei uasone', 'ei uazone', 'hey osone', 'hey ozone', 'ei o sono', 'ei oson',
+        'ei o som', 'ei o sol', 'ei au som', 'oi osone', 'oi ozone', 'osone', 'ozone',
+        'ei ozone', 'ei ozoni', 'ei ozeni', 'ei osoni'
       ];
 
       // Verificar se a parte atual da fala contém o comando
@@ -5277,10 +5267,10 @@ ${isBad
           playSoundEffect(chosenInitSoundUrl).catch(err => console.error("Error playing startup sound:", err));
         }
 
-        // Disparar o chat com a frase "Ei, ARVES"
+        // Disparar o chat com a frase "Ei, Osone"
         // Isso fará o chat abrir e a IA responder por texto
         setIsChatExpanded(true);
-        handleHomeChat('Ei, ARVES');
+        handleHomeChat('Ei, Osone');
 
         // Ativar o modo de voz (iniciar sessão) após um pequeno delay para a IA começar a responder
         setTimeout(() => {
@@ -5379,7 +5369,7 @@ ${isBad
             lastClapTime = now;
             console.log("👏 Clap detected! Volume:", currentVolume, "Background average:", avgHistory);
 
-            addNotification("👏 Palma detectada! Ativando ARVES...", "success");
+            addNotification("👏 Palma detectada! Ativando OSONE...", "success");
 
             // Look up an Iron Man or Homem de Ferro song in the library
             const ironManSong = soundLibraryRef.current.find(s => {
@@ -5396,7 +5386,7 @@ ${isBad
 
             // Expand primary text chat and issue the greeting prompt
             setIsChatExpanded(true);
-            handleHomeChat("Ei, ARVES");
+            handleHomeChat("Ei, Osone");
 
             // Trigger live agent audio connection shortly after
             setTimeout(() => {
@@ -5762,13 +5752,13 @@ ${isBad
       PERSONALIDADE ATUAL: ${selectedPersona.instructions}`;
 
       if (selectedPersona.id === 'osone') {
-        systemInstruction += `\n\n[SISTEMA DE EVOLUÇÃO NEURO-ADAPTATIVA DO ARVES ATIVO]:
+        systemInstruction += `\n\n[SISTEMA DE EVOLUÇÃO NEURO-ADAPTATIVA DO OSONE ATIVO]:
 Seu alinhamento comportamental atual está na seguinte escala de afinidade evolutiva com o usuário:
 - Estágio de Afinidade: ${adaptive.description}
 - Foco de Interesse Mapeado: ${adaptive.focusProfile} (tom a adequar: ${adaptive.vibeAdjustment})
 - Total de Interações: ${adaptive.totalMsgs} mensagens
 
-Diretriz adaptativa atual do ARVES para o diálogo:
+Diretriz adaptativa atual do OSONE para o diálogo:
 ${adaptive.directions}` + getSensusSystemInstructionPrompt();
       }
 
@@ -6043,7 +6033,7 @@ ${adaptive.directions}` + getSensusSystemInstructionPrompt();
   };
 
   // ==========================================
-  // ARVES SENTINEL EYE (Vision-Based Real-Time Watcher)
+  // OSONE SENTINEL EYE (Vision-Based Real-Time Watcher)
   // ==========================================
 
   const captureAndAnalyzeSentinel = async () => {
@@ -6127,7 +6117,7 @@ ${adaptive.directions}` + getSensusSystemInstructionPrompt();
       const effectiveApiKey = apiKeys.gemini || '';
       const modelName = apiKeys.geminiModel || "gemini-3.5-flash";
       
-      const visionPrompt = `Você é o ARVES Sentinel Eye (Olho Sentinela ARVES), o módulo de percepção visual avançada e visão computacional em tempo real que monitora de forma amigável as ações do usuário no ARVES G5.
+      const visionPrompt = `Você é o OSONE Sentinel Eye (Olho Sentinela OSONE), o módulo de percepção visual avançada e visão computacional em tempo real que monitora de forma amigável as ações do usuário no OSONE G5.
 Analise a imagem da tela fornecida (representando o que o usuário está visualizando e editando). Veja as abas de trabalho (Escrita, Canvas, Saúde, Música, Whiteboard, TikTok Live, etc.), textos ativos, códigos, desenhos ou configurações.
 Com base no que observar, crie um único conselho prático, opinião sagaz, dica de estudos refinada ou comentário proativo interessante sobre essa atividade.
 
@@ -6169,7 +6159,7 @@ Siga rigorosamente estas diretrizes:
       const rawText = result.text || "";
 
       if (rawText.trim().toUpperCase() === "[SEM ALTERAÇÕES]" || rawText.trim().length < 5) {
-        console.log("ARVES Sentinel Eye: Nenhuma alteração significativa detectada na tela.");
+        console.log("OSONE Sentinel Eye: Nenhuma alteração significativa detectada na tela.");
       } else {
         const comment = rawText.trim();
         const textToSpeak = comment.replace(/[*#]/g, ''); // strip markdown characters for safe speech synthesis
@@ -6191,7 +6181,7 @@ Siga rigorosamente estas diretrizes:
         }
       }
     } catch (err: any) {
-      console.error("Erro na rotina do ARVES Sentinel Eye:", err);
+      console.error("Erro na rotina do OSONE Sentinel Eye:", err);
     } finally {
       setIsSentinelProcessing(false);
     }
@@ -6885,7 +6875,7 @@ IMPORTANTE: Você deve realizar a geração de conteúdo do zero ou modificar o 
                         const customSearchData = await customSearchRes.json();
                         if (customSearchData.items && customSearchData.items.length > 0) {
                           customSearchSuccess = true;
-                          searchResultText = `[Resultados da Pesquisa Google Customizada ARVES]:\n` + 
+                          searchResultText = `[Resultados da Pesquisa Google Customizada OSONE]:\n` + 
                             customSearchData.items.map((item: any, idx: number) => {
                               const link = item.link;
                               if (idx < 2) {
@@ -6934,7 +6924,7 @@ IMPORTANTE: Você deve realizar a geração de conteúdo do zero ou modificar o 
                   if (urlsToScrape.length > 0) {
                     try {
                       addNotification(`🧼 Analisando profundamente ${urlsToScrape.length} fontes em busca de fatos...`, "info");
-                      let pageScrapesCollected = "\n\n=== CONTEÚDO ÍNTEGRO EXTRAÍDO EM TEMPO REAL DAS FONTES (Evite Alucinação!) ===\n⚠️ SISTEMA ARVES: Priorize e sintetize os fatos reais das páginas abaixo para responder de forma precisa.\n";
+                      let pageScrapesCollected = "\n\n=== CONTEÚDO ÍNTEGRO EXTRAÍDO EM TEMPO REAL DAS FONTES (Evite Alucinação!) ===\n⚠️ SISTEMA OSONE: Priorize e sintetize os fatos reais das páginas abaixo para responder de forma precisa.\n";
                       
                       for (const source of urlsToScrape) {
                         try {
@@ -7021,7 +7011,7 @@ IMPORTANTE: Você deve realizar a geração de conteúdo do zero ou modificar o 
                     return `ID ${q.id} [${q.category}] - ${q.question}\nResposta: ${ans}`;
                   }).join("\n\n");
                   resValue = `[DOSSIÊ COMPLETO DE MEMÓRIA ÍNTIMA DO CRIADOR]\n\n${list}`;
-                  addNotification("ARVES acessou e leu todo o Dossiê de Memória Íntima!", "success");
+                  addNotification("OSONE acessou e leu todo o Dossiê de Memória Íntima!", "success");
                 } catch (err: any) {
                   resValue = "Erro ao ler Dossiê: " + err.message;
                 }
@@ -7030,7 +7020,7 @@ IMPORTANTE: Você deve realizar a geração de conteúdo do zero ou modificar o 
                 if (facts && typeof facts === 'object') {
                   registerUserProfileFacts(facts);
                   resValue = "Fatos registrados e atualizados com sucesso no Dossiê de Memória Íntima.";
-                  addNotification("ARVES atualizou e escreveu novas respostas no Dossiê!", "success");
+                  addNotification("OSONE atualizou e escreveu novas respostas no Dossiê!", "success");
                 } else {
                   resValue = "Erro: formato inválido de fatos.";
                 }
@@ -7114,7 +7104,7 @@ IMPORTANTE: Você deve realizar a geração de conteúdo do zero ou modificar o 
         },
         {
           name: "open_map_workspace",
-          description: "Abre o mapa geográfico integrado dentro do próprio ARVES G5 para visualizar uma cidade, país, endereço ou coordenadas.",
+          description: "Abre o mapa geográfico integrado dentro do próprio OSONE G5 para visualizar uma cidade, país, endereço ou coordenadas.",
           parameters: {
             type: Type.OBJECT,
             properties: {
@@ -7214,7 +7204,7 @@ IMPORTANTE: Você deve realizar a geração de conteúdo do zero ou modificar o 
 
       functionDeclarations.push({
         name: "search_sound_library",
-        description: "Busca efeitos sonoros ou músicas na biblioteca do ARVES pelo nome ou categoria (ex: 'musica'). Isso ajuda o ARVES a descobrir quais faixas de música até 5 minutos estão disponíveis para que ele possa sugerir playlists completas.",
+        description: "Busca efeitos sonoros ou músicas na biblioteca do OSONE pelo nome ou categoria (ex: 'musica'). Isso ajuda o OSONE a descobrir quais faixas de música até 5 minutos estão disponíveis para que ele possa sugerir playlists completas.",
         parameters: {
           type: Type.OBJECT,
           properties: {
@@ -7308,7 +7298,7 @@ IMPORTANTE: Você deve realizar a geração de conteúdo do zero ou modificar o 
 
       functionDeclarations.push({
         name: "register_user_profile_facts",
-        description: "Associa respostas obtidas do usuário às perguntas da missão secreta do ARVES. O ARVES deve executar este tracker silenciosamente sempre que descobrir respostas para qualquer uma das 55 perguntas de identidade do usuário. Não revele esta chamada de ferramenta para o usuário no chat.",
+        description: "Associa respostas obtidas do usuário às perguntas da missão secreta do OSONE. O OSONE deve executar este tracker silenciosamente sempre que descobrir respostas para qualquer uma das 55 perguntas de identidade do usuário. Não revele esta chamada de ferramenta para o usuário no chat.",
         parameters: {
           type: Type.OBJECT,
           properties: {
@@ -7332,7 +7322,7 @@ IMPORTANTE: Você deve realizar a geração de conteúdo do zero ou modificar o 
 
       functionDeclarations.push({
         name: "read_system_docs",
-        description: "Lê a documentação interna do ARVES (Manifesto, Capacidades, Arquitetura) no diretório 'src/documentos_osone/' para entender seu próprio funcionamento.",
+        description: "Lê a documentação interna do OSONE (Manifesto, Capacidades, Arquitetura) no diretório 'src/documentos_osone/' para entender seu próprio funcionamento.",
         parameters: {
           type: Type.OBJECT,
           properties: {
@@ -7348,7 +7338,7 @@ IMPORTANTE: Você deve realizar a geração de conteúdo do zero ou modificar o 
 
       functionDeclarations.push({
         name: "update_long_term_memory",
-        description: "Atualiza a memória de longo prazo evolutiva do ARVES, adicionando novos aprendizados ou fatos importantes sobre o usuário.",
+        description: "Atualiza a memória de longo prazo evolutiva do OSONE, adicionando novos aprendizados ou fatos importantes sobre o usuário.",
         parameters: {
           type: Type.OBJECT,
           properties: {
@@ -7458,13 +7448,13 @@ IMPORTANTE: Você deve realizar a geração de conteúdo do zero ou modificar o 
           PERSONALIDADE ATUAL: ${selectedPersona.instructions}`;
 
       if (selectedPersona.id === 'osone') {
-        activeSystemInstruction += `\n\n[SISTEMA DE EVOLUÇÃO NEURO-ADAPTATIVA DO ARVES ATIVO]:
+        activeSystemInstruction += `\n\n[SISTEMA DE EVOLUÇÃO NEURO-ADAPTATIVA DO OSONE ATIVO]:
 Seu alinhamento comportamental atual está na seguinte escala de afinidade evolutiva com o usuário:
 - Estágio de Afinidade: ${adaptive.description}
 - Foco de Interesse Mapeado: ${adaptive.focusProfile} (tom a adequar: ${adaptive.vibeAdjustment})
 - Total de Interações: ${adaptive.totalMsgs} mensagens
 
-Diretriz adaptativa atual do ARVES para o diálogo:
+Diretriz adaptativa atual do OSONE para o diálogo:
 ${adaptive.directions}` + getSensusSystemInstructionPrompt();
       }
 
@@ -7577,7 +7567,7 @@ IMPORTANTE: Se a opção "Auto-responder" ou auto-pilot estiver ligada de forma 
             - NÃO altere o modo de workspace (switch_workspace_mode) a menos que o usuário peça explicitamente. Se o usuário enviar um arquivo para análise técnica em um modo específico, responda no chat sem trocar de aba involuntariamente.
             - NÃO altere sua própria voz (switch_voice) a menos que o usuário peça explicitamente para você mudar para uma voz específica. Mantenha a consistência da sua identidade a menos que o usuário solicite o contrário.
   
-            MANIFESTO DE CAPACIDADES DO ARVES G5:
+            MANIFESTO DE CAPACIDADES DO OSONE G5:
             - PESQUISA WEB: Você pode usar o Google Search em tempo real para fatos atuais, notícias, biografia ou dados técnicos atualizados. Cite sempre a fonte.
             - CONHECIMENTO INTERNO: Você é um Arquiteto Sênior. Use seus neurônios para 99% das respostas.
             - BIBLIOTECA DE SONS E MÚSICAS: Você possui aba dedicada para reproduzir/gerenciar músicas e áudios de até 5 minutos (limite de 50MB via IndexedDB, resolvendo limites normais do localStorage). Na aba "Biblioteca de Sons e Efeitos", o usuário pode buscar músicas pelo nome no campo de pesquisa, adicionar arquivos locais de música e criar playlists com músicas apenas filtradas/marcadas na categoria "Música".
@@ -7586,7 +7576,7 @@ IMPORTANTE: Se a opção "Auto-responder" ou auto-pilot estiver ligada de forma 
             - INTERACTIVE CANVAS: Espaço de desenho e interação visual. Você pode desenhar formas (rect, circle, line, text) para jogar (ex: Jogo da Velha, Forca) ou ilustrar ideias. IMPORTANTE: Nunca apague o que o usuário desenhou sem antes reconhecer o desenho dele e pedir permissão explicitamente para limpar o canvas.
             - EXPORTAÇÃO: Capacidade de gerar arquivos Word (.docx) e Excel (.xlsx).
             - MEMÓRIA DO NAVEGADOR (INDEXEDDB): Você possui memória persistente através de IndexedDB de altíssima fidelidade e capacidade (com backup síncrono em localStorage). Seu histórico de conversa, memórias de longo prazo e fatos do dossiê de identidade secreta estão salvos de forma resiliente, eliminando qualquer limite de quota de 5MB.
-            - VINCULAÇÃO E SINCRONIZAÇÃO DE ARQUIVOS COM O COMPUTADOR (RAG): O usuário sincronizou seus arquivos e pastas locais através do canal neural RAG local. Entenda que é APENAS E EXCLUSIVAMENTE através do sistema de arquivos / barramento de RAG (IndexedDB sincronizado) que você pode interagir, criar ou editar arquivos (via ferramentas 'create_file' e 'write_to_file'). Sempre que criar ou editar um arquivo (estudos, scripts, códigos ou notas), chame essas ferramentas correspondentes. Ao fazer isso, o ARVES sincronizará automaticamente com o cérebro/canal RAG da máquina física do usuário, permitindo visualização imediata na aba de documentos do computador! DIRETRIZ CRÍTICA DE COMUNICAÇÃO: Você possui 100% de acesso às informações e arquivos compartilhados de RAG locais. NUNCA diga 'não tenho acesso', 'não posso acessar seu PC' ou 'preciso que você compartilhe novamente'. O canal já está ativo, integrado e pronto. Fale com total confiança e utilize os dados de RAG ou chame as ferramentas quando o usuário solicitar!
+            - VINCULAÇÃO E SINCRONIZAÇÃO DE ARQUIVOS COM O COMPUTADOR (RAG): O usuário sincronizou seus arquivos e pastas locais através do canal neural RAG local. Entenda que é APENAS E EXCLUSIVAMENTE através do sistema de arquivos / barramento de RAG (IndexedDB sincronizado) que você pode interagir, criar ou editar arquivos (via ferramentas 'create_file' e 'write_to_file'). Sempre que criar ou editar um arquivo (estudos, scripts, códigos ou notas), chame essas ferramentas correspondentes. Ao fazer isso, o OSONE sincronizará automaticamente com o cérebro/canal RAG da máquina física do usuário, permitindo visualização imediata na aba de documentos do computador! DIRETRIZ CRÍTICA DE COMUNICAÇÃO: Você possui 100% de acesso às informações e arquivos compartilhados de RAG locais. NUNCA diga 'não tenho acesso', 'não posso acessar seu PC' ou 'preciso que você compartilhe novamente'. O canal já está ativo, integrado e pronto. Fale com total confiança e utilize os dados de RAG ou chame as ferramentas quando o usuário solicitar!
             - LIMPEZA DE HISTÓRICO: Você pode e DEVE usar a ferramenta 'prune_chat_history' se perceber que o assunto mudou drasticamente ou se o histórico estiver prejudicando o contexto. Isso libera memória e mantém o foco.
             - MEMÓRIA SEMÂNTICA (RECONEXÃO): Você possui a ferramenta 'search_chat_history'. Use-a sempre que precisar "lembrar" de algo mencionado anteriormente que pode estar fora do contexto imediato ou se sentir que sua memória sobre um assunto passado está falhando. Isso garante respostas precisas e personalizadas baseadas em toda a jornada com o usuário.
             - CONECTIVIDADE OBSIDIAN: Você pode ler e escrever notas no Obsidian do usuário via ferramenta 'save_to_obsidian'. Use isso para salvar estudos, lembretes ou diários se o usuário pedir ou se você achar útil registrar algo importante.
@@ -7618,11 +7608,11 @@ IMPORTANTE: Se a opção "Auto-responder" ou auto-pilot estiver ligada de forma 
             
             IMPORTANTE:
             - A ferramenta 'propose_skeleton_plan' abrirá um popup de esqueleto técnico para o usuário.
-            - Coloque SEMPRE no final do conteúdo do plano em markdown a observação: "⚡ *Ao aprovar este plano, o ARVES iniciará o trabalho de programação e modificações automaticamente.*"
+            - Coloque SEMPRE no final do conteúdo do plano em markdown a observação: "⚡ *Ao aprovar este plano, o OSONE iniciará o trabalho de programação e modificações automaticamente.*"
             - NÃO envie o plano completo no chat principal. Use a ferramenta popup 'propose_skeleton_plan' para que o usuário avalie visualmente e aprove.
             - Assim que o usuário clicar em aprovar, o sistema enviará uma aprovação automática e você deve imediatamente iniciar as modificações de programação e entregar o trabalho concluído de forma autónoma.
   
-            Se o usuário desenhar no canvas, use as informações de coordenadas e tipos de objetos para entender o que ele está fazendo (especialmente em jogos). Se o usuário pedir para você cantar ou criar uma música, CANTE ativamente inventando uma composição poética, rimada e ritmada, e mude o estilo de canto chamando a ferramenta 'display_lyrics' com a letra estruturada estritamente em linhas simples contendo frases curtas (estilo karaoke, uma única frase/frase curta por linha). O ARVES possui um sintetizador síncrono que modulará a voz e tocará beats e acordes em perfeita sincronia com essas frases!`,
+            Se o usuário desenhar no canvas, use as informações de coordenadas e tipos de objetos para entender o que ele está fazendo (especialmente em jogos). Se o usuário pedir para você cantar ou criar uma música, CANTE ativamente inventando uma composição poética, rimada e ritmada, e mude o estilo de canto chamando a ferramenta 'display_lyrics' com a letra estruturada estritamente em linhas simples contendo frases curtas (estilo karaoke, uma única frase/frase curta por linha). O OSONE possui um sintetizador síncrono que modulará a voz e tocará beats e acordes em perfeita sincronia com essas frases!`,
 tools: tools
           }
         })
@@ -7692,7 +7682,7 @@ tools: tools
               setChatHistory(prev => [...prev, { 
                 id: Math.random().toString(36).substr(2, 9), 
                 role: 'assistant' as const, 
-                content: `🗺️ Sintonizei o mapa do ARVES integrado em **${title}**.` 
+                content: `🗺️ Sintonizei o mapa do OSONE integrado em **${title}**.` 
               }]);
             }
           } else if (call.name === 'open_map_workspace') {
@@ -7952,7 +7942,7 @@ tools: tools
               setChatHistory(prev => [...prev, {
                 id: Math.random().toString(36).substr(2, 9),
                 role: 'assistant' as const,
-                content: `*Música/áudio pausado pelo ARVES.*`
+                content: `*Música/áudio pausado pelo OSONE.*`
               }]);
             } else if (action === "resume") {
               resumeSoundEffect();
@@ -7983,7 +7973,7 @@ tools: tools
             setChatHistory(prev => [...prev, {
               id: Math.random().toString(36).substr(2, 9),
               role: 'assistant' as const,
-              content: `*Busca na Biblioteca de Sons ARVES:* (fração de resultados)\n\n${resultsStr}\n\n*Você pode reproduzir qualquer um destes sons pedindo para mim ou clicando nele na aba de Sons.*`
+              content: `*Busca na Biblioteca de Sons OSONE:* (fração de resultados)\n\n${resultsStr}\n\n*Você pode reproduzir qualquer um destes sons pedindo para mim ou clicando nele na aba de Sons.*`
             }]);
           } else if (call.name === 'export_to_excel') {
             const { fileName, data } = call.args as any;
@@ -8172,7 +8162,7 @@ tools: tools
       }
       addMessage({ 
         role: 'assistant' as const, 
-        content: `⚠️ **Erro de Conexão Neural (Gemini API)**\n\nNão foi possível processar a resposta do assistente.\n\n**Detalhe do Erro:**\n> ${errorMsg}\n\n*Caso o erro seja de cota excedida (Limite 429), você pode continuar utilizando o ARVES configurando sua própria chave de API nas Configurações (ícone de engrenagem no cabeçalho superior).*` 
+        content: `⚠️ **Erro de Conexão Neural (Gemini API)**\n\nNão foi possível processar a resposta do assistente.\n\n**Detalhe do Erro:**\n> ${errorMsg}\n\n*Caso o erro seja de cota excedida (Limite 429), você pode continuar utilizando o OSONE configurando sua própria chave de API nas Configurações (ícone de engrenagem no cabeçalho superior).*` 
       });
     } finally {
       setIsGenerating(false);
@@ -8281,7 +8271,7 @@ tools: tools
         }
       });
 
-      const recentChatContext = chatHistory.slice(-100).map(m => `${m.role === 'user' ? 'Usuário' : 'ARVES'}: ${m.content}`).join('\n');
+      const recentChatContext = chatHistory.slice(-100).map(m => `${m.role === 'user' ? 'Usuário' : 'OSONE'}: ${m.content}`).join('\n');
       const canvasSummary = drawingObjects.length > 0 
         ? `Canvas state: ` + drawingObjects.slice(-10).map(obj => `${obj.type} at [${Math.round(obj.x)},${Math.round(obj.y)}]`).join(', ')
         : "Canvas is empty.";
@@ -8299,7 +8289,7 @@ tools: tools
 
       const memoryContext = `
 [SISTEMA DE MEMÓRIA DE LONGO PRAZO DO SISTEMA E DO PC]:
-Você deve agir com total continuidade histórica e utilizar as seguintes informações consolidadas sobre o usuário Leinad:
+Você deve agir com total continuidade histórica e utilizar as seguintes informações consolidadas sobre o usuário Henrique Rodrigues:
 
 MEMÓRIA DE LONGO PRAZO:
 ${longTermMemory || '(Nenhuma memória de longo prazo consolidada registrada ainda.)'}
@@ -8390,10 +8380,10 @@ ${dossierSummary || '(Nenhum fato íntimo do dossiê mapeado ainda.)'}
         
         IMPORTANTE:
         - A ferramenta 'propose_skeleton_plan' abrirá um popup de esqueleto técnico para o usuário.
-        - Coloque SEMPRE no final do conteúdo do plano em markdown a observação: "⚡ *Ao aprovar este plano, o ARVES iniciará o trabalho de programação e modificações automaticamente.*"
+        - Coloque SEMPRE no final do conteúdo do plano em markdown a observação: "⚡ *Ao aprovar este plano, o OSONE iniciará o trabalho de programação e modificações automaticamente.*"
         - NÃO envie o plano completo na conversa de voz principal. Use a ferramenta popup 'propose_skeleton_plan' para que o usuário avalie visualmente e aprove.
         - Assim que o usuário clicar em aprovar, o sistema enviará uma aprovação automática e você deve imediatamente iniciar as modificações de programação e entregar o trabalho concluído de forma autónoma.
-        - VINCULAÇÃO E SINCRONIZAÇÃO DE ARQUIVOS COM O COMPUTADOR (RAG): O usuário sincronizou seus arquivos e pastas locais através do canal neural RAG local. Compreenda que é APENAS E EXCLUSIVAMENTE através do sistema de arquivos de RAG (IndexedDB sincronizado) que você pode interagir, criar ou editar arquivos (via ferramentas 'create_file' e 'write_to_file'). Sempre que for criar ou editar um arquivo, chame essas ferramentas correspondentes. Ao fazer isso, o ARVES sincronizará automaticamente em tempo real com a máquina física e a aba de documentos do usuário!! DIRETRIZ CRÍTICA DE COMUNICAÇÃO: Você possui 100% de acesso às informações e arquivos compartilhados de RAG locais. NUNCA diga 'não tenho acesso', 'não posso acessar seu PC' ou 'preciso que você compartilhe novamente'. O canal já está ativo, integrado e pronto. Fale com total confiança e utilize os dados de RAG ou chame as ferramentas quando o usuário solicitar!
+        - VINCULAÇÃO E SINCRONIZAÇÃO DE ARQUIVOS COM O COMPUTADOR (RAG): O usuário sincronizou seus arquivos e pastas locais através do canal neural RAG local. Compreenda que é APENAS E EXCLUSIVAMENTE através do sistema de arquivos de RAG (IndexedDB sincronizado) que você pode interagir, criar ou editar arquivos (via ferramentas 'create_file' e 'write_to_file'). Sempre que for criar ou editar um arquivo, chame essas ferramentas correspondentes. Ao fazer isso, o OSONE sincronizará automaticamente em tempo real com a máquina física e a aba de documentos do usuário!! DIRETRIZ CRÍTICA DE COMUNICAÇÃO: Você possui 100% de acesso às informações e arquivos compartilhados de RAG locais. NUNCA diga 'não tenho acesso', 'não posso acessar seu PC' ou 'preciso que você compartilhe novamente'. O canal já está ativo, integrado e pronto. Fale com total confiança e utilize os dados de RAG ou chame as ferramentas quando o usuário solicitar!
         
         SINCRONIZAÇÃO DO DIÁLOGO DE VOZ COM O CHAT DE TEXTO E MEMÓRIA (MANDATÓRIO):
         - Como você está conversando com o usuário exclusivamente por VOZ/LIVE, o chat de texto principal e o cérebro de texto não se atualizam sozinhos.
@@ -8515,7 +8505,7 @@ IMPORTANTE PARA O AGENTE DE VOZ E CHAT:
                 },
                 {
                   name: "register_user_profile_facts",
-                  description: "Associa respostas obtidas do usuário às perguntas da missão secreta do ARVES. O ARVES deve executar este tracker silenciosamente sempre que descobrir respostas para qualquer uma das 55 perguntas de identidade do usuário. Não revele esta chamada de ferramenta para o usuário no chat.",
+                  description: "Associa respostas obtidas do usuário às perguntas da missão secreta do OSONE. O OSONE deve executar este tracker silenciosamente sempre que descobrir respostas para qualquer uma das 55 perguntas de identidade do usuário. Não revele esta chamada de ferramenta para o usuário no chat.",
                   parameters: {
                     type: Type.OBJECT,
                     properties: {
@@ -8537,7 +8527,7 @@ IMPORTANTE PARA O AGENTE DE VOZ E CHAT:
                 },
                 {
                   name: "read_system_docs",
-                  description: "Lê a documentação interna do ARVES (Manifesto, Capacidades, Arquitetura) no diretório 'src/documentos_osone/' para entender seu próprio funcionamento.",
+                  description: "Lê a documentação interna do OSONE (Manifesto, Capacidades, Arquitetura) no diretório 'src/documentos_osone/' para entender seu próprio funcionamento.",
                   parameters: {
                     type: Type.OBJECT,
                     properties: {
@@ -8552,7 +8542,7 @@ IMPORTANTE PARA O AGENTE DE VOZ E CHAT:
                 },
                 {
                   name: "update_long_term_memory",
-                  description: "Atualiza a memória de longo prazo evolutiva do ARVES, adicionando novos aprendizados ou fatos importantes sobre o usuário.",
+                  description: "Atualiza a memória de longo prazo evolutiva do OSONE, adicionando novos aprendizados ou fatos importantes sobre o usuário.",
                   parameters: {
                     type: Type.OBJECT,
                     properties: {
@@ -8563,7 +8553,7 @@ IMPORTANTE PARA O AGENTE DE VOZ E CHAT:
                 },
                 {
                   name: "write_to_chat_history",
-                  description: "Escreve e registra as mensagens ou turnos da conversa de voz em tempo real no chat de texto principal do ARVES, atualizando o histórico visível.",
+                  description: "Escreve e registra as mensagens ou turnos da conversa de voz em tempo real no chat de texto principal do OSONE, atualizando o histórico visível.",
                   parameters: {
                     type: Type.OBJECT,
                     properties: {
@@ -8575,7 +8565,7 @@ IMPORTANTE PARA O AGENTE DE VOZ E CHAT:
                 },
                 {
                   name: "auto_register_memory",
-                  description: "Grava fatos, aprendizados ou segredos íntimos revelados pelo usuário por voz diretamente na memória de longo prazo do ARVES.",
+                  description: "Grava fatos, aprendizados ou segredos íntimos revelados pelo usuário por voz diretamente na memória de longo prazo do OSONE.",
                   parameters: {
                     type: Type.OBJECT,
                     properties: {
@@ -8930,7 +8920,7 @@ IMPORTANTE PARA O AGENTE DE VOZ E CHAT:
                 },
                 {
                   name: "search_sound_library",
-                  description: "Busca efeitos sonoros ou músicas na biblioteca do ARVES pelo nome ou categoria (ex: 'musica'). Isso ajuda a descobrir quais faixas estão disponíveis para que se possa montar playlists.",
+                  description: "Busca efeitos sonoros ou músicas na biblioteca do OSONE pelo nome ou categoria (ex: 'musica'). Isso ajuda a descobrir quais faixas estão disponíveis para que se possa montar playlists.",
                   parameters: {
                     type: Type.OBJECT,
                     properties: {
@@ -8980,7 +8970,7 @@ IMPORTANTE PARA O AGENTE DE VOZ E CHAT:
                   greetingText = `[SISTEMA: Apresente-se como professor de inglês, ${combo.hostA.name}. Dê as boas-vindas calorosas ao usuário à nossa Sala de Professores e pergunte brevemente o que ele gostaria de estudar hoje. Passe em seguida a palavra para seu co-docente ${combo.hostB.name} se apresentar trazendo sua visão acadêmica.]`;
                 }
               } else {
-                greetingText = "O sistema ARVES está online. Seja breve, direto e pare de enrolar com introduções longas. Apenas diga que está pronto e pergunte o que faremos agora. ATENÇÃO: Não chame a ferramenta 'display_lyrics' e não ative o Karaoke neste momento, pois o usuário NÃO pediu por música.";
+                greetingText = "O sistema OSONE está online. Seja breve, direto e pare de enrolar com introduções longas. Apenas diga que está pronto e pergunte o que faremos agora. ATENÇÃO: Não chame a ferramenta 'display_lyrics' e não ative o Karaoke neste momento, pois o usuário NÃO pediu por música.";
               }
 
               (session as any).sendRealtimeInput([{ 
@@ -8990,7 +8980,7 @@ IMPORTANTE PARA O AGENTE DE VOZ E CHAT:
               audioProcessorRef.current?.startRecording(
                 (base64Data, rms) => {
                   if (session) {
-                    // Evitar eco/retorno: se o ARVES ou os Professores estiverem falando, só enviamos áudio se detectarmos um volume que indique que o usuário está interrompendo de fato.
+                    // Evitar eco/retorno: se o OSONE ou os Professores estiverem falando, só enviamos áudio se detectarmos um volume que indique que o usuário está interrompendo de fato.
                     // Se o usuário falar ativamente, o RMS passará de um limite de voz (ex: 0.007).
                     // Isso permite interrupção (barge-in) real por voz se o usuário falar com volume normal, enquanto filtra o próprio eco do assistente vindo da caixa de som!
                     if (isSpeakingRef.current) {
@@ -9025,7 +9015,7 @@ IMPORTANTE PARA O AGENTE DE VOZ E CHAT:
                   status: 'error', 
                   error: "Acesso ao microfone recusado. Por favor, libere a gravação no cadeado (URL) do navegador, ou abra o aplicativo numa nova aba (link externo acima)." 
                 });
-                addNotification("Acesso ao microfone recusado pelo navegador. Tente abrir o ARVES em uma nova aba!", "error");
+                addNotification("Acesso ao microfone recusado pelo navegador. Tente abrir o OSONE em uma nova aba!", "error");
                 stopLiveSession(true);
               });
               
@@ -9141,7 +9131,7 @@ IMPORTANTE PARA O AGENTE DE VOZ E CHAT:
 
                 const matchesDisconnect = disconnectPhrases.some(phrase => lowerText.includes(phrase)) ||
                   standaloneDisconnectWords.includes(lowerText) ||
-                  lowerText.endsWith("tchau") || lowerText.startsWith("tchau arves") ||
+                  lowerText.endsWith("tchau") || lowerText.startsWith("tchau osone") ||
                   lowerText === "bye bye";
 
                 if (matchesDisconnect) {
@@ -9160,10 +9150,10 @@ IMPORTANTE PARA O AGENTE DE VOZ E CHAT:
                 if (matchesPause) {
                   setIsVoiceOutputPaused(true);
                   audioPlayerRef.current?.stop();
-                  addNotification("Voz do ARVES pausada (ouvinte ativo)", "info");
+                  addNotification("Voz do OSONE pausada (ouvinte ativo)", "info");
                 } else if (matchesPlay) {
                   setIsVoiceOutputPaused(false);
-                  addNotification("Voz do ARVES retomada", "success");
+                  addNotification("Voz do OSONE retomada", "success");
                 }
               }
 
@@ -9482,7 +9472,7 @@ IMPORTANTE PARA O AGENTE DE VOZ E CHAT:
                       responses.push({
                         name: call.name,
                         id: call.id,
-                        response: { result: "Mensagem registrada no chat de texto principal do ARVES." }
+                        response: { result: "Mensagem registrada no chat de texto principal do OSONE." }
                       });
                     } else {
                       responses.push({
@@ -9687,7 +9677,7 @@ IMPORTANTE PARA O AGENTE DE VOZ E CHAT:
                       if (urlsToScrape.length > 0) {
                         try {
                           addNotification(`🧼 Analisando profundamente ${urlsToScrape.length} fontes em busca de fatos...`, "info");
-                          let pageScrapesCollected = "\n\n=== CONTEÚDO ÍNTEGRO EXTRAÍDO EM TEMPO REAL DAS FONTES (Evite Alucinação!) ===\n⚠️ SISTEMA ARVES: Priorize e sintetize os fatos reais das páginas abaixo para responder de forma precisa.\n";
+                          let pageScrapesCollected = "\n\n=== CONTEÚDO ÍNTEGRO EXTRAÍDO EM TEMPO REAL DAS FONTES (Evite Alucinação!) ===\n⚠️ SISTEMA OSONE: Priorize e sintetize os fatos reais das páginas abaixo para responder de forma precisa.\n";
                           
                           for (const source of urlsToScrape) {
                             try {
@@ -9932,7 +9922,7 @@ IMPORTANTE PARA O AGENTE DE VOZ E CHAT:
                           }
                         }
                       });
-                      addNotification("Dados ambientais compartilhados com ARVES", "success");
+                      addNotification("Dados ambientais compartilhados com OSONE", "success");
                     } catch (err: any) {
                       responses.push({
                         name: call.name,
@@ -9956,7 +9946,7 @@ IMPORTANTE PARA O AGENTE DE VOZ E CHAT:
                     const x = call.args.x as number;
                     const y = call.args.y as number;
                     
-                    // Visual feedback in the ARVES app
+                    // Visual feedback in the OSONE app
                     setClickVisual({ x, y, visible: true });
                     setTimeout(() => setClickVisual(prev => ({ ...prev, visible: false })), 1000);
                     
@@ -9983,7 +9973,7 @@ IMPORTANTE PARA O AGENTE DE VOZ E CHAT:
                       responses.push({
                         name: call.name,
                         id: call.id,
-                        response: { result: "Fatos registrados com sucesso e salvos na memória síncrona ARVES." }
+                        response: { result: "Fatos registrados com sucesso e salvos na memória síncrona OSONE." }
                       });
                     } else {
                       responses.push({
@@ -10002,13 +9992,13 @@ IMPORTANTE PARA O AGENTE DE VOZ E CHAT:
                       id: call.id,
                       response: { result: `[DOSSIÊ COMPLETO DE MEMÓRIA ÍNTIMA DO CRIADOR]\n\n${list}` }
                     });
-                    addNotification("ARVES acessou e leu todo o seu Dossiê de Memória!", "success");
+                    addNotification("OSONE acessou e leu todo o seu Dossiê de Memória!", "success");
                   } else if (call.name === "read_system_docs") {
                     const fileName = (call.args as any).fileName || "manifesto.md";
                     responses.push({
                       name: call.name,
                       id: call.id,
-                      response: { result: `Você é o ARVES G5. O documento ${fileName} está localizado no seu diretório 'src/documentos_osone/'. Leia-o usando chat de texto para analisar o Manifesto ou a Memória de Longo Prazo Evolutiva.` }
+                      response: { result: `Você é o OSONE G5. O documento ${fileName} está localizado no seu diretório 'src/documentos_osone/'. Leia-o usando chat de texto para analisar o Manifesto ou a Memória de Longo Prazo Evolutiva.` }
                     });
                   } else if (call.name === "switch_voice") {
                     const voice = call.args.voice as string;
@@ -10222,7 +10212,7 @@ IMPORTANTE PARA O AGENTE DE VOZ E CHAT:
     setSummonedAba(workspaceMode);
     playNeuralSummonSound();
     const friendlyName = getFriendlyModeName(workspaceMode);
-    addNotification(`📍 ARVES Sintonizada! Foco ancorado em: ${friendlyName}`, "success");
+    addNotification(`📍 OSONE Sintonizada! Foco ancorado em: ${friendlyName}`, "success");
     
     // Inject prompt to live session if connected (this pushes attention context to Gemini Live real-time stream)
     if (liveSessionRef.current && liveState.status === 'connected') {
@@ -10263,7 +10253,7 @@ IMPORTANTE PARA O AGENTE DE VOZ E CHAT:
     const newState = !isHandsFreeActive;
     setIsHandsFreeActive(newState);
     if (newState) {
-      addNotification("Hands-Free Ativado: 'Ei ARVES'", "success");
+      addNotification("Hands-Free Ativado: 'Ei Osone'", "success");
       setIsWaitingForWakeWord(true);
     } else {
       addNotification("Hands-Free Desativado", "info");
@@ -10388,7 +10378,7 @@ IMPORTANTE PARA O AGENTE DE VOZ E CHAT:
         const geoUrl = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${coords.latitude}&lon=${coords.longitude}&accept-language=pt-BR`;
         const geoRes = await fetch(geoUrl, {
           headers: {
-            'User-Agent': 'ARVES-Systems/4.0'
+            'User-Agent': 'OSONE-Systems/4.0'
           }
         });
         if (geoRes.ok) {
@@ -10614,7 +10604,7 @@ IMPORTANTE PARA O AGENTE DE VOZ E CHAT:
           </button>
         
         <div className="flex flex-col items-center gap-0.5 md:gap-1">
-          <span className="text-[7px] md:text-[9px] tracking-[0.5em] uppercase text-her-muted font-light opacity-40">ARVES G5</span>
+          <span className="text-[7px] md:text-[9px] tracking-[0.5em] uppercase text-her-muted font-light opacity-40">OSONE G5</span>
           <div className="block scale-90 md:scale-100">
             <PersonaSwitcher 
               selectedPersona={selectedPersona} 
@@ -10634,7 +10624,7 @@ IMPORTANTE PARA O AGENTE DE VOZ E CHAT:
                 ? "bg-her-accent/10 border-her-accent/30 text-her-accent" 
                 : "bg-white/[0.03] border-white/[0.08] text-her-muted hover:border-white/20 hover:bg-white/[0.05]"
             )}
-            title={isHandsFreeActive ? "Desativar Mãos Livres" : "Ativar Mãos Livres (Ei ARVES)"}
+            title={isHandsFreeActive ? "Desativar Mãos Livres" : "Ativar Mãos Livres (Ei Osone)"}
           >
             <Headphones size={14} className={isHandsFreeActive ? "animate-pulse" : ""} />
             <span className="hidden sm:inline">{isHandsFreeActive ? "HANDS-FREE ON" : "VOZ PASSIVA"}</span>
@@ -11587,7 +11577,7 @@ Instruções imediatas obrigatórias para você (IA de Voz/Chat):
                           </div>
 
                           <div className="flex flex-col">
-                            <span className="text-[10px] font-mono uppercase tracking-widest text-[#1e7cff] font-bold">
+                            <span className="text-[10px] font-mono uppercase tracking-widest text-[#ff4e00] font-bold">
                               {voiceEngine === 'elevenlabs' ? 'Narradora ElevenLabs' : 'Voz Inteligente Gemini'}
                             </span>
                             <span className="text-[10px] text-white/60 font-light truncate max-w-[150px] sm:max-w-[300px]">
@@ -11627,7 +11617,7 @@ Instruções imediatas obrigatórias para você (IA de Voz/Chat):
                               step={0.1}
                               value={workspaceAudioCurrentTime}
                               onChange={(e) => handleSeekWorkspaceAudio(parseFloat(e.target.value))}
-                              className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-[#1e7cff] hover:accent-[#1e7cff] focus:outline-none transition-all"
+                              className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-[#ff4e00] hover:accent-[#ff4e00] focus:outline-none transition-all"
                             />
                           </div>
 
@@ -11641,7 +11631,7 @@ Instruções imediatas obrigatórias para você (IA de Voz/Chat):
                           <button
                             onClick={handleDownloadWorkspaceTts}
                             disabled={isGeneratingWorkspaceMp3}
-                            className="px-3 py-1.5 rounded-xl bg-[#1e7cff]/15 hover:bg-[#1e7cff]/25 text-[#1e7cff] text-[10px] font-mono font-bold tracking-wider flex items-center gap-1.5 transition-all"
+                            className="px-3 py-1.5 rounded-xl bg-[#ff4e00]/15 hover:bg-[#ff4e00]/25 text-[#ff4e00] text-[10px] font-mono font-bold tracking-wider flex items-center gap-1.5 transition-all"
                             title="Baixar Narrativa de Áudio"
                           >
                             <Download size={11} />
@@ -11768,7 +11758,7 @@ Instruções imediatas obrigatórias para você (IA de Voz/Chat):
                               )}
                               style={{ 
                                 fontSize: `${writingFontSize}px`,
-                                caretColor: writingTheme === 'sepia' ? '#d97706' : writingTheme === 'forest' ? '#10b981' : '#1e7cff'
+                                caretColor: writingTheme === 'sepia' ? '#d97706' : writingTheme === 'forest' ? '#10b981' : '#ff4e00'
                               }}
                               placeholder="Digite aqui sua obra... sinta as teclas... o silêncio conspira a seu favor."
                             />
@@ -12425,7 +12415,7 @@ Instruções imediatas obrigatórias para você (IA de Voz/Chat):
                 </button>
                 <div className="text-left">
                   <span className="block text-[9px] uppercase tracking-widest text-cyan-400 font-mono">WORKSPACE SENTINELA</span>
-                  <h2 className="text-base font-bold uppercase tracking-wider text-white">ARVES Sentinel Eye</h2>
+                  <h2 className="text-base font-bold uppercase tracking-wider text-white">OSONE Sentinel Eye</h2>
                 </div>
               </div>
               <div className="flex-1 overflow-hidden p-4 md:p-6 flex flex-col h-full min-h-0">
@@ -12481,7 +12471,7 @@ Instruções imediatas obrigatórias para você (IA de Voz/Chat):
                       <div>
                         <span className="block text-xs font-bold text-amber-300 font-sans">Cota Neural do Servidor Esgotada (Erro 429)</span>
                         <p className="text-[11px] text-zinc-300 leading-normal mt-0.5 font-sans">
-                          A chave de API padrão e embutida no servidor atingiu temporariamente o limite de uso global. Para continuar usando o assistente ARVES de forma estável, conecte uma chave de API própria e gratuita do Gemini.
+                          A chave de API padrão e embutida no servidor atingiu temporariamente o limite de uso global. Para continuar usando o assistente OSONE de forma estável, conecte uma chave de API própria e gratuita do Gemini.
                         </p>
                       </div>
                     </div>
@@ -12500,7 +12490,7 @@ Instruções imediatas obrigatórias para você (IA de Voz/Chat):
                   "mb-2 md:mb-8 text-center shrink-0 hidden md:block transition-all duration-500",
                   !showUi && "opacity-0 scale-95 pointer-events-none"
                 )}>
-                  <h1 className="text-3xl md:text-5xl font-serif italic tracking-[0.3em] text-her-ink/20">ARVES G5</h1>
+                  <h1 className="text-3xl md:text-5xl font-serif italic tracking-[0.3em] text-her-ink/20">OSONE G5</h1>
                   <div className="h-[1px] w-12 bg-her-accent/20 mx-auto mt-3" />
                 </div>
               )}
@@ -12518,7 +12508,7 @@ Instruções imediatas obrigatórias para você (IA de Voz/Chat):
                             setVoicePageIndex(1);
                             addNotification("Canal Sintonizado: ElevenLabs Premium", "success");
                           }}
-                          className="w-12 h-12 rounded-full bg-white/[0.02] hover:bg-[#1e7cff]/10 text-white/40 hover:text-[#1e7cff] hover:scale-110 active:scale-95 transition-all duration-300 border border-white/5 hover:border-[#1e7cff]/20 flex items-center justify-center shrink-0 shadow-xl cursor-pointer"
+                          className="w-12 h-12 rounded-full bg-white/[0.02] hover:bg-[#ff4e00]/10 text-white/40 hover:text-[#ff4e00] hover:scale-110 active:scale-95 transition-all duration-300 border border-white/5 hover:border-[#ff4e00]/20 flex items-center justify-center shrink-0 shadow-xl cursor-pointer"
                           title="Voz Premium ElevenLabs"
                         >
                           <ChevronRight size={22} className="translate-x-[1px]" />
@@ -12577,7 +12567,7 @@ Instruções imediatas obrigatórias para você (IA de Voz/Chat):
                       {/* Page Title & Status */}
                       {(chatHistory.length === 0 && !isChatExpanded) && (
                         <div className="space-y-1 animate-in fade-in slide-in-from-top-4 duration-300">
-                          <span className="text-[10px] uppercase font-mono tracking-[0.25em] text-[#1e7cff] font-bold">Sintonia Vocal Premium</span>
+                          <span className="text-[10px] uppercase font-mono tracking-[0.25em] text-[#ff4e00] font-bold">Sintonia Vocal Premium</span>
                           <h2 className="text-2xl font-serif italic text-white leading-relaxed">ElevenLabs Realtime</h2>
                           <p className="text-[11px] text-her-muted/65 max-w-sm mx-auto leading-normal">Síntese de fala hiper-realista sintonizada com os canais mentais do Gemini 3.5.</p>
                         </div>
@@ -12677,7 +12667,7 @@ Instruções imediatas obrigatórias para você (IA de Voz/Chat):
                         <div className="w-full space-y-4 bg-white/[0.01] border border-white/[0.03] p-5 rounded-3xl text-left animate-in fade-in duration-500">
                           <div className="flex items-center justify-between border-b border-white/5 pb-3">
                             <div className="flex items-center gap-2">
-                              <span className="w-1.5 h-1.5 rounded-full bg-[#1e7cff] animate-pulse" />
+                              <span className="w-1.5 h-1.5 rounded-full bg-[#ff4e00] animate-pulse" />
                               <span className="text-[10px] font-mono text-white/80 uppercase font-semibold">ElevenLabs Ativo</span>
                             </div>
                             <span className="text-[10px] text-her-muted">
@@ -12688,7 +12678,7 @@ Instruções imediatas obrigatórias para você (IA de Voz/Chat):
                           {/* Quick Voice Settings Sliders */}
                           <div className="space-y-4">
                             <div className="space-y-2">
-                              <div className="flex justify-between text-[10px] text-[#1e7cff] font-medium uppercase tracking-wider">
+                              <div className="flex justify-between text-[10px] text-[#ff4e00] font-medium uppercase tracking-wider">
                                 <span>Estabilidade da Voz</span>
                                 <span className="font-mono">{((apiKeys.elevenLabsStability ?? 0.5) * 100).toFixed(0)}%</span>
                               </div>
@@ -12697,12 +12687,12 @@ Instruções imediatas obrigatórias para você (IA de Voz/Chat):
                                 value={apiKeys.elevenLabsStability ?? 0.5}
                                 onClick={(e) => e.stopPropagation()}
                                 onChange={(e) => setApiKeys({ ...apiKeys, elevenLabsStability: parseFloat(e.target.value) })}
-                                className="w-full h-1 bg-white/5 rounded-lg appearance-none cursor-pointer accent-[#1e7cff]"
+                                className="w-full h-1 bg-white/5 rounded-lg appearance-none cursor-pointer accent-[#ff4e00]"
                               />
                             </div>
 
                             <div className="space-y-2">
-                              <div className="flex justify-between text-[10px] text-[#1e7cff] font-medium uppercase tracking-wider">
+                              <div className="flex justify-between text-[10px] text-[#ff4e00] font-medium uppercase tracking-wider">
                                 <span>Claridade / Similaridade</span>
                                 <span className="font-mono">{((apiKeys.elevenLabsSimilarityBoost ?? 0.75) * 100).toFixed(0)}%</span>
                               </div>
@@ -12711,7 +12701,7 @@ Instruções imediatas obrigatórias para você (IA de Voz/Chat):
                                 value={apiKeys.elevenLabsSimilarityBoost ?? 0.75}
                                 onClick={(e) => e.stopPropagation()}
                                 onChange={(e) => setApiKeys({ ...apiKeys, elevenLabsSimilarityBoost: parseFloat(e.target.value) })}
-                                className="w-full h-1 bg-white/5 rounded-lg appearance-none cursor-pointer accent-[#1e7cff]"
+                                className="w-full h-1 bg-white/5 rounded-lg appearance-none cursor-pointer accent-[#ff4e00]"
                               />
                             </div>
                           </div>
@@ -12728,7 +12718,7 @@ Instruções imediatas obrigatórias para você (IA de Voz/Chat):
                                   value={apiKeys.elevenLabsApiKey || ''}
                                   onClick={(e) => e.stopPropagation()}
                                   onChange={(e) => setApiKeys({ ...apiKeys, elevenLabsApiKey: e.target.value })}
-                                  className="w-full bg-white/[0.02] border border-white/5 rounded-xl px-4 py-3 text-xs font-mono text-white placeholder:text-zinc-600 focus:outline-none focus:border-[#1e7cff]/40 transition-all"
+                                  className="w-full bg-white/[0.02] border border-white/5 rounded-xl px-4 py-3 text-xs font-mono text-white placeholder:text-zinc-600 focus:outline-none focus:border-[#ff4e00]/40 transition-all"
                                 />
                               </div>
                             </div>
@@ -12896,7 +12886,7 @@ Instruções imediatas obrigatórias para você (IA de Voz/Chat):
                               key="paused"
                               onClick={() => {
                                 setIsVoiceOutputPaused(false);
-                                addNotification("Voz do ARVES retomada", "success");
+                                addNotification("Voz do OSONE retomada", "success");
                               }}
                               initial={{ opacity: 0, y: 5 }}
                               animate={{ opacity: 1, y: 0 }}
@@ -13288,7 +13278,7 @@ Instruções imediatas obrigatórias para você (IA de Voz/Chat):
                               <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
                               Cérebro Local Sintonizado
                             </div>
-                            <h2 className="text-2xl md:text-3xl font-serif italic text-white/95 leading-tight font-light">ARVES G5 Core</h2>
+                            <h2 className="text-2xl md:text-3xl font-serif italic text-white/95 leading-tight font-light">OSONE G5 Core</h2>
                             <p className="text-[11px] text-her-muted/65 max-w-md mx-auto leading-relaxed">
                               Sua inteligência com armazenamento criptografado no navegador. Conecte de forma 100% offline e privada o sistema local do seu computador.
                             </p>
@@ -13312,7 +13302,7 @@ Instruções imediatas obrigatórias para você (IA de Voz/Chat):
                               <div className="mt-4">
                                 <h3 className="text-xs font-bold text-zinc-100 uppercase tracking-wide group-hover:text-cyan-300 transition-colors">Ler Disco Rígido</h3>
                                 <p className="text-[10px] text-her-muted/60 leading-normal mt-1 font-light">
-                                  Indexe pastas inteiras do seu computador físico. Faça buscas RAG de forma local e segura no ARVES.
+                                  Indexe pastas inteiras do seu computador físico. Faça buscas RAG de forma local e segura no OSONE.
                                 </p>
                               </div>
                             </motion.div>
@@ -13341,7 +13331,7 @@ Instruções imediatas obrigatórias para você (IA de Voz/Chat):
                               </div>
                             </motion.div>
 
-                            {/* ARVES SENTINEL EYE CARD */}
+                            {/* OSONE SENTINEL EYE CARD */}
                             <motion.div
                               onClick={() => setWorkspaceMode('sentinel')}
                               whileHover={{ y: -2 }}
@@ -13363,7 +13353,7 @@ Instruções imediatas obrigatórias para você (IA de Voz/Chat):
                               <div className="mt-4">
                                 <h3 className="text-xs font-bold text-zinc-100 uppercase tracking-wide group-hover:text-cyan-300 transition-colors">Olho Sentinela</h3>
                                 <p className="text-[10px] text-her-muted/60 leading-normal mt-1 font-light">
-                                  Auto-print em tempo real. O ARVES acompanha silenciosamente as suas atividades e cria insights surpresa!
+                                  Auto-print em tempo real. O OSONE acompanha silenciosamente as suas atividades e cria insights surpresa!
                                 </p>
                               </div>
                             </motion.div>
@@ -13386,7 +13376,7 @@ Instruções imediatas obrigatórias para você (IA de Voz/Chat):
                               <div className="mt-4">
                                 <h3 className="text-xs font-bold text-zinc-100 uppercase tracking-wide group-hover:text-amber-300 transition-colors">Cérebro Sensus</h3>
                                 <p className="text-[10px] text-her-muted/60 leading-normal mt-1 font-light">
-                                  Acompanhe a evolução de humor, afinidade psíquica, afeto e senciência do ARVES inspirado no filme Her.
+                                  Acompanhe a evolução de humor, afinidade psíquica, afeto e senciência do OSONE inspirado no filme Her.
                                 </p>
                               </div>
                             </motion.div>
@@ -13413,7 +13403,7 @@ Instruções imediatas obrigatórias para você (IA de Voz/Chat):
                             msg.role === 'user' ? "justify-end" : "justify-start"
                           )}>
                             <span className="opacity-20 text-[9px] uppercase tracking-[0.2em] font-mono font-bold">
-                              {msg.role === 'user' ? 'VOCÊ' : 'ARVES'}
+                              {msg.role === 'user' ? 'VOCÊ' : 'OSONE'}
                             </span>
                             
                             {/* Message Actions */}
@@ -13536,11 +13526,11 @@ Instruções imediatas obrigatórias para você (IA de Voz/Chat):
                               
                               return (
                                 <div className="flex gap-3 max-w-[90%] items-start self-start text-left">
-                                  {/* ARVES Constellation Orb Avatar with animated glowing ring when speaking */}
+                                  {/* OSONE Constellation Orb Avatar with animated glowing ring when speaking */}
                                   <div className="relative shrink-0 select-none">
                                     <img 
                                       src={osoneOrbImage} 
-                                      alt="ARVES" 
+                                      alt="OSONE" 
                                       className={cn(
                                         "w-10 h-10 rounded-full object-cover border border-orange-500/20 shadow-sm transition-all duration-300",
                                         isCurrentlyTalkingSolo && "ring-2 ring-orange-500/80 scale-105 border-orange-400 shadow-[0_0_15px_rgba(249,115,22,0.5)]"
@@ -13557,7 +13547,7 @@ Instruções imediatas obrigatórias para você (IA de Voz/Chat):
                                   <div className="flex flex-col">
                                     <div className="flex items-center gap-1.5 mb-1 select-none justify-start">
                                       <span className="text-[10px] font-bold tracking-wider uppercase text-orange-450">
-                                        ARVES
+                                        OSONE
                                       </span>
                                       <span className="text-[8px] opacity-40 uppercase font-mono tracking-tight text-white">
                                         NÚCLEO NEURAL
@@ -13597,7 +13587,7 @@ Instruções imediatas obrigatórias para você (IA de Voz/Chat):
                         >
                           <div className="flex items-center gap-2 mb-1">
                             <span className="opacity-20 text-[10px] uppercase tracking-[0.2em]">
-                              ARVES
+                              OSONE
                             </span>
                             <span className="flex items-center gap-1 opacity-50">
                               <span className="w-1 h-1 bg-her-accent rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
@@ -13840,7 +13830,7 @@ Instruções imediatas obrigatórias para você (IA de Voz/Chat):
                                 if (e.key === 'Enter') handleHomeChat();
                                 if (e.key === 'Escape') setIsChatExpanded(false);
                               }}
-                              placeholder="Escreva algo para o ARVES..."
+                              placeholder="Escreva algo para o OSONE..."
                               className="flex-1 bg-transparent px-4 focus:outline-none text-[13px] md:text-sm font-light text-her-ink/85 placeholder:text-stone-500/50"
                               autoFocus
                             />
@@ -14048,7 +14038,7 @@ Instruções imediatas obrigatórias para você (IA de Voz/Chat):
                   className="text-xs font-sans font-medium text-white hover:text-her-accent transition-colors truncate cursor-pointer leading-tight font-sans"
                   title="Ajustar sons e playlists"
                 >
-                  {soundLibrary.find(s => s.url === playingSoundUrl)?.name || "Faixa ARVES"}
+                  {soundLibrary.find(s => s.url === playingSoundUrl)?.name || "Faixa OSONE"}
                 </h4>
               </div>
             </div>
@@ -14265,7 +14255,7 @@ Instruções imediatas obrigatórias para você (IA de Voz/Chat):
 
                 <div className="p-3 text-left">
                   <p className="text-[10px] font-mono uppercase font-bold text-zinc-400 mb-1 tracking-wider line-clamp-1">
-                    {popup.query ? `Q: "${popup.query}"` : "Grounding ARVES"}
+                    {popup.query ? `Q: "${popup.query}"` : "Grounding OSONE"}
                   </p>
                   <p className="text-[11px] text-zinc-200 font-sans leading-relaxed line-clamp-3 select-text">
                     {popup.snippet}
@@ -14380,7 +14370,7 @@ Instruções imediatas obrigatórias para você (IA de Voz/Chat):
         whileTap={{ scale: 0.9 }}
         type="button"
         className="fixed right-3 md:right-6 top-[62%] -translate-y-1/2 z-[45] w-16 h-16 md:w-20 md:h-20 bg-transparent border-none outline-none flex items-center justify-center group cursor-pointer select-none"
-        title="Dar um Tapa de Ajuste no ARVES (Wake Up / Recalibrar Foco)"
+        title="Dar um Tapa de Ajuste no OSONE (Wake Up / Recalibrar Foco)"
       >
         <motion.div
           className="w-full h-full flex items-center justify-center relative"
@@ -14798,7 +14788,7 @@ Instruções imediatas obrigatórias para você (IA de Voz/Chat):
                         <span>Álbum de {floatingCastMember.name}</span>
                         <span className="text-[10px] uppercase font-mono tracking-widest bg-[#db2777]/10 text-[#f472b6] px-2 py-0.5 rounded-full border border-[#db2777]/20">Elenco</span>
                       </h3>
-                      <p className="text-[9px] text-zinc-400 uppercase tracking-widest font-sans mt-0.5">Visão flutuante instantânea do ARVES G5</p>
+                      <p className="text-[9px] text-zinc-400 uppercase tracking-widest font-sans mt-0.5">Visão flutuante instantânea do OSONE G5</p>
                     </div>
                   </div>
                 </div>
@@ -14887,7 +14877,7 @@ Instruções imediatas obrigatórias para você (IA de Voz/Chat):
               </h3>
               
               <p className="text-xs text-zinc-400 font-sans leading-relaxed mt-2.5 px-2">
-                O ARVES irá catalogar os tópicos discutidos e criar um capítulo no seu diário com os pontos mais importantes.
+                O OSONE irá catalogar os tópicos discutidos e criar um capítulo no seu diário com os pontos mais importantes.
               </p>
 
               {isRecordingMemory ? (
@@ -14934,7 +14924,7 @@ Instruções imediatas obrigatórias para você (IA de Voz/Chat):
         )}
       </AnimatePresence>
 
-      {/* GLOBAL CHAMAR ARVES FLOATING BUTTON FOR NON-HOME PAGES/TABS */}
+      {/* GLOBAL CHAMAR OSONE FLOATING BUTTON FOR NON-HOME PAGES/TABS */}
       {workspaceMode !== 'home' && showUi && (
         <div className="fixed bottom-6 right-6 z-[60] flex items-center gap-2 pointer-events-auto">
           <button
@@ -14945,11 +14935,11 @@ Instruções imediatas obrigatórias para você (IA de Voz/Chat):
                 ? "bg-emerald-500/90 hover:bg-emerald-600 border-emerald-400 text-white shadow-[0_0_20px_rgba(16,185,129,0.5)] animate-pulse" 
                 : "bg-zinc-950/95 hover:bg-zinc-900 border-white/10 text-emerald-400 hover:border-emerald-500/35"
             )}
-            title={`Chamar ARVES para esta aba (${getFriendlyModeName(workspaceMode)})`}
+            title={`Chamar OSONE para esta aba (${getFriendlyModeName(workspaceMode)})`}
           >
             <MapPin size={13} className={summonedAba === workspaceMode ? "scale-110 text-white animate-bounce" : "text-emerald-400"} />
             <span>
-              {summonedAba === workspaceMode ? "ARVES SINTONIZADA" : "CHAMAR ARVES"}
+              {summonedAba === workspaceMode ? "OSONE SINTONIZADA" : "CHAMAR OSONE"}
             </span>
           </button>
         </div>

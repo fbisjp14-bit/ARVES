@@ -340,7 +340,7 @@ export const RAGConnector = ({
             Conexão de Documentos Locais
           </h2>
           <p className="text-xs text-her-muted font-light mt-1 max-w-xl">
-            Sincronize pastas de projetos ou notas privadas do seu PC. O ARVES G5 usará essa inteligência exclusiva para responder no chat ou debater por voz (Live).
+            Sincronize pastas de projetos ou notas privadas do seu PC. O OSONE G5 usará essa inteligência exclusiva para responder no chat ou debater por voz (Live).
           </p>
         </div>
 
@@ -638,13 +638,13 @@ export const RAGConnector = ({
                 </h3>
                 <div className="text-xs text-her-muted font-light space-y-3 leading-relaxed">
                   <p>
-                    O ARVES G5 utiliza o padrão **RAG (Retrieval-Augmented Generation)**. Diferente de treinar novamente uma grande rede neural, o RAG expande o cérebro da nossa inteligência enviando de forma dinâmica os arquivos mais importantes do seu computador como suporte imediato.
+                    O OSONE G5 utiliza o padrão **RAG (Retrieval-Augmented Generation)**. Diferente de treinar novamente uma grande rede neural, o RAG expande o cérebro da nossa inteligência enviando de forma dinâmica os arquivos mais importantes do seu computador como suporte imediato.
                   </p>
                   <p>
                     Utilizando a **API de Acesso ao Sistema de Arquivos do Navegador**, nós conectamos a pasta selecionada de maneira local e segura. O navegador lê os arquivos diretamente do seu HD e realiza o controle sem trafegar seus arquivos por servidores terceiros.
                   </p>
                   <p>
-                    Sempre que você manda uma pergunta no chat ou discute sobre qualquer assunto, o ARVES vasculha as palavras e trechos de maior afinidade e os injeta nos prompts de forma síncrona.
+                    Sempre que você manda uma pergunta no chat ou discute sobre qualquer assunto, o OSONE vasculha as palavras e trechos de maior afinidade e os injeta nos prompts de forma síncrona.
                   </p>
                 </div>
               </div>
@@ -661,7 +661,7 @@ export const RAGConnector = ({
                   <ul className="list-disc pl-4 space-y-2">
                     <li>Os arquivos sincronizados residem com segurança no seu próprio navegador via banco de dados **IndexedDB**.</li>
                     <li>Sua chave de API do Gemini no Settings serve de ponte apenas no envio do prompt + trecho final solicitado.</li>
-                    <li>O ARVES não possui acesso constante fora do contexto ativo da aplicação. Suas permissões são exclusivas.</li>
+                    <li>O OSONE não possui acesso constante fora do contexto ativo da aplicação. Suas permissões são exclusivas.</li>
                   </ul>
                 </div>
               </div>

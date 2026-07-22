@@ -275,7 +275,7 @@ export const OSONELens = ({ onClose, onAddNotification }: {
       const dataResult = await response.json();
       setResult(dataResult);
       setActiveTab('info');
-      onAddNotification(`Lente ARVES detectou: "${dataResult.name}"!`, "success");
+      onAddNotification(`Lente OSONE detectou: "${dataResult.name}"!`, "success");
 
     } catch (err: any) {
       console.error(err);
@@ -559,7 +559,7 @@ export const OSONELens = ({ onClose, onAddNotification }: {
               ) : (
                 <>
                   <Search size={14} />
-                  Executar Varredura da Lente ARVES
+                  Executar Varredura da Lente OSONE
                 </>
               )}
             </button>
@@ -632,7 +632,7 @@ export const OSONELens = ({ onClose, onAddNotification }: {
                   <div className="w-10 h-10 rounded-full bg-cyan-500/10 flex items-center justify-center text-cyan-300 border border-cyan-500/20">
                     <Info size={16} />
                   </div>
-                  <h3 className="text-base font-serif italic text-white font-light">Como funciona a Lente ARVES sintonizadora?</h3>
+                  <h3 className="text-base font-serif italic text-white font-light">Como funciona a Lente OSONE sintonizadora?</h3>
                   
                   <div className="space-y-4 text-xs text-zinc-400 leading-relaxed font-light">
                     <div className="flex gap-3">
@@ -826,7 +826,7 @@ export const OSONELens = ({ onClose, onAddNotification }: {
                           <CheckCircle size={13} />
                         </div>
                         <div className="text-left">
-                          <h4 className="text-[10px] font-mono uppercase tracking-wider text-cyan-400/80">Conselho ARVES / Utilidade</h4>
+                          <h4 className="text-[10px] font-mono uppercase tracking-wider text-cyan-400/80">Conselho OSONE / Utilidade</h4>
                           <p className="text-xs text-zinc-300 mt-1 font-light leading-relaxed">{result.details.curiosidadeOuUso}</p>
                         </div>
                       </div>

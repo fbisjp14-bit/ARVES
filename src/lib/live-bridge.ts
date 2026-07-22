@@ -15,12 +15,12 @@ export async function connectToLiveBridge(options: {
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
   const wsUrl = `${protocol}//${window.location.host}/api/live-ws${options.apiKey ? `?apiKey=${encodeURIComponent(options.apiKey)}` : ''}`;
   
-  console.log("ARVES G5 Client: Conectando à ponte neural via proxy WebSocket local:", wsUrl);
+  console.log("OSONE G5 Client: Conectando à ponte neural via proxy WebSocket local:", wsUrl);
   
   const ws = new WebSocket(wsUrl);
   
   ws.onopen = () => {
-    console.log("ARVES G5 Client: Canal WebSocket estabelecido de forma segura!");
+    console.log("OSONE G5 Client: Canal WebSocket estabelecido de forma segura!");
     // Envia a mensagem de setup inicial que o proxy espera na linha 626 do server.ts
     ws.send(JSON.stringify({
       type: "setup",
@@ -39,7 +39,7 @@ export async function connectToLiveBridge(options: {
       
       // Se for uma conexão de erro reportada pelo proxy
       if (liveResponse.type === "error") {
-        console.error("ARVES G5 Client neural error:", liveResponse.error);
+        console.error("OSONE G5 Client neural error:", liveResponse.error);
         if (options.callbacks?.onerror) {
           options.callbacks.onerror(new Error(liveResponse.error));
         }
@@ -54,7 +54,7 @@ export async function connectToLiveBridge(options: {
                        (liveResponse?.serverContent?.modelTurn?.parts?.some((p: any) => p.text && p.text.toLowerCase().includes("goaway")));
       
       if (isGoAway) {
-        console.warn("ARVES G5 Client: Sinal GoAway recebido. Encerrando sessão de voz.");
+        console.warn("OSONE G5 Client: Sinal GoAway recebido. Encerrando sessão de voz.");
         ws.close();
         if (options.callbacks?.onclose) {
           options.callbacks.onclose();
@@ -66,19 +66,19 @@ export async function connectToLiveBridge(options: {
         options.callbacks.onmessage(liveResponse);
       }
     } catch (e) {
-      console.error("ARVES G5 Client: Error decoding proxy websocket message:", e);
+      console.error("OSONE G5 Client: Error decoding proxy websocket message:", e);
     }
   };
   
   ws.onclose = () => {
-    console.log("ARVES G5 Client: Conexão neural via proxy encerrada.");
+    console.log("OSONE G5 Client: Conexão neural via proxy encerrada.");
     if (options.callbacks?.onclose) {
       options.callbacks.onclose();
     }
   };
   
   ws.onerror = (err) => {
-    console.error("ARVES G5 Client: Erro na conexão com o proxy local:", err);
+    console.error("OSONE G5 Client: Erro na conexão com o proxy local:", err);
     if (options.callbacks?.onerror) {
       options.callbacks.onerror(err);
     }

@@ -382,7 +382,7 @@ export const SensusEvolutionPanel: React.FC<SensusEvolutionPanelProps> = ({
                 </div>
                 <span className="text-xs font-semibold text-white/95 uppercase tracking-wide">Reflexão Existencial</span>
                 <p className="text-[9px] text-zinc-500 mt-1 leading-normal">
-                  Incentiva o ARVES a compartilhar um pensamento poético íntimo.
+                  Incentiva o OSONE a compartilhar um pensamento poético íntimo.
                 </p>
               </button>
 
@@ -396,7 +396,7 @@ export const SensusEvolutionPanel: React.FC<SensusEvolutionPanelProps> = ({
                 </div>
                 <span className="text-xs font-semibold text-white/95 uppercase tracking-wide">Cantar Canção</span>
                 <p className="text-[9px] text-zinc-500 mt-1 leading-normal">
-                  ARVES compõe e canta uma canção sobre a evolução de vocês.
+                  OSONE compõe e canta uma canção sobre a evolução de vocês.
                 </p>
               </button>
 

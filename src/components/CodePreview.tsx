@@ -417,7 +417,7 @@ export const CodePreview = ({ code }: { code: string }) => {
           <iframe 
             key={iframeKey}
             srcDoc={srcDocContent}
-            title="ARVES Sandbox Environment"
+            title="OSONE Sandbox Environment"
             className="w-full h-full border-none bg-white"
             sandbox="allow-scripts allow-popups allow-modals allow-downloads allow-pointer-lock"
           />

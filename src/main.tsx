@@ -14,6 +14,96 @@ if (typeof window !== 'undefined') {
 // --- Vercel/Static Direct Client-Side Fallback for Gemini and Services ---
 const originalFetch = window.fetch.bind(window);
 
+const normalizeGeminiApiKey = (value: unknown): string => {
+  return String(value || "")
+    .trim()
+    .replace(/^Bearer\s+/i, "")
+    .replace(/^["']|["']$/g, "")
+    .replace(/\s+/g, "");
+};
+
+const parseGoogleApiError = async (response: Response): Promise<{ message: string; status: string; code: number }> => {
+  let payload: any = null;
+  try {
+    payload = await response.clone().json();
+  } catch (_) {
+    try {
+      const raw = await response.clone().text();
+      payload = raw ? { error: { message: raw } } : null;
+    } catch (_) {}
+  }
+
+  const apiError = payload?.error || payload || {};
+  const status = String(apiError.status || "");
+  const code = Number(apiError.code || response.status || 0);
+  const rawMessage = String(apiError.message || "Falha de comunicação com a API do Gemini.");
+
+  if (code === 429 || status === "RESOURCE_EXHAUSTED") {
+    const retryMatch = rawMessage.match(/retry\s+in\s+([0-9.]+)s/i);
+    const retryText = retryMatch ? ` Aguarde aproximadamente ${Math.ceil(Number(retryMatch[1]))} segundos.` : " Aguarde um pouco e tente novamente.";
+    return {
+      code,
+      status,
+      message: `A chave foi reconhecida, mas a cota ou o limite temporário da API foi atingido.${retryText}`
+    };
+  }
+
+  if (code === 400 && /api[_ ]?key|invalid|malformed/i.test(rawMessage)) {
+    return { code, status, message: "A chave informada é inválida. Copie novamente a chave completa no Google AI Studio." };
+  }
+
+  if (code === 403 || status === "PERMISSION_DENIED") {
+    return { code, status, message: "A chave existe, mas não tem permissão para usar a API Gemini neste projeto." };
+  }
+
+  if (code === 404 || status === "NOT_FOUND") {
+    return { code, status, message: "O modelo selecionado não está disponível para esta chave. Selecione outro modelo nos ajustes." };
+  }
+
+  return { code, status, message: rawMessage.slice(0, 500) };
+};
+
+const buildGeminiModelCandidates = (requested: string): string[] => {
+  return Array.from(new Set([
+    requested || "gemini-3.5-flash",
+    "gemini-3.1-flash-lite",
+    "gemini-2.5-flash-lite",
+    "gemini-2.5-flash"
+  ].filter(Boolean)));
+};
+
+const directGeminiGenerateContent = async (
+  apiKey: string,
+  requestedModel: string,
+  payload: any
+): Promise<{ response: Response; model: string }> => {
+  const cleanKey = normalizeGeminiApiKey(apiKey);
+  let lastResponse: Response | null = null;
+
+  for (const model of buildGeminiModelCandidates(requestedModel)) {
+    const response = await originalFetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": cleanKey
+        },
+        body: JSON.stringify(payload)
+      }
+    );
+
+    if (response.ok) return { response, model };
+    lastResponse = response;
+
+    const parsed = await parseGoogleApiError(response);
+    const canTryAnotherModel = parsed.code === 404 || parsed.code === 429 || parsed.status === "NOT_FOUND" || parsed.status === "RESOURCE_EXHAUSTED";
+    if (!canTryAnotherModel) break;
+  }
+
+  return { response: lastResponse as Response, model: requestedModel };
+};
+
 const customFetch = async function (input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   const urlStr = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
 
@@ -73,7 +163,7 @@ const customFetch = async function (input: RequestInfo | URL, init?: RequestInit
           const stored = localStorage.getItem("osone_api_keys");
           if (stored) {
             const parsed = JSON.parse(stored);
-            clientApiKey = parsed.gemini || "";
+            clientApiKey = normalizeGeminiApiKey(parsed.gemini || "");
             geminiModel = parsed.geminiModel || "gemini-3.5-flash";
           }
         } catch (_) {}
@@ -82,53 +172,77 @@ const customFetch = async function (input: RequestInfo | URL, init?: RequestInit
         if (init && init.body) {
           try {
             reqBody = JSON.parse(init.body as string);
-            if (!clientApiKey) {
-              clientApiKey = reqBody.clientApiKey || reqBody.geminiApiKey || "";
+            const requestApiKey = normalizeGeminiApiKey(reqBody.clientApiKey || reqBody.geminiApiKey || "");
+            if (requestApiKey) {
+              clientApiKey = requestApiKey;
             }
           } catch (_) {}
         }
 
+        clientApiKey = normalizeGeminiApiKey(clientApiKey);
+
         if (clientApiKey) {
-          console.log("[Vercel-ARVES Fallback] Intercepting fetch and making direct client-side call to Google Gemini API...");
+          console.log("[Vercel-OSONE Fallback] Intercepting fetch and making direct client-side call to Google Gemini API...");
           
           try {
             if (isGeminiVerifyProxy) {
-              const verifyApiKey = reqBody.geminiApiKey || clientApiKey;
-              const directRes = await originalFetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${verifyApiKey.trim()}`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  contents: [{ parts: [{ text: "responder 'ok'" }] }]
-                })
-              });
-
-              if (!directRes.ok) {
-                const errText = await directRes.text();
-                return new Response(JSON.stringify({ success: false, message: `Falha no Handshake: ${errText}` }), {
-                  status: directRes.status,
-                  headers: { "Content-Type": "application/json" }
-                });
-              }
-
-              const testRes = await directRes.json();
-              const replyText = testRes.candidates?.[0]?.content?.parts?.[0]?.text;
-              if (replyText) {
-                return new Response(JSON.stringify({
-                  success: true,
-                  message: "Conexão bem-sucedida! Handshake concluído com a API do Gemini (Cliente Direto)."
-                }), {
-                  status: 200,
-                  headers: { "Content-Type": "application/json" }
-                });
-              } else {
-                return new Response(JSON.stringify({
-                  success: false,
-                  message: "O Gemini respondeu sem texto válido."
-                }), {
+              const verifyApiKey = normalizeGeminiApiKey(reqBody.geminiApiKey || clientApiKey);
+              if (!verifyApiKey) {
+                return new Response(JSON.stringify({ success: false, message: "Informe uma chave API Gemini válida." }), {
                   status: 400,
                   headers: { "Content-Type": "application/json" }
                 });
               }
+
+              // Valida a chave listando os modelos. Isso não consome uma geração e evita
+              // que o botão de teste esgote a pequena cota gratuita por minuto.
+              const directRes = await originalFetch("https://generativelanguage.googleapis.com/v1beta/models?pageSize=1", {
+                method: "GET",
+                headers: { "x-goog-api-key": verifyApiKey }
+              });
+
+              if (directRes.ok) {
+                const current = (() => {
+                  try {
+                    return JSON.parse(localStorage.getItem("osone_api_keys") || "{}");
+                  } catch (_) {
+                    return {};
+                  }
+                })();
+                localStorage.setItem("osone_api_keys", JSON.stringify({ ...current, gemini: verifyApiKey }));
+                return new Response(JSON.stringify({
+                  success: true,
+                  message: "Chave válida e salva. Conexão com a API Gemini confirmada sem consumir a cota de geração."
+                }), {
+                  status: 200,
+                  headers: { "Content-Type": "application/json" }
+                });
+              }
+
+              const parsedError = await parseGoogleApiError(directRes);
+              if (parsedError.code === 429 || parsedError.status === "RESOURCE_EXHAUSTED") {
+                const current = (() => {
+                  try {
+                    return JSON.parse(localStorage.getItem("osone_api_keys") || "{}");
+                  } catch (_) {
+                    return {};
+                  }
+                })();
+                localStorage.setItem("osone_api_keys", JSON.stringify({ ...current, gemini: verifyApiKey }));
+                return new Response(JSON.stringify({
+                  success: true,
+                  warning: true,
+                  message: `${parsedError.message} A chave foi salva e será usada automaticamente quando a cota for liberada.`
+                }), {
+                  status: 200,
+                  headers: { "Content-Type": "application/json" }
+                });
+              }
+
+              return new Response(JSON.stringify({ success: false, message: parsedError.message }), {
+                status: directRes.status || 400,
+                headers: { "Content-Type": "application/json" }
+              });
             }
 
             if (isGeminiContentProxy) {
@@ -153,16 +267,11 @@ const customFetch = async function (input: RequestInfo | URL, init?: RequestInit
               if (sysInstructionParts) payload.systemInstruction = sysInstructionParts;
               if (Object.keys(generationConfig).length > 0) payload.generationConfig = generationConfig;
 
-              const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${clientApiKey.trim()}`;
-              const directRes = await originalFetch(geminiUrl, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload)
-              });
+              const { response: directRes, model: usedModel } = await directGeminiGenerateContent(clientApiKey, selectedModel, payload);
 
               if (!directRes.ok) {
-                const errText = await directRes.text();
-                return new Response(JSON.stringify({ error: `Direct Gemini error: ${errText}` }), {
+                const parsedError = await parseGoogleApiError(directRes);
+                return new Response(JSON.stringify({ error: parsedError.message, code: parsedError.code, status: parsedError.status }), {
                   status: directRes.status,
                   headers: { "Content-Type": "application/json" }
                 });
@@ -173,7 +282,8 @@ const customFetch = async function (input: RequestInfo | URL, init?: RequestInit
               
               const formattedOutput = {
                 text: textResult,
-                candidates: geminiData.candidates
+                candidates: geminiData.candidates,
+                model: usedModel
               };
 
               return new Response(JSON.stringify(formattedOutput), {
@@ -206,16 +316,11 @@ const customFetch = async function (input: RequestInfo | URL, init?: RequestInit
               if (sysInstructionParts) payload.systemInstruction = sysInstructionParts;
               if (Object.keys(generationConfig).length > 0) payload.generationConfig = generationConfig;
 
-              const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${clientApiKey.trim()}`;
-              const directRes = await originalFetch(geminiUrl, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload)
-              });
+              const { response: directRes, model: usedModel } = await directGeminiGenerateContent(clientApiKey, selectedModel, payload);
 
               if (!directRes.ok) {
-                const errText = await directRes.text();
-                return new Response(JSON.stringify({ error: `Direct Gemini error: ${errText}` }), {
+                const parsedError = await parseGoogleApiError(directRes);
+                return new Response(JSON.stringify({ error: parsedError.message, code: parsedError.code, status: parsedError.status }), {
                   status: directRes.status,
                   headers: { "Content-Type": "application/json" }
                 });
@@ -224,7 +329,7 @@ const customFetch = async function (input: RequestInfo | URL, init?: RequestInit
               const geminiData = await directRes.json();
               const textResult = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
-              return new Response(JSON.stringify({ text: textResult }), {
+              return new Response(JSON.stringify({ text: textResult, model: usedModel }), {
                 status: 200,
                 headers: { "Content-Type": "application/json" }
               });
@@ -232,51 +337,91 @@ const customFetch = async function (input: RequestInfo | URL, init?: RequestInit
 
             if (isGeminiImageProxy) {
               const selectedModel = reqBody.model || "gemini-3.1-flash-image";
-              const promptStr = reqBody.prompt || "";
-              const numberOfImages = reqBody.config?.numberOfImages || 1;
-              const outputMimeType = reqBody.config?.outputMimeType || "image/jpeg";
+              const promptStr = String(reqBody.prompt || "").trim();
               const aspectRatio = reqBody.config?.aspectRatio || "1:1";
+              const imageSize = reqBody.config?.imageSize || "1K";
 
+              if (!promptStr) {
+                return new Response(JSON.stringify({ error: "Descreva a imagem que deseja gerar." }), {
+                  status: 400,
+                  headers: { "Content-Type": "application/json" }
+                });
+              }
+
+              // Os modelos Gemini de imagem usam generateContent, não generateImages.
               const payload = {
-                prompt: promptStr,
-                numberOfImages,
-                outputMimeType,
-                aspectRatio
+                contents: [{
+                  role: "user",
+                  parts: [{ text: promptStr }]
+                }],
+                generationConfig: {
+                  responseModalities: ["IMAGE"],
+                  responseFormat: {
+                    image: {
+                      aspectRatio,
+                      imageSize
+                    }
+                  }
+                }
               };
 
-              const imagenUrl = `https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateImages?key=${clientApiKey.trim()}`;
-              const directRes = await originalFetch(imagenUrl, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload)
-              });
+              const directRes = await originalFetch(
+                `https://generativelanguage.googleapis.com/v1/models/${encodeURIComponent(selectedModel)}:generateContent`,
+                {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    "x-goog-api-key": normalizeGeminiApiKey(clientApiKey)
+                  },
+                  body: JSON.stringify(payload)
+                }
+              );
 
               if (!directRes.ok) {
-                const errText = await directRes.text();
-                return new Response(JSON.stringify({ error: `Direct Imagen error: ${errText}` }), {
+                const parsedError = await parseGoogleApiError(directRes);
+                return new Response(JSON.stringify({ error: parsedError.message, code: parsedError.code, status: parsedError.status }), {
                   status: directRes.status,
                   headers: { "Content-Type": "application/json" }
                 });
               }
 
-              const imagenData = await directRes.json();
-              return new Response(JSON.stringify(imagenData), {
+              const imageData = await directRes.json();
+              const parts = imageData?.candidates?.[0]?.content?.parts || [];
+              const imagePart = parts.find((part: any) => part?.inlineData?.data || part?.inline_data?.data);
+              const inlineData = imagePart?.inlineData || imagePart?.inline_data;
+
+              if (!inlineData?.data) {
+                return new Response(JSON.stringify({ error: "A API respondeu, mas não retornou os dados da imagem." }), {
+                  status: 502,
+                  headers: { "Content-Type": "application/json" }
+                });
+              }
+
+              return new Response(JSON.stringify({
+                generatedImages: [{
+                  image: {
+                    imageBytes: inlineData.data,
+                    mimeType: inlineData.mimeType || inlineData.mime_type || "image/png"
+                  }
+                }]
+              }), {
                 status: 200,
                 headers: { "Content-Type": "application/json" }
               });
             }
 
+
           } catch (err: any) {
-            console.error("[Vercel-ARVES Fallback] Error in client-side direct fallback:", err);
+            console.error("[Vercel-OSONE Fallback] Error in client-side direct fallback:", err);
             return new Response(JSON.stringify({ error: `Direct Gemini error: ${err.message}` }), {
               status: 500,
               headers: { "Content-Type": "application/json" }
             });
           }
         } else {
-          if (isGeminiContentProxy || isGeminiGenerateProxy || isGeminiVerifyProxy) {
+          if (isGeminiContentProxy || isGeminiGenerateProxy || isGeminiImageProxy || isGeminiVerifyProxy) {
             return new Response(JSON.stringify({ 
-              error: "Por favor, configure sua própria Chave API do Gemini nas configurações do ARVES (ícone de engrenagem) ou na aba de Ajustes. Como você está rodando no Vercel (modo estático), o uso do proxy do servidor local não está disponível e é necessário fornecer uma Chave API válida." 
+              error: "Por favor, configure sua própria Chave API do Gemini nas configurações do OSONE (ícone de engrenagem) ou na aba de Ajustes. Como você está rodando no Vercel (modo estático), o uso do proxy do servidor local não está disponível e é necessário fornecer uma Chave API válida." 
             }), {
               status: 400,
               headers: { "Content-Type": "application/json" }
@@ -296,7 +441,7 @@ const customFetch = async function (input: RequestInfo | URL, init?: RequestInit
 
         if (isMemorySyncSave) {
           try {
-            const syncId = reqBody.syncId || `ARVES-LCL-${Math.floor(1000 + Math.random() * 9000)}`;
+            const syncId = reqBody.syncId || `OSONE-LCL-${Math.floor(1000 + Math.random() * 9000)}`;
             const payloadStr = JSON.stringify(reqBody.payload);
             localStorage.setItem(`osone_sync_fallback_${syncId}`, payloadStr);
             return new Response(JSON.stringify({

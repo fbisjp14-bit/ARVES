@@ -24,7 +24,7 @@ export async function generatePDF(htmlContent: string, fileName: string = 'docum
       .footer { margin-top: 50px; font-size: 9pt; color: #9ca3af; text-align: center; border-top: 1px id #f3f4f6; padding-top: 10px; }
     </style>
     ${htmlContent}
-    <div class="footer">Gerado por ARVES v3 Inteligence Systems - ${new Date().toLocaleDateString()}</div>
+    <div class="footer">Gerado por OSONE v3 Inteligence Systems - ${new Date().toLocaleDateString()}</div>
   `;
   
   document.body.appendChild(container);

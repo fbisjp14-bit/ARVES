@@ -109,8 +109,17 @@ export default function PersonalizationPanel({
       setGeminiVerificationMessage('Por favor, configure sua chave de API Gemini antes de validar.');
       return;
     }
+    const cleanGeminiKey = keys.gemini
+      .trim()
+      .replace(/^Bearer\s+/i, '')
+      .replace(/^["']|["']$/g, '')
+      .replace(/\s+/g, '');
+    const normalizedKeys = { ...keys, gemini: cleanGeminiKey };
+    setKeys(normalizedKeys);
+    localStorage.setItem('osone_api_keys', JSON.stringify(normalizedKeys));
+
     setGeminiVerificationStatus('testing');
-    setGeminiVerificationMessage('Handshake ativo. Testando cognição do Gemini...');
+    setGeminiVerificationMessage('Validando a chave sem consumir sua cota de geração...');
     try {
       const response = await fetch('/api/gemini/verify', {
         method: 'POST',
@@ -118,7 +127,7 @@ export default function PersonalizationPanel({
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          geminiApiKey: keys.gemini
+          geminiApiKey: cleanGeminiKey
         })
       });
       const data = await response.json();
@@ -238,7 +247,7 @@ export default function PersonalizationPanel({
     }
     setIsSyncing(true);
     setSyncStatus('testing');
-    setSyncMessage('Baixando dados e restabelecendo sinapses do ARVES...');
+    setSyncMessage('Baixando dados e restabelecendo sinapses do OSONE...');
     try {
       const cleanedId = inputId.trim().toUpperCase();
       const response = await fetch(`/api/memory-sync/load/${cleanedId}`);
@@ -319,7 +328,7 @@ export default function PersonalizationPanel({
             <ChevronRight size={14} className="rotate-180" />
           </button>
           <div className="text-left">
-            <h2 className="text-sm font-bold uppercase tracking-[0.25em] text-white">Painel ARVES</h2>
+            <h2 className="text-sm font-bold uppercase tracking-[0.25em] text-white">Painel OSONE</h2>
             <p className="text-[10px] text-her-muted">Voz, Perfil & Inteligência</p>
           </div>
         </div>
@@ -352,7 +361,7 @@ export default function PersonalizationPanel({
         })}
         
         <div className="mt-auto hidden md:block pt-4 border-t border-white/[0.03] text-center">
-          <p className="text-[9px] text-her-muted/20 uppercase tracking-[0.1em] font-bold">ARVES Conscious Node</p>
+          <p className="text-[9px] text-her-muted/20 uppercase tracking-[0.1em] font-bold">OSONE Conscious Node</p>
         </div>
       </div>
 
@@ -381,7 +390,7 @@ export default function PersonalizationPanel({
                     value={aiProfile.name}
                     onChange={(e) => setAiProfile({ ...aiProfile, name: e.target.value })}
                     className="w-full bg-white/[0.02] border border-white/[0.05] rounded-2xl px-5 py-4 focus:outline-none focus:border-her-accent/30 transition-all text-sm font-light text-white placeholder:text-her-muted/20"
-                    placeholder="Ex: ARVES, EREBUS, JARVIS..."
+                    placeholder="Ex: OSONE, EREBUS, JARVIS..."
                   />
                 </div>
 
@@ -511,7 +520,7 @@ export default function PersonalizationPanel({
                       className="w-full bg-[#0a0a0a]/80 border border-cyan-900/20 rounded-xl px-4 py-3 focus:outline-none focus:border-cyan-500 text-xs text-cyan-100 placeholder-cyan-900/40 resize-none font-sans"
                     />
                     <p className="text-[9.5px] text-cyan-850/80 leading-normal">
-                      Descreva os atributos acústicos do ARVES Sensus. O motor neural adaptará a pronúncia por inteligência quântica para ressoar as características fornecidas acima.
+                      Descreva os atributos acústicos do Osone Sensus. O motor neural adaptará a pronúncia por inteligência quântica para ressoar as características fornecidas acima.
                     </p>
                   </div>
                 )}
@@ -524,7 +533,7 @@ export default function PersonalizationPanel({
                       Auto-Leitura de Respostas
                     </span>
                     <span className="text-[10px] text-her-muted select-none leading-relaxed">
-                      Sempre que o chat receber uma resposta escrita, o ARVES fará a leitura falada simultaneamente em formato neural.
+                      Sempre que o chat receber uma resposta escrita, o OSONE fará a leitura falada simultaneamente em formato neural.
                     </span>
                   </div>
                   <button
@@ -1127,7 +1136,7 @@ export default function PersonalizationPanel({
                     { id: 'neural', name: 'Constelação Neural (Padrão)' },
                     { id: 'jarvis', name: 'Jarvis (HUD 3D)' },
                     { id: 'smoke', name: 'Nuvem de Fumaça (Virtual)' },
-                    { id: 'shadow', name: 'ARVES Sensus (Quântico)' },
+                    { id: 'shadow', name: 'Osone Sensus (Quântico)' },
                   ].map((styleOption) => (
                     <button
                       key={styleOption.id}
@@ -1169,7 +1178,7 @@ export default function PersonalizationPanel({
                     <span className="text-[10px] text-her-muted/50 font-light font-mono">250%</span>
                   </div>
                   <p className="text-[10px] text-her-muted/40 font-light leading-normal">
-                    Deslize para calibrar e redimensionar o tamanho físico de todas as interfaces e renderizações do Orb do ARVES.
+                    Deslize para calibrar e redimensionar o tamanho físico de todas as interfaces e renderizações do Orb do OSONE.
                   </p>
                 </div>
 
@@ -1227,7 +1236,7 @@ export default function PersonalizationPanel({
                       <RefreshCw size={12} className="text-her-accent animate-spin" />
                       Backup Neural Completo
                     </h4>
-                    <p className="text-[10px] text-her-muted max-w-md">Salva todo o setup e histórico de conversas do ARVES local em nosso cluster de armazenamento durável.</p>
+                    <p className="text-[10px] text-her-muted max-w-md">Salva todo o setup e histórico de conversas do OSONE local em nosso cluster de armazenamento durável.</p>
                   </div>
                   <button
                     type="button"
@@ -1241,7 +1250,7 @@ export default function PersonalizationPanel({
 
                 {/* Cloud Restoring action */}
                 <div className="space-y-4 pt-4 border-t border-white/[0.03]">
-                  <h4 className="text-xs font-bold text-[#efefef] uppercase tracking-wider">Restaurar Conectividade ARVES</h4>
+                  <h4 className="text-xs font-bold text-[#efefef] uppercase tracking-wider">Restaurar Conectividade OSONE</h4>
                   <p className="text-[10px] text-her-muted leading-relaxed">
                     Insira o ID Criptografado de Conexão recebido anteriormente para sincronizar os dados e restabelecer as sinapses nesta instância.
                   </p>

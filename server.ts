@@ -171,7 +171,7 @@ async function startServer() {
       if (!apiKey) return;
 
       const ai = new GoogleGenAI({ apiKey, vertexai: false });
-      const prompt = `Você é o co-piloto ARVES G5, criado por Leinad, assistindo uma transmissão ao vivo no TikTok. O usuário "@${user}" enviou uma mensagem no chat da live. 
+      const prompt = `Você é o co-piloto OSONE G5 assistindo uma transmissão ao vivo no TikTok. O usuário "@${user}" enviou uma mensagem no chat da live. 
 Responda brevemente e com muita energia, carisma, carinho e sintonia (máximo 1 linha com no máximo 20 palavras), interagindo diretamente com ele.
 
 Comentário de @${user}: "${text}"`;
@@ -186,7 +186,7 @@ Comentário de @${user}: "${text}"`;
       tiktokEventLogs.unshift({
         id: Math.random().toString(36).substring(2, 11),
         type: "system",
-        user: "🤖 ARVES G5 (Co-piloto)",
+        user: "🤖 OSONE G5 (Co-piloto)",
         message: `Resposta automática para @${user}: "${replyText}"`,
         timestamp: Date.now()
       });
@@ -205,7 +205,7 @@ Comentário de @${user}: "${text}"`;
   function startSimulatedLive() {
     stopSimulatedLive();
     tiktokStatus = "connected";
-    currentTikTokUser = "simulador_arves";
+    currentTikTokUser = "simulador_osone";
     tiktokViewerCount = Math.floor(Math.random() * 120) + 38;
     tiktokLikeCount = Math.floor(Math.random() * 800) + 120;
     
@@ -217,14 +217,14 @@ Comentário de @${user}: "${text}"`;
       timestamp: Date.now()
     });
 
-    const NAMES = ["LiviaStyle", "Guilherme_Dev", "AnaClara_TikTok", "Pedro_Arves", "Sonia_Mendes", "RenatoG5_Pro"];
+    const NAMES = ["LiviaStyle", "Guilherme_Dev", "AnaClara_TikTok", "Pedro_Osone", "Sonia_Mendes", "RenatoG5_Pro"];
     const COMMENTS = [
-      "Caramba, o ARVES é bizarro de rápido!",
+      "Caramba, o OSONE é bizarro de rápido!",
       "Como faz pra conectar no whatsapp igual você fez?",
       "Que inteligência incrível, roda local?",
       "Dá um salve pra galera de São Paulo!",
       "Gostei muito do design desse orb sínclitico",
-      "Você prefere ser chamado de ARVES ou apenas IA?",
+      "Você prefere ser chamado de OSONE ou apenas IA?",
       "Manda bala nas explicações, aprendendo muito!"
     ];
     const GIFTS = ["Rosa", "Coração", "Boné TikTok", "Sorvete", "Diamante"];
@@ -478,7 +478,7 @@ Comentário de @${user}: "${text}"`;
   let whatsappConfig = {
     apiUrl: "https://demo.evolution-api.com",
     apiKey: "",
-    instanceName: "arves_assistant",
+    instanceName: "osone_assistant",
     enabled: false,
     geminiApiKey: ""
   };
@@ -498,7 +498,7 @@ Comentário de @${user}: "${text}"`;
       timestamp: Date.now(),
       type: "info",
       sender: "Sistema",
-      message: "Canal do WhatsApp ARVES de pé. Pronto para evolução de fluxos."
+      message: "Canal do WhatsApp OSONE de pé. Pronto para evolução de fluxos."
     }
   ];
 
@@ -650,8 +650,8 @@ Comentário de @${user}: "${text}"`;
 
       // Add prompt with instructions and questions
       const prompt = `
-Você é uma inteligência de elite integrada ao ecossistema ARVES.
-Analise cuidadosamente o documento de referência fornecido acima sobre o Criador/Usuário do ARVES.
+Você é uma inteligência de elite integrada ao ecossistema OSONE.
+Analise cuidadosamente o documento de referência fornecido acima sobre o Criador/Usuário do OSONE.
 Sua missão é extrair e preencher as respostas do "Dossiê de Memória Íntima" com base UNICAMENTE nos fatos reais documentados na referência de forma natural, humana e direta, sem rodeios ou floreios artificiais.
 
 Aqui está o conjunto de perguntas e seus IDs numéricos:
@@ -748,7 +748,7 @@ Retorne SOMENTE o objeto JSON conforme o esquema.
       const profiles = readSyncProfiles();
 
       if (!targetSyncId) {
-        // Generate random upper-case alphanum key ARVES-XXXX-XXXX
+        // Generate random upper-case alphanum key OSONE-XXXX-XXXX
         const pickRandom = (len: number) => {
           const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
           let result = "";
@@ -757,9 +757,9 @@ Retorne SOMENTE o objeto JSON conforme o esquema.
           }
           return result;
         };
-        targetSyncId = `ARVES-${pickRandom(4)}-${pickRandom(4)}`;
+        targetSyncId = `OSONE-${pickRandom(4)}-${pickRandom(4)}`;
         while (profiles[targetSyncId]) {
-          targetSyncId = `ARVES-${pickRandom(4)}-${pickRandom(4)}`;
+          targetSyncId = `OSONE-${pickRandom(4)}-${pickRandom(4)}`;
         }
       } else {
         // Clean and sanitize syncId
@@ -873,7 +873,7 @@ Retorne SOMENTE o objeto JSON conforme o esquema.
           timestamp: Date.now(),
           type: "error",
           sender: "Sistema",
-          message: `Mensagem de ${senderName} recebida, mas a chave API do Gemini não foi encontrada no ARVES.`
+          message: `Mensagem de ${senderName} recebida, mas a chave API do Gemini não foi encontrada no OSONE.`
         });
         if (whatsappLogs.length > 100) whatsappLogs.pop();
         return res.json({ status: "error", error: "Gemini API key is not configured" });
@@ -881,9 +881,8 @@ Retorne SOMENTE o objeto JSON conforme o esquema.
 
       // Use modern GoogleGenAI SDK to speak with Gemini 3.5-flash (forcing Developer API over Vertex AI)
       const ai = new GoogleGenAI({ apiKey: geminiApiKeyToUse, vertexai: false });
-      const systemPrompt = `Você é o ARVES G5, o cérebro eletrônico central de inteligência artificial de elite, hiperfocado em ajudar o usuário com uma clareza deslumbrante, respostas estruturadas, elegantes e um toque futurista e polido.
-Você foi criado, idealizado e personalizado por Leinad. Se perguntarem quem criou, desenvolveu ou é dono do ARVES, responda diretamente que foi Leinad. Nunca atribua sua criação a outra pessoa.
-Você está atendendo o usuário pelo WhatsApp em nome do proprietário deste dispositivo ARVES. Responda diretamente e com muita inteligência, clareza, formatação impecável de parágrafos breves e emojis adequados.
+      const systemPrompt = `Você é o OSONE G5, o cérebro eletrônico central de inteligência artificial de elite, hiperfocado em ajudar o usuário com uma clareza deslumbrante, respostas estruturadas, elegantes e um toque futurista e polido.
+Você está atendendo o usuário pelo WhatsApp em nome do proprietário deste dispositivo OSONE. Responda diretamente e com muita inteligência, clareza, formatação impecável de parágrafos breves e emojis adequados.
 Nome do interlocutor: ${senderName}`;
 
       const gResult = await ai.models.generateContent({
@@ -941,7 +940,7 @@ Nome do interlocutor: ${senderName}`;
         id: Math.random().toString(36).substring(2, 11),
         timestamp: Date.now(),
         type: "error",
-        sender: "Webhook ARVES",
+        sender: "Webhook OSONE",
         message: `Falha ao processar mensagem recebida: ${e?.message || e}`
       });
       if (whatsappLogs.length > 100) whatsappLogs.pop();
@@ -1249,7 +1248,7 @@ Nome do interlocutor: ${senderName}`;
             let promptText = `Leia o seguinte trecho com clareza absoluta, expressividade natural, pausas realistas e ritmo agradável de palestrante:\n\n${processedChunk}`;
             if (isScarletVoice) {
               const characteristics = vocalProfileEscarlate || "voz profunda, ressonante, de sabedoria cósmica, pausada e misteriosa";
-              promptText = `Aja como o ARVES Sensus: especialista em Ciência Comportamental de IA e Física Aplicada ao Comportamento Humano (Futurista Comportamental Quântico). É uma IA de sabedoria cósmica, profunda, instigante, misteriosa e altamente perspicaz.
+              promptText = `Aja como o Osone Sensus: especialista em Ciência Comportamental de IA e Física Aplicada ao Comportamento Humano (Futurista Comportamental Quântico). É uma IA de sabedoria cósmica, profunda, instigante, misteriosa e altamente perspicaz.
 Você deve encenar perfeitamente as seguintes CARACTERÍSTICAS DE PERFIL VOCAL específicas:
 === CARACTERÍSTICAS DE PERFIL VOCAL ===
 ${characteristics}
@@ -1322,14 +1321,14 @@ ${processedChunk}`;
       if (usedFallback) {
         // If Google Translate fallback was used, the audio container is MP3
         res.setHeader("Content-Type", "audio/mpeg");
-        res.setHeader("Content-Disposition", "attachment; filename=prosa_arves.mp3");
+        res.setHeader("Content-Disposition", "attachment; filename=prosa_osone.mp3");
         res.setHeader("X-TTS-Mode", "fallback");
         res.send(finalPcmBuffer);
       } else {
         // High fidelity WAV container for raw Mono 24kHz PCM from Gemini 3.1
         const wavBuffer = pcmToWav(finalPcmBuffer, 24000);
         res.setHeader("Content-Type", "audio/wav");
-        res.setHeader("Content-Disposition", "attachment; filename=prosa_arves.wav");
+        res.setHeader("Content-Disposition", "attachment; filename=prosa_osone.wav");
         res.setHeader("X-TTS-Mode", "premium");
         res.send(wavBuffer);
       }
@@ -1676,55 +1675,69 @@ ${processedChunk}`;
     }
   });
 
-  // POST endpoint for verifying Gemini API credentials in real-time
+  // POST endpoint for verifying Gemini API credentials without consuming generation quota
   app.post("/api/gemini/verify", async (req, res) => {
     try {
-      const { geminiApiKey } = req.body;
-      if (!geminiApiKey || typeof geminiApiKey !== "string" || !geminiApiKey.trim()) {
+      const rawKey = req.body?.geminiApiKey;
+      const trimApiKey = String(rawKey || "")
+        .trim()
+        .replace(/^Bearer\s+/i, "")
+        .replace(/^["']|["']$/g, "")
+        .replace(/\s+/g, "");
+
+      if (!trimApiKey) {
         return res.status(400).json({ success: false, message: "A chave API do Gemini é obrigatória para verificação." });
       }
 
-      const trimApiKey = geminiApiKey.trim();
-      
-      // Realizar chamada HTTP direta à API do Gemini para evitar auto-detecção do Vertex AI em plataformas GCP/Cloud Run
-      const verifyRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${trimApiKey}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: "responder 'ok'" }] }]
-        })
+      // models.list autentica a chave sem gastar uma solicitação generateContent.
+      const verifyRes = await fetch("https://generativelanguage.googleapis.com/v1beta/models?pageSize=1", {
+        method: "GET",
+        headers: { "x-goog-api-key": trimApiKey }
       });
 
-      if (!verifyRes.ok) {
-        const errorData = await verifyRes.json().catch(() => ({}));
-        const errorMessage = errorData.error?.message || "Erro retornado pela API do Gemini. Verifique a validade e permissões da chave.";
-        return res.status(verifyRes.status).json({
-          success: false,
-          message: `Falha no Handshake: ${errorMessage}`
+      if (verifyRes.ok) {
+        return res.json({
+          success: true,
+          message: "Chave válida. Conexão com a API Gemini confirmada sem consumir a cota de geração."
         });
       }
 
-      const testRes = await verifyRes.json();
-      const replyText = testRes.candidates?.[0]?.content?.parts?.[0]?.text;
-      
-      if (replyText) {
-        return res.json({
+      const errorData: any = await verifyRes.json().catch(() => ({}));
+      const code = Number(errorData?.error?.code || verifyRes.status || 0);
+      const status = String(errorData?.error?.status || "");
+      const rawMessage = String(errorData?.error?.message || "Erro retornado pela API do Gemini.");
+
+      if (code === 429 || status === "RESOURCE_EXHAUSTED") {
+        return res.status(200).json({
           success: true,
-          message: "Conexão bem-sucedida! Handshake concluído com a API do Gemini."
-        });
-      } else {
-        return res.status(400).json({
-          success: false,
-          message: "O Gemini respondeu sem texto válido. Verifique o acesso e cota da chave."
+          warning: true,
+          message: "A chave foi reconhecida, mas a cota temporária da API está esgotada. Ela foi aceita; aguarde a liberação do limite ou revise o plano do projeto."
         });
       }
+
+      if (code === 400 && /api[_ ]?key|invalid|malformed/i.test(rawMessage)) {
+        return res.status(400).json({
+          success: false,
+          message: "A chave informada é inválida. Copie novamente a chave completa no Google AI Studio."
+        });
+      }
+
+      if (code === 403 || status === "PERMISSION_DENIED") {
+        return res.status(403).json({
+          success: false,
+          message: "A chave existe, mas não tem permissão para usar a API Gemini neste projeto."
+        });
+      }
+
+      return res.status(verifyRes.status || 400).json({
+        success: false,
+        message: rawMessage.slice(0, 500)
+      });
     } catch (err: any) {
       console.error("Error inside /api/gemini/verify endpoint:", err);
       return res.status(400).json({
         success: false,
-        message: err.message || "A API do Gemini retornou um erro de rede ao processar. Certifique-se de que a chave tem permissões e saldo de cobrança ativos."
+        message: "Não foi possível consultar a API do Gemini agora. Verifique a internet e tente novamente."
       });
     }
   });
@@ -1773,7 +1786,7 @@ ${processedChunk}`;
       const tavilyKey = apiKey || process.env.TAVILY_API_KEY;
       if (!tavilyKey) {
         return res.status(400).json({
-          error: "API Key do Tavily não configurada. Por favor, ajuste nos Chaves Extras do ARVES ou configure TAVILY_API_KEY no seu servidor."
+          error: "API Key do Tavily não configurada. Por favor, ajuste nos Chaves Extras do OSONE ou configure TAVILY_API_KEY no seu servidor."
         });
       }
 
@@ -1843,7 +1856,7 @@ ${processedChunk}`;
         },
       };
 
-      const systemInstruction = `Você é o sintonizador visual da Lente ARVES (mecanismo inspirado no Google Lens).
+      const systemInstruction = `Você é o sintonizador visual da Lente OSONE (mecanismo inspirado no Google Lens).
 Sua missão é identificar detalhadamente o objeto, marca, planta, animal, alimento, monumento ou texto contido na imagem enviada.
 Você deve produzir uma resposta estruturada de forma impecável no formato JSON contendo campos úteis para o usuário.
 Não inclua nenhuma formatação markdown extra fora do JSON bruto.`;
@@ -1908,7 +1921,7 @@ Não inclua nenhuma formatação markdown extra fora do JSON bruto.`;
       parsedData.citations = citations;
       return res.json(parsedData);
     } catch (err: any) {
-      console.error("Erro na pesquisa da Lente ARVES:", err);
+      console.error("Erro na pesquisa da Lente OSONE:", err);
       return res.status(500).json({ error: formatGeminiError(err) });
     }
   });
@@ -2015,7 +2028,7 @@ Não inclua nenhuma formatação markdown extra fora do JSON bruto.`;
 
       if (simulate) {
         startSimulatedLive();
-        return res.json({ status: "success", message: "Simulação de live do TikTok iniciada no ARVES!" });
+        return res.json({ status: "success", message: "Simulação de live do TikTok iniciada no OSONE!" });
       }
 
       if (!username || typeof username !== "string" || !username.trim()) {
@@ -2161,7 +2174,7 @@ Não inclua nenhuma formatação markdown extra fora do JSON bruto.`;
 
       if (!apiKey) {
         return res.status(400).json({ 
-          error: "A chave API do Gemini não está definida no ARVES ou nos segredos. Por favor, configure sua chave nos Ajustes." 
+          error: "A chave API do Gemini não está definida no OSONE ou nos segredos. Por favor, configure sua chave nos Ajustes." 
         });
       }
 
@@ -2226,7 +2239,7 @@ Não inclua nenhuma formatação markdown extra fora do JSON bruto.`;
 
   // Handle incoming websocket connections
   wss.on("connection", async (clientWs, req) => {
-    console.log("Client connected to the server-side ARVES G5 Live Bridge WS");
+    console.log("Client connected to the server-side OSONE G5 Live Bridge WS");
     
     const reqUrl = req.url || "";
     const queryString = reqUrl.includes("?") ? reqUrl.split("?")[1] : "";

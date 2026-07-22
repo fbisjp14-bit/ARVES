@@ -406,7 +406,7 @@ export const TeacherWhiteboard: React.FC<TeacherWhiteboardProps> = ({
         </AnimatePresence>
 
         <div className="text-[8px] font-mono uppercase tracking-widest opacity-40">
-          ARVES Classroom Lousa v4.0
+          OSONE Classroom Lousa v4.0
         </div>
       </div>
     </div>

@@ -32,7 +32,7 @@ export const Sidebar = ({ isOpen, onClose, mode, setMode, user, onLogout, onLogi
           className="fixed inset-y-0 left-0 z-50 w-72 bg-her-bg border-r border-white/[0.03] shadow-2xl p-8 flex flex-col"
         >
           <div className="flex justify-between items-center mb-12">
-            <h1 className="text-2xl font-serif italic tracking-tight font-light text-her-ink/40">ARVES G5</h1>
+            <h1 className="text-2xl font-serif italic tracking-tight font-light text-her-ink/40">OSONE G5</h1>
             <button onClick={onClose} className="p-2 hover:bg-white/[0.03] rounded-full transition-colors text-her-muted">
               <X size={20} />
             </button>

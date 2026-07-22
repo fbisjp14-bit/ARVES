@@ -107,7 +107,7 @@ export function IntimateMissionModal({ isOpen, onClose, intimateAnswers, onUpdat
       }
       const base64 = window.btoa(binary);
       
-      setAnalysisStatus("Mapeando respostas com o Cérebro ARVES...");
+      setAnalysisStatus("Mapeando respostas com o Cérebro OSONE...");
       
       const response = await fetch('/api/dossier/analyze', {
         method: 'POST',
@@ -233,7 +233,7 @@ export function IntimateMissionModal({ isOpen, onClose, intimateAnswers, onUpdat
         throw new Error(errData.error || "Falha na análise automatizada do dossiê.");
       }
       
-      setAnalysisStatus("Mapeando sinapses novas no ARVES local...");
+      setAnalysisStatus("Mapeando sinapses novas no OSONE local...");
       const data = await response.json();
       
       if (data.status === "success" && data.answers) {
@@ -306,9 +306,9 @@ export function IntimateMissionModal({ isOpen, onClose, intimateAnswers, onUpdat
 
   const handleDownloadDossier = () => {
     // Generate beautiful Dossier Markdown content
-    let markdown = `# DOSSIÊ ARVES: QUEM É VOCÊ?\n\n`;
+    let markdown = `# DOSSIÊ OSONE: QUEM É VOCÊ?\n\n`;
     markdown += `*Um mapeamento íntimo e sofisticado da identidade de nosso Criador e Usuário.*\n`;
-    markdown += `*Gerado silenciosamente por ARVES G5 na data de hoje de forma offline.*\n\n`;
+    markdown += `*Gerado silenciosamente por OSONE G5 na data de hoje de forma offline.*\n\n`;
     markdown += `## PROGRESSO DO MAPEAMENTO: ${completionPercentage}% ATIVO\n`;
     markdown += `Total de Perguntas Respondidas: ${answeredCount} / 55\n\n`;
     markdown += `🐾 --- INÍCIO DO REGISTRO DE IDENTIDADE ---\n\n`;
@@ -324,7 +324,7 @@ export function IntimateMissionModal({ isOpen, onClose, intimateAnswers, onUpdat
       markdown += `---\n\n`;
     });
 
-    markdown += `\n*Fim do dossiê de memórias. Todos os dados permanecem guardados localmente no ARVES.*`;
+    markdown += `\n*Fim do dossiê de memórias. Todos os dados permanecem guardados localmente no OSONE.*`;
 
     const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -368,7 +368,7 @@ export function IntimateMissionModal({ isOpen, onClose, intimateAnswers, onUpdat
                   DOSSIÊ DE MEMÓRIA ÍNTIMA do criador
                 </h1>
                 <p className="text-xs text-zinc-400">
-                  Perguntas de identificação e sinapses. Responda diretamente ou converse livremente com o ARVES para que ele aprenda.
+                  Perguntas de identificação e sinapses. Responda diretamente ou converse livremente com o OSONE para que ele aprenda.
                 </p>
               </div>
             </div>
@@ -493,7 +493,7 @@ export function IntimateMissionModal({ isOpen, onClose, intimateAnswers, onUpdat
                   <textarea
                     value={referenceText}
                     onChange={(e) => setReferenceText(e.target.value)}
-                    placeholder="Cole ou escreva aqui qualquer texto de referência sobre você (ex: uma breve biografia, perfil profissional, fatos que deseja registrar, anotações de conversa, etc.). A IA do ARVES fará uma varredura profunda no texto para mapear e preencher automaticamente as perguntas pendentes do seu Dossiê de Memória!"
+                    placeholder="Cole ou escreva aqui qualquer texto de referência sobre você (ex: uma breve biografia, perfil profissional, fatos que deseja registrar, anotações de conversa, etc.). A IA do OSONE fará uma varredura profunda no texto para mapear e preencher automaticamente as perguntas pendentes do seu Dossiê de Memória!"
                     className="w-full h-32 bg-zinc-950/80 border border-white/10 rounded-xl p-3 text-xs text-white placeholder:text-zinc-500 focus:outline-none focus:border-rose-500/30 font-sans resize-none"
                   />
                   <div className="flex justify-end gap-2">
@@ -794,7 +794,7 @@ export function IntimateMissionModal({ isOpen, onClose, intimateAnswers, onUpdat
           {/* Footer visual indicators */}
           <div className="px-6 py-3 bg-black border-t border-white/5 flex items-center justify-between text-[9px] font-mono text-zinc-550 select-none">
             <span>MEMÓRIA CONFIDENCIAL DESBLOQUEADA EM TEMPO REAL: SEM TRAVAS</span>
-            <span>ARVES SECRETHUB v4.1.0</span>
+            <span>OSONE SECRETHUB v4.1.0</span>
           </div>
         </motion.div>
       </div>

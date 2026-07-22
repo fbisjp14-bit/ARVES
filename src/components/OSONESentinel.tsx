@@ -91,7 +91,7 @@ export const OSONESentinel: React.FC<OSONESentinelProps> = ({
               <h2 className="text-sm font-bold uppercase tracking-wider text-zinc-100 font-sans">Olho Sentinela</h2>
               <span className={`w-2 h-2 rounded-full ${isActive ? 'bg-cyan-400 animate-ping' : 'bg-zinc-600'}`} />
             </div>
-            <p className="text-[10px] text-zinc-400 font-mono tracking-wide mt-0.5">ARVES G5 Autonomous Perceptions</p>
+            <p className="text-[10px] text-zinc-400 font-mono tracking-wide mt-0.5">OSONE G5 Autonomous Perceptions</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -134,7 +134,7 @@ export const OSONESentinel: React.FC<OSONESentinelProps> = ({
           </div>
 
           <p className="text-[11px] text-zinc-400/80 leading-normal font-sans">
-            Com as permissões adequadas, o ARVES captura prints discretos da tela a cada intervalo definido para analisar suas atividades de forma autônoma e proferir reflexões e conselhos no momento perfeito.
+            Com as permissões adequadas, o OSONE captura prints discretos da tela a cada intervalo definido para analisar suas atividades de forma autônoma e proferir reflexões e conselhos no momento perfeito.
           </p>
 
           <div className="h-px bg-white/[0.05]" />
@@ -192,7 +192,7 @@ export const OSONESentinel: React.FC<OSONESentinelProps> = ({
             ) : (
               <>
                 <Activity size={12} className="text-purple-400" />
-                <span>Fonte: <strong className="text-purple-400">WORKSPACE ARVES (DOM)</strong></span>
+                <span>Fonte: <strong className="text-purple-400">WORKSPACE OSONE (DOM)</strong></span>
               </>
             )}
             {onStartScreenSharing && !isScreenSharing && (
@@ -238,13 +238,13 @@ export const OSONESentinel: React.FC<OSONESentinelProps> = ({
             <div className="relative group rounded-2xl border border-white/[0.08] overflow-hidden bg-black aspect-video flex items-center justify-center shadow-2xl">
               <img 
                 src={lastImage} 
-                alt="ARVES Sentinel Preview" 
+                alt="OSONE Sentinel Preview" 
                 className="w-full h-full object-cover opacity-60 group-hover:opacity-85 transition-opacity"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
               <div className="absolute bottom-3 left-3 flex items-center gap-1.5 bg-black/60 backdrop-blur-md border border-white/10 px-2 py-1 rounded-lg">
                 <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping" />
-                <span className="text-[8px] font-mono text-zinc-300 uppercase tracking-widest">Filtros ARVES HUD</span>
+                <span className="text-[8px] font-mono text-zinc-300 uppercase tracking-widest">Filtros OSONE HUD</span>
               </div>
             </div>
           </div>
@@ -357,7 +357,7 @@ export const OSONESentinel: React.FC<OSONESentinelProps> = ({
                     <span className="text-[9px] font-mono text-zinc-500">ID: {selectedLog.id}</span>
                   </div>
 
-                  <h3 className="text-base font-bold text-zinc-100 font-sans tracking-tight">Reflexão Visual ARVES</h3>
+                  <h3 className="text-base font-bold text-zinc-100 font-sans tracking-tight">Reflexão Visual OSONE</h3>
                   
                   <div className="h-px bg-white/10" />
 
