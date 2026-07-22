@@ -248,6 +248,16 @@ export const SettingsModal = ({
       });
       const data = await response.json();
       if (response.ok && data.success) {
+        const currentModel = keys.geminiModel || 'gemini-3.5-flash';
+        const availableModels: string[] = Array.isArray(data.availableModels) ? data.availableModels : [];
+        const resolvedModel = availableModels.length > 0 && !availableModels.includes(currentModel)
+          ? (data.preferredModel || currentModel)
+          : currentModel;
+        setKeys({
+          ...keys,
+          gemini: keys.gemini.trim(),
+          geminiModel: resolvedModel as ApiKeys['geminiModel']
+        });
         setGeminiVerificationStatus('success');
         setGeminiVerificationMessage(data.message);
         if (onAddNotification) {
