@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "npm run build:vercel",
+  "buildCommand": "bun run build:vercel",
   "outputDirectory": "dist",
   "rewrites": [
     {
@@ -12,5 +12,5 @@
       "destination": "/index.html"
     }
   ],
-  "installCommand": "npm ci --no-audit --no-fund"
+  "installCommand": "bun install --frozen-lockfile"
 }
