@@ -80,7 +80,7 @@ export class AudioProcessor {
       }
       this.stopRecording();
       if (isPermissionDenied) {
-        const enhancedError = new Error("Permissão de microfone negada. Clique no cadeado (URL) para habilitar, ou abra o OSONE em uma nova aba para contornar restrições de iframe.");
+        const enhancedError = new Error("Permissão de microfone negada. Clique no cadeado (URL) para habilitar, ou abra o ARVES em uma nova aba para contornar restrições de iframe.");
         (enhancedError as any).name = 'NotAllowedError';
         throw enhancedError;
       }

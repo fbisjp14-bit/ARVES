@@ -160,7 +160,7 @@ export const SettingsModal = ({
     }
     setIsSyncing(true);
     setSyncStatus('testing');
-    setSyncMessage('Baixando dados e restabelecendo sinapses do OSONE...');
+    setSyncMessage('Baixando dados e restabelecendo sinapses do ARVES...');
     try {
       const cleanedId = id.trim().toUpperCase();
       const response = await fetch(`/api/memory-sync/load/${cleanedId}`);
@@ -248,16 +248,6 @@ export const SettingsModal = ({
       });
       const data = await response.json();
       if (response.ok && data.success) {
-        const currentModel = keys.geminiModel || 'gemini-3.5-flash';
-        const availableModels: string[] = Array.isArray(data.availableModels) ? data.availableModels : [];
-        const resolvedModel = availableModels.length > 0 && !availableModels.includes(currentModel)
-          ? (data.preferredModel || currentModel)
-          : currentModel;
-        setKeys({
-          ...keys,
-          gemini: keys.gemini.trim(),
-          geminiModel: resolvedModel as ApiKeys['geminiModel']
-        });
         setGeminiVerificationStatus('success');
         setGeminiVerificationMessage(data.message);
         if (onAddNotification) {
@@ -346,7 +336,7 @@ export const SettingsModal = ({
                 <h2 className="text-xl font-serif italic font-light">Configurações</h2>
                 <div className="flex items-center gap-2">
                   <div className="w-1.5 h-1.5 rounded-full bg-her-accent animate-pulse" />
-                  <span className="text-[10px] text-her-muted uppercase tracking-[0.2em] font-medium">Osone System v3.0</span>
+                  <span className="text-[10px] text-her-muted uppercase tracking-[0.2em] font-medium">ARVES System v3.0</span>
                 </div>
               </div>
               <button 
@@ -448,7 +438,7 @@ export const SettingsModal = ({
                       )}
 
                       <p className="mt-3 text-[10px] text-her-muted/40 italic leading-relaxed">
-                        Chave necessária para o processamento de linguagem natural, transcrição de voz e visão computacional integrada do OSONE.
+                        Chave necessária para o processamento de linguagem natural, transcrição de voz e visão computacional integrada do ARVES.
                       </p>
                     </div>
 
@@ -505,7 +495,7 @@ export const SettingsModal = ({
                         </button>
                       </div>
                       <p className="mt-3 text-[10px] text-her-muted/40 italic leading-relaxed">
-                        Escolha o modelo de inteligência preferencial para geração de código, sugestão de melhorias e chats integrados do OSONE.
+                        Escolha o modelo de inteligência preferencial para geração de código, sugestão de melhorias e chats integrados do ARVES.
                       </p>
                     </div>
 
@@ -880,7 +870,7 @@ export const SettingsModal = ({
                               className="w-full bg-[#0a0a0a]/80 border border-cyan-900/20 rounded-xl px-3 py-2 focus:outline-none focus:border-cyan-500 text-xs text-cyan-100 placeholder-cyan-900/40 resize-none font-sans"
                             />
                             <p className="text-[8.5px] text-cyan-850/80 leading-normal font-sans">
-                              Descreva os atributos acústicos do Osone Sensus. O motor neural adaptará a pronúncia por inteligência quântica para ressoar as características fornecidas acima.
+                              Descreva os atributos acústicos do ARVES Sensus. O motor neural adaptará a pronúncia por inteligência quântica para ressoar as características fornecidas acima.
                             </p>
                           </div>
                         )}
@@ -928,7 +918,7 @@ export const SettingsModal = ({
                             { id: 'neural', name: 'Constelação Neural (Padrão)' },
                             { id: 'jarvis', name: 'Jarvis (HUD 3D)' },
                             { id: 'smoke', name: 'Nuvem de Fumaça (Virtual)' },
-                            { id: 'shadow', name: 'Osone Sensus (Quântico)' },
+                            { id: 'shadow', name: 'ARVES Sensus (Quântico)' },
                           ].map((styleOption) => (
                             <button
                               key={styleOption.id}
@@ -968,7 +958,7 @@ export const SettingsModal = ({
                           <span className="text-[10px] text-her-muted/50 font-light font-mono">250%</span>
                         </div>
                         <p className="text-[10px] text-her-muted/40 font-light leading-normal">
-                          Deslize para calibrar e redimensionar o tamanho físico de todas as interfaces e renderizações do Orb do OSONE.
+                          Deslize para calibrar e redimensionar o tamanho físico de todas as interfaces e renderizações do Orb do ARVES.
                         </p>
                       </div>
 
@@ -1079,7 +1069,7 @@ export const SettingsModal = ({
                             value={aiProfile.name}
                             onChange={(e) => setAiProfile({ ...aiProfile, name: e.target.value })}
                             className="w-full bg-white/[0.02] border border-white/[0.05] rounded-2xl px-5 py-3 focus:outline-none focus:border-her-accent/30 transition-all text-sm font-light text-her-ink/80"
-                            placeholder="Ex: OSONE, EREBUS, JARVIS..."
+                            placeholder="Ex: ARVES, EREBUS, JARVIS..."
                           />
                         </div>
 
@@ -1171,7 +1161,7 @@ export const SettingsModal = ({
                         </div>
                       </div>
                       <p className="text-xs text-her-muted leading-relaxed font-light">
-                        Integre o OSONE à sua infraestrutura Google Home. Controle dispositivos, execute rotinas e monitore sua casa via comandos neurais.
+                        Integre o ARVES à sua infraestrutura Google Home. Controle dispositivos, execute rotinas e monitore sua casa via comandos neurais.
                       </p>
                     </div>
 
@@ -1183,7 +1173,7 @@ export const SettingsModal = ({
                           value={keys.googleHomeId || ''}
                           onChange={(e) => setKeys({ ...keys, googleHomeId: e.target.value })}
                           className="w-full bg-white/[0.02] border border-white/[0.05] rounded-2xl px-5 py-3 focus:outline-none focus:border-her-accent/30 transition-all text-sm font-light text-her-ink/80"
-                          placeholder="osone-home-automation"
+                          placeholder="arves-home-automation"
                         />
                       </div>
                       <div className="space-y-2">
@@ -1297,7 +1287,7 @@ export const SettingsModal = ({
                       </div>
                       
                       <p className="text-xs text-her-muted leading-relaxed font-light">
-                        Vincule toda a sua experiência OSONE — incluindo <strong>chaves de API</strong>, <strong>histórico total de conversas</strong>, <strong>perfil mental</strong> de IA, <strong>memória de longo prazo</strong> e personalizações — a um único token na nuvem. Use este token em qualquer navegador ou ambiente para restabelecer suas sinapses instantaneamente.
+                        Vincule toda a sua experiência ARVES — incluindo <strong>chaves de API</strong>, <strong>histórico total de conversas</strong>, <strong>perfil mental</strong> de IA, <strong>memória de longo prazo</strong> e personalizações — a um único token na nuvem. Use este token em qualquer navegador ou ambiente para restabelecer suas sinapses instantaneamente.
                       </p>
                     </div>
 
@@ -1376,7 +1366,7 @@ export const SettingsModal = ({
                           value={inputId}
                           onChange={(e) => setInputId(e.target.value)}
                           className="w-full bg-black/40 border border-white/10 rounded-2xl px-5 py-3.5 font-mono text-sm uppercase tracking-wide focus:outline-none focus:border-her-accent/30 transition-all text-center text-white placeholder:text-her-muted/30"
-                          placeholder="EX: OSONE-ABCD-EFGH"
+                          placeholder="EX: ARVES-ABCD-EFGH"
                         />
                       </div>
 

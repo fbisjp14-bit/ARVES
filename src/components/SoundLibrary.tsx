@@ -91,10 +91,10 @@ export const SoundLibrary = ({
       },
       {
         id: 'elenco-2',
-        name: 'Henrique',
+        name: 'Leinad',
         items: [
-          { id: 'item-henrique-1', type: 'image', url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600&auto=format&fit=crop&q=80', name: 'Henrique Retrato' },
-          { id: 'item-henrique-2', type: 'image', url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=600&auto=format&fit=crop&q=80', name: 'Henrique Sorridente' }
+          { id: 'item-henrique-1', type: 'image', url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600&auto=format&fit=crop&q=80', name: 'Leinad Retrato' },
+          { id: 'item-henrique-2', type: 'image', url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=600&auto=format&fit=crop&q=80', name: 'Leinad Sorridente' }
         ]
       }
     ];
@@ -377,7 +377,7 @@ export const SoundLibrary = ({
     setIsGenerating(true);
     
     try {
-      const prompt = `Você é um gerador de efeitos sonoros e músicas via IA para o sistema operacional OSONE.
+      const prompt = `Você é um gerador de efeitos sonoros e músicas via IA para o sistema operacional ARVES.
       O usuário quer o seguinte som: "${aiPrompt}"
       
       Retorne um JSON com:
@@ -453,7 +453,7 @@ export const SoundLibrary = ({
     const file = e.target.files?.[0];
     if (file) {
       if (file.size > 50 * 1024 * 1024) { 
-        alert('Este arquivo é muito grande. A biblioteca do OSONE suporta músicas e áudios de até 5 minutos (limite de 50MB).');
+        alert('Este arquivo é muito grande. A biblioteca do ARVES suporta músicas e áudios de até 5 minutos (limite de 50MB).');
         return;
       }
       setIsUploading(true);
@@ -480,7 +480,7 @@ export const SoundLibrary = ({
           </div>
           <div>
             <h2 className="text-base md:text-lg font-serif italic text-white/90">Biblioteca de Sons & Música</h2>
-            <p className="text-[8px] md:text-[9px] text-her-muted uppercase tracking-[0.2em] font-light">Efeitos sonoros e playlists do OSONE</p>
+            <p className="text-[8px] md:text-[9px] text-her-muted uppercase tracking-[0.2em] font-light">Efeitos sonoros e playlists do ARVES</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -751,7 +751,7 @@ export const SoundLibrary = ({
 
               {playlists.length === 0 && (
                 <div className="py-8 px-4 text-center text-her-muted italic text-[11px] font-light">
-                  Nenhuma playlist criada. Use o botão acima para organizar suas faixas do OSONE!
+                  Nenhuma playlist criada. Use o botão acima para organizar suas faixas do ARVES!
                 </div>
               )}
             </div>
@@ -866,7 +866,7 @@ export const SoundLibrary = ({
                               ? "bg-purple-500/10 border-purple-500/30 text-purple-300 shadow-[0_0_15px_rgba(168,85,247,0.15)]"
                               : "bg-white/[0.01] border-white/[0.05] text-white/40 hover:text-white/80 hover:bg-white/[0.03]"
                           )}
-                          title="Tocar esta faixa ao ativar o sistema via viva-voz (Ei Osone / Palmas)"
+                          title="Tocar esta faixa ao ativar o sistema via viva-voz (Ei ARVES / Palmas)"
                         >
                           <Sparkles size={10} className={chosenInitSoundUrl === sound.url ? "animate-pulse text-purple-400" : "text-white/30"} />
                           <span>{chosenInitSoundUrl === sound.url ? "Inicialização On" : "Tocar no Início"}</span>
@@ -1203,7 +1203,7 @@ export const SoundLibrary = ({
             {/* Volume indicator or auxiliary info */}
             <div className="hidden md:flex items-center gap-2 justify-end w-[30%] font-mono text-[9px] text-her-muted">
               <Volume2 size={12} />
-              <span>Canais Estéreo OSONE Live • 60% Vol</span>
+              <span>Canais Estéreo ARVES Live • 60% Vol</span>
             </div>
           </motion.div>
         )}

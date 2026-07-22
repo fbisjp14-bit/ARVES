@@ -28,7 +28,7 @@ export function WhatsAppIntegration({ defaultGeminiKey }: { defaultGeminiKey: st
   const [config, setConfig] = useState<WhatsAppConfig>({
     apiUrl: 'https://demo.evolution-api.com',
     apiKey: '',
-    instanceName: 'osone_assistant',
+    instanceName: 'arves_assistant',
     enabled: false,
     geminiApiKey: ''
   });
@@ -268,7 +268,7 @@ export function WhatsAppIntegration({ defaultGeminiKey }: { defaultGeminiKey: st
     setIsConfiguringWebhook(true);
     setWebhookResult(null);
 
-    // Get current OSONE origin to build the webhook destination
+    // Get current ARVES origin to build the webhook destination
     const osoneOrigin = window.location.origin;
     const webhookUrl = `${osoneOrigin}/api/whatsapp/webhook`;
 
@@ -295,7 +295,7 @@ export function WhatsAppIntegration({ defaultGeminiKey }: { defaultGeminiKey: st
       if (res.ok) {
         setWebhookResult({ 
           success: true, 
-          message: `Webhook registrado com êxito! As mensagens enviadas para o WhatsApp da instância '${config.instanceName}' agora serão interceptadas e respondidas pelo cérebro OSONE!` 
+          message: `Webhook registrado com êxito! As mensagens enviadas para o WhatsApp da instância '${config.instanceName}' agora serão interceptadas e respondidas pelo cérebro ARVES!` 
         });
         // Save chatbot activate state
         handleSaveConfig({ enabled: true });
@@ -357,7 +357,7 @@ export function WhatsAppIntegration({ defaultGeminiKey }: { defaultGeminiKey: st
           { id: 'dashboard', label: 'Monitor Central', icon: Activity },
           { id: 'settings', label: 'Ajustes de Gateway', icon: Settings },
           { id: 'logs', label: 'Histórico de Conversas', icon: QrCode },
-          { id: 'docs', label: 'Documentação OSONE', icon: BookOpen },
+          { id: 'docs', label: 'Documentação ARVES', icon: BookOpen },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -450,7 +450,7 @@ export function WhatsAppIntegration({ defaultGeminiKey }: { defaultGeminiKey: st
                     <div>
                       <h4 className="text-white text-sm font-medium">Instância Pronta para Uso</h4>
                       <p className="text-xs text-her-muted mt-1 leading-relaxed">
-                        Os canais estão ativos e o OSONE responderá automaticamente a novos chats recebidos assim que o webhook estiver configurado.
+                        Os canais estão ativos e o ARVES responderá automaticamente a novos chats recebidos assim que o webhook estiver configurado.
                       </p>
                     </div>
                   </div>
@@ -471,7 +471,7 @@ export function WhatsAppIntegration({ defaultGeminiKey }: { defaultGeminiKey: st
                 <div className="border-t border-white/[0.03] pt-5 flex flex-col gap-3">
                   <h4 className="text-[11px] text-[#aeaeae] uppercase tracking-wider font-medium">Configuração Automática</h4>
                   <p className="text-[11px] text-her-muted leading-relaxed">
-                    Clique abaixo para registrar automaticamente o servidor OSONE como assistente de inteligência artificial nos eventos desta instância.
+                    Clique abaixo para registrar automaticamente o servidor ARVES como assistente de inteligência artificial nos eventos desta instância.
                   </p>
                   
                   <button
@@ -487,7 +487,7 @@ export function WhatsAppIntegration({ defaultGeminiKey }: { defaultGeminiKey: st
                     ) : (
                       <>
                         <Shield size={12} />
-                        <span>Vincular Cérebro OSONE ao WhatsApp</span>
+                        <span>Vincular Cérebro ARVES ao WhatsApp</span>
                       </>
                     )}
                   </button>
@@ -618,7 +618,7 @@ export function WhatsAppIntegration({ defaultGeminiKey }: { defaultGeminiKey: st
                             log.type === 'error' ? 'bg-red-500/10 text-red-500' : 'bg-white/10 text-white/70'
                           }`}>
                             {log.type === 'received' ? 'Nova Mensagem' :
-                             log.type === 'sent' ? 'Auto-Resposta OSONE' :
+                             log.type === 'sent' ? 'Auto-Resposta ARVES' :
                              log.type === 'error' ? 'ERRO GATEWAY' : 'INFO SISTEMA'}
                           </span>
                           <span className="text-[8px] text-[#4d4d4d] font-mono">
@@ -637,7 +637,7 @@ export function WhatsAppIntegration({ defaultGeminiKey }: { defaultGeminiKey: st
                           <div className="border-t border-white/[0.03] pt-2 mt-1">
                             <div className="text-[9px] text-[#909090] uppercase tracking-wider mb-1 font-mono flex items-center gap-1">
                               <Cpu size={10} className="text-emerald-400" />
-                              Cérebro OSONE Gemini 3.5:
+                              Cérebro ARVES Gemini 3.5:
                             </div>
                             <div className="text-[10px] text-emerald-300 bg-emerald-900/10 p-2.5 rounded-xl border border-emerald-500/10 leading-relaxed font-light">
                               {log.response}
@@ -708,7 +708,7 @@ export function WhatsAppIntegration({ defaultGeminiKey }: { defaultGeminiKey: st
                   <label className="text-[10px] text-her-muted uppercase tracking-wider font-semibold">Nome da Instância</label>
                   <input 
                     type="text"
-                    placeholder="osone_assistant"
+                    placeholder="arves_assistant"
                     value={config.instanceName}
                     onChange={(e) => setConfig({ ...config, instanceName: e.target.value })}
                     className="p-3.5 rounded-xl bg-[#090909] border border-white/[0.06] text-xs font-mono text-white focus:outline-none focus:border-emerald-500 transition-colors"
@@ -728,7 +728,7 @@ export function WhatsAppIntegration({ defaultGeminiKey }: { defaultGeminiKey: st
                   onChange={(e) => setConfig({ ...config, geminiApiKey: e.target.value })}
                   className="p-3.5 rounded-xl bg-[#090909] border border-white/[0.06] text-xs font-mono text-white focus:outline-none focus:border-emerald-500 transition-colors"
                 />
-                <span className="text-[9px] text-[#565656]">Se deixado em branco, o bot utilizará a chave global do OSONE ({defaultGeminiKey ? 'Chave Ativa' : 'Não definida'})</span>
+                <span className="text-[9px] text-[#565656]">Se deixado em branco, o bot utilizará a chave global do ARVES ({defaultGeminiKey ? 'Chave Ativa' : 'Não definida'})</span>
               </div>
 
               <div className="flex items-center gap-3 p-4 rounded-2xl bg-[#070707] border border-white/[0.02] mt-4">
@@ -746,7 +746,7 @@ export function WhatsAppIntegration({ defaultGeminiKey }: { defaultGeminiKey: st
 
               <div className="pt-4 border-t border-white/[0.03] flex justify-between items-center">
                 <div className="text-[10px] text-[#5b5b5b] font-mono">
-                  Configuração mantida em memória local no servidor OSONE
+                  Configuração mantida em memória local no servidor ARVES
                 </div>
 
                 <button
@@ -848,7 +848,7 @@ export function WhatsAppIntegration({ defaultGeminiKey }: { defaultGeminiKey: st
                 Guia de Configuração e Uso Evolution API
               </h3>
               <p className="text-xs text-her-muted mt-2 leading-relaxed">
-                A Evolution API é uma ferramenta extraordinária para conectar WhatsApp de forma programática. Siga estes passos simples para ter o OSONE rodando no seu próprio celular:
+                A Evolution API é uma ferramenta extraordinária para conectar WhatsApp de forma programática. Siga estes passos simples para ter o ARVES rodando no seu próprio celular:
               </p>
             </div>
 
@@ -868,7 +868,7 @@ export function WhatsAppIntegration({ defaultGeminiKey }: { defaultGeminiKey: st
                 <div>
                   <h4 className="font-semibold text-white mb-1">Passo 2: Inserir Credenciais e Criar Instância</h4>
                   <p className="text-her-muted">
-                    No OSONE, acesse a aba <strong className="text-white">Ajustes de Gateway</strong>, preencha a URL da API da Evolution, digite a <code>apikey</code> global e clique em salvar. Em seguida, clique em <strong className="text-white">Gerar QR Code</strong> no painel de monitoramento para iniciar a construção da máquina de mensagens.
+                    No ARVES, acesse a aba <strong className="text-white">Ajustes de Gateway</strong>, preencha a URL da API da Evolution, digite a <code>apikey</code> global e clique em salvar. Em seguida, clique em <strong className="text-white">Gerar QR Code</strong> no painel de monitoramento para iniciar a construção da máquina de mensagens.
                   </p>
                 </div>
               </div>
@@ -878,7 +878,7 @@ export function WhatsAppIntegration({ defaultGeminiKey }: { defaultGeminiKey: st
                 <div>
                   <h4 className="font-semibold text-white mb-1">Passo 3: Escanear o QR Code</h4>
                   <p className="text-her-muted">
-                    Abra o WhatsApp no celular, navegue em <code>Dispositivos Conectados</code> e escaneie o código dinâmico gerado no visualizador do OSONE para acoplar o seu número à API com segurança criptografada.
+                    Abra o WhatsApp no celular, navegue em <code>Dispositivos Conectados</code> e escaneie o código dinâmico gerado no visualizador do ARVES para acoplar o seu número à API com segurança criptografada.
                   </p>
                 </div>
               </div>
@@ -888,8 +888,8 @@ export function WhatsAppIntegration({ defaultGeminiKey }: { defaultGeminiKey: st
                 <div>
                   <h4 className="font-semibold text-white mb-1">Passo 4: Sincronizar o Webhook</h4>
                   <p className="text-her-muted flex flex-col gap-1">
-                    <span>Para que o OSONE saiba quando novas mensagens são recebidas de modo a respondê-las em frações de segundo, você só precisa clicar no botão <strong>Vincular Cérebro OSONE ao WhatsApp</strong> na nossa página principal para registrar automaticamente.</span>
-                    <span className="text-[10px] text-amber-400 mt-1">Nota: Se seu servidor OSONE estiver rodando localmente (sem HTTPS público), use canais ngrok ou configure manualmente a webhook da Evolution apontando para a URL exibida no console de sincronização automática.</span>
+                    <span>Para que o ARVES saiba quando novas mensagens são recebidas de modo a respondê-las em frações de segundo, você só precisa clicar no botão <strong>Vincular Cérebro ARVES ao WhatsApp</strong> na nossa página principal para registrar automaticamente.</span>
+                    <span className="text-[10px] text-amber-400 mt-1">Nota: Se seu servidor ARVES estiver rodando localmente (sem HTTPS público), use canais ngrok ou configure manualmente a webhook da Evolution apontando para a URL exibida no console de sincronização automática.</span>
                   </p>
                 </div>
               </div>
@@ -897,7 +897,7 @@ export function WhatsAppIntegration({ defaultGeminiKey }: { defaultGeminiKey: st
 
             <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.04] text-[10px] text-her-muted italic flex items-center gap-2">
               <Shield size={14} className="text-emerald-400" />
-              <span>O OSONE nunca envia mensagens duplicadas ou entra em loops graças a filtros inteligentes que validam o remetente com precisão cirúrgica.</span>
+              <span>O ARVES nunca envia mensagens duplicadas ou entra em loops graças a filtros inteligentes que validam o remetente com precisão cirúrgica.</span>
             </div>
           </div>
         )}

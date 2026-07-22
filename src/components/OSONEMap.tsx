@@ -112,7 +112,7 @@ const LOCAL_GEO_DB: Array<{ names: string[]; displayName: string; lat: number; l
   { names: ['bangkok', 'tailandia', 'capital da tailandia'], displayName: 'Bangkok, Tailândia', lat: 13.7563, lng: 100.5018, desc: 'Capital tailandesa dos templos de ouro ornamentados e canais flutuantes' }
 ];
 
-// Preset locations to play with inside OSONE
+// Preset locations to play with inside ARVES
 const PRESET_PLACES = [
   { name: 'São Paulo, Brasil', lat: -23.5505, lng: -46.6333, desc: 'Metrópole pulsar da América Latina' },
   { name: 'Tóquio, Japão', lat: 35.6762, lng: 139.6503, desc: 'A capital cibernética do futuro' },
@@ -864,7 +864,7 @@ export const OSONEMap = ({ onClose, initialSearchQuery = '', onLocationFound }: 
 
       // Fetch accurate town/city/country via reverse lookup
       fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=10`, {
-        headers: { Accept: 'application/json', 'User-Agent': 'OSONE-3DGlobe-Navigator/6.0' }
+        headers: { Accept: 'application/json', 'User-Agent': 'ARVES-3DGlobe-Navigator/6.0' }
       })
         .then(res => res.json())
         .then(data => {
@@ -993,7 +993,7 @@ export const OSONEMap = ({ onClose, initialSearchQuery = '', onLocationFound }: 
       const formattedQuery = encodeURIComponent(queryText);
       const url = `https://nominatim.openstreetmap.org/search?format=json&q=${formattedQuery}&limit=1`;
       const response = await fetch(url, {
-        headers: { Accept: 'application/json', 'User-Agent': 'OSONE-3DGlobe-Navigator/6.0' }
+        headers: { Accept: 'application/json', 'User-Agent': 'ARVES-3DGlobe-Navigator/6.0' }
       });
       
       if (!response.ok) {
@@ -1072,7 +1072,7 @@ export const OSONEMap = ({ onClose, initialSearchQuery = '', onLocationFound }: 
           </button>
           <div>
             <div className="flex items-center gap-1.5">
-              <span className="text-[8px] md:text-[9px] tracking-[0.3em] font-serif italic text-orange-400 font-bold uppercase">OSONE Holographic Core</span>
+              <span className="text-[8px] md:text-[9px] tracking-[0.3em] font-serif italic text-orange-400 font-bold uppercase">ARVES Holographic Core</span>
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
             </div>
             <h2 className="text-sm md:text-md font-medium tracking-tight text-white flex items-center gap-1.5">
@@ -1404,7 +1404,7 @@ export const OSONEMap = ({ onClose, initialSearchQuery = '', onLocationFound }: 
                     <div className="absolute top-0 left-0 w-full h-0.5 bg-orange-500 bg-opacity-80 shadow-[0_0_10px_#f97316] animate-scan-down" />
                     <Loader2 size={18} className="text-orange-400 animate-spin mb-1.5" />
                     <span className="text-[9px] font-mono uppercase tracking-widest text-orange-400 font-bold animate-pulse">TRAVANDO SINAL...</span>
-                    <span className="text-[7px] font-mono text-zinc-500 mt-1 uppercase tracking-wider">SAT: OSONE-G5-ACTV [98.4%]</span>
+                    <span className="text-[7px] font-mono text-zinc-500 mt-1 uppercase tracking-wider">SAT: ARVES-G5-ACTV [98.4%]</span>
                   </div>
                 )}
 

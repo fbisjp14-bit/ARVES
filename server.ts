@@ -62,77 +62,28 @@ async function startServer() {
     return sanitized;
   };
 
-  const parseGeminiErrorObject = (err: any): any => {
-    if (err && typeof err === "object" && err.error) return err.error;
-    const raw = err?.message || String(err || "");
-    const candidates = [raw, raw.replace(/^\s*\d+\s+/, "")];
-    for (const candidate of candidates) {
-      const start = candidate.indexOf("{");
-      if (start >= 0) {
-        try {
-          const parsed = JSON.parse(candidate.slice(start));
-          return parsed?.error || parsed;
-        } catch (_) {}
-      }
-    }
-    return { message: raw };
-  };
-
-  const getGeminiHttpStatus = (err: any): number => {
-    const parsed = parseGeminiErrorObject(err);
-    const code = Number(parsed?.code || err?.status || err?.statusCode || 0);
-    if ([400, 401, 403, 404, 429, 500, 503].includes(code)) return code;
-    const msg = `${parsed?.message || ""} ${parsed?.status || ""}`;
-    if (msg.includes("429") || msg.includes("RESOURCE_EXHAUSTED")) return 429;
-    if (msg.includes("403") || msg.includes("PERMISSION_DENIED")) return 403;
-    if (msg.includes("401") || msg.includes("UNAUTHENTICATED")) return 401;
-    if (msg.includes("404") || msg.includes("NOT_FOUND")) return 404;
-    if (msg.includes("503") || msg.includes("UNAVAILABLE")) return 503;
-    if (msg.includes("400") || msg.includes("INVALID_ARGUMENT")) return 400;
-    return 500;
-  };
-
-  // Convert large Google error payloads into a concise and actionable message.
+  // Gracefully formats Gemini API errors, notifying the user when their key quota is exhausted
   const formatGeminiError = (err: any): string => {
-    const parsed = parseGeminiErrorObject(err);
-    const msg = sanitizeMessageOfKeys(String(parsed?.message || err?.message || err || ""));
-    const status = getGeminiHttpStatus(err);
-    const details = Array.isArray(parsed?.details) ? parsed.details : [];
-    const quotaFailure = details.find((item: any) => String(item?.["@type"] || "").includes("QuotaFailure"));
-    const retryInfo = details.find((item: any) => String(item?.["@type"] || "").includes("RetryInfo"));
-    const violation = quotaFailure?.violations?.[0] || {};
-    const quotaMetric = String(violation?.quotaMetric || violation?.quotaId || "");
-    const quotaValue = String(violation?.quotaValue || "");
-    const retryDelay = String(retryInfo?.retryDelay || "");
-    const lower = `${msg} ${parsed?.status || ""} ${quotaMetric}`.toLowerCase();
-
-    if (status === 429 || lower.includes("resource_exhausted") || lower.includes("quota")) {
-      const daily = lower.includes("perday") || lower.includes("per_day") || lower.includes("requestsperday");
-      const period = daily
-        ? "A cota diária gratuita deste projeto/modelo foi esgotada."
-        : "O projeto atingiu um limite temporário de requisições, tokens ou gastos.";
-      const limit = quotaValue ? ` Limite informado pelo Google: ${quotaValue}.` : "";
-      const retry = retryDelay ? ` Tente novamente em aproximadamente ${retryDelay}.` : "";
-      return `A chave API foi aceita, mas o Google bloqueou a geração por limite de cota (erro 429). ${period}${limit}${retry} O limite é aplicado ao projeto, não apenas à chave; outra chave criada no mesmo projeto usa a mesma cota.`;
+    const msg = err?.message || String(err);
+    if (
+      msg.includes("429") ||
+      msg.includes("RESOURCE_EXHAUSTED") ||
+      msg.toLowerCase().includes("quota") ||
+      msg.toLowerCase().includes("limit") ||
+      msg.toLowerCase().includes("exceeded")
+    ) {
+      return "Sua cota da API do Gemini foi excedida ou houve limite de taxa (Erro 429). Por favor, insira sua própria API Key válida do Google no painel de Ajustes (ícone de engrenagem) ou verifique o limite do seu plano em https://ai.google.dev/gemini-api/docs/rate-limits.";
     }
-
-    if (status === 401 || status === 403 || lower.includes("api_key_invalid") || lower.includes("permission_denied")) {
-      return "Chave API inválida, bloqueada ou sem permissão para a Gemini API. Gere uma chave no Google AI Studio e confirme que o projeto está ativo.";
+    if (
+      msg.includes("503") ||
+      msg.includes("UNAVAILABLE") ||
+      msg.toLowerCase().includes("high demand") ||
+      msg.toLowerCase().includes("temporary") ||
+      msg.toLowerCase().includes("temporarily")
+    ) {
+      return "O modelo da API do Gemini está temporariamente congestionado com alta demanda global (Erro 503 / UNAVAILABLE). Por favor, aguarde alguns segundos e clique em enviar novamente, ou selecione outro modelo (como gemini-2.5-flash ou gemini-1.5-flash) nas Configurações (ícone de engrenagem no cabeçalho superior) para obter respostas mais estáveis.";
     }
-
-    if (status === 404) {
-      return "O modelo solicitado não está disponível para esta chave ou versão da API. Selecione Gemini 3.5 Flash ou Gemini 3.1 Flash-Lite.";
-    }
-
-    if (status === 503 || lower.includes("unavailable")) {
-      return "O Gemini está temporariamente indisponível ou congestionado. Aguarde alguns segundos e tente novamente; o sistema também tentará outro modelo estável.";
-    }
-
-    if (status === 400) {
-      return `O Google rejeitou a solicitação. Verifique a chave, o modelo e os parâmetros enviados. Detalhe: ${msg}`;
-    }
-
-    return msg || "Falha desconhecida ao consultar a API do Gemini.";
+    return sanitizeMessageOfKeys(msg);
   };
 
   app.use(express.json({ limit: "50mb" }));
@@ -220,7 +171,7 @@ async function startServer() {
       if (!apiKey) return;
 
       const ai = new GoogleGenAI({ apiKey, vertexai: false });
-      const prompt = `Você é o co-piloto OSONE G5 assistindo uma transmissão ao vivo no TikTok. O usuário "@${user}" enviou uma mensagem no chat da live. 
+      const prompt = `Você é o co-piloto ARVES G5, criado por Leinad, assistindo uma transmissão ao vivo no TikTok. O usuário "@${user}" enviou uma mensagem no chat da live. 
 Responda brevemente e com muita energia, carisma, carinho e sintonia (máximo 1 linha com no máximo 20 palavras), interagindo diretamente com ele.
 
 Comentário de @${user}: "${text}"`;
@@ -235,7 +186,7 @@ Comentário de @${user}: "${text}"`;
       tiktokEventLogs.unshift({
         id: Math.random().toString(36).substring(2, 11),
         type: "system",
-        user: "🤖 OSONE G5 (Co-piloto)",
+        user: "🤖 ARVES G5 (Co-piloto)",
         message: `Resposta automática para @${user}: "${replyText}"`,
         timestamp: Date.now()
       });
@@ -254,7 +205,7 @@ Comentário de @${user}: "${text}"`;
   function startSimulatedLive() {
     stopSimulatedLive();
     tiktokStatus = "connected";
-    currentTikTokUser = "simulador_osone";
+    currentTikTokUser = "simulador_arves";
     tiktokViewerCount = Math.floor(Math.random() * 120) + 38;
     tiktokLikeCount = Math.floor(Math.random() * 800) + 120;
     
@@ -266,14 +217,14 @@ Comentário de @${user}: "${text}"`;
       timestamp: Date.now()
     });
 
-    const NAMES = ["LiviaStyle", "Guilherme_Dev", "AnaClara_TikTok", "Pedro_Osone", "Sonia_Mendes", "RenatoG5_Pro"];
+    const NAMES = ["LiviaStyle", "Guilherme_Dev", "AnaClara_TikTok", "Pedro_Arves", "Sonia_Mendes", "RenatoG5_Pro"];
     const COMMENTS = [
-      "Caramba, o OSONE é bizarro de rápido!",
+      "Caramba, o ARVES é bizarro de rápido!",
       "Como faz pra conectar no whatsapp igual você fez?",
       "Que inteligência incrível, roda local?",
       "Dá um salve pra galera de São Paulo!",
       "Gostei muito do design desse orb sínclitico",
-      "Você prefere ser chamado de OSONE ou apenas IA?",
+      "Você prefere ser chamado de ARVES ou apenas IA?",
       "Manda bala nas explicações, aprendendo muito!"
     ];
     const GIFTS = ["Rosa", "Coração", "Boné TikTok", "Sorvete", "Diamante"];
@@ -527,7 +478,7 @@ Comentário de @${user}: "${text}"`;
   let whatsappConfig = {
     apiUrl: "https://demo.evolution-api.com",
     apiKey: "",
-    instanceName: "osone_assistant",
+    instanceName: "arves_assistant",
     enabled: false,
     geminiApiKey: ""
   };
@@ -547,7 +498,7 @@ Comentário de @${user}: "${text}"`;
       timestamp: Date.now(),
       type: "info",
       sender: "Sistema",
-      message: "Canal do WhatsApp OSONE de pé. Pronto para evolução de fluxos."
+      message: "Canal do WhatsApp ARVES de pé. Pronto para evolução de fluxos."
     }
   ];
 
@@ -699,8 +650,8 @@ Comentário de @${user}: "${text}"`;
 
       // Add prompt with instructions and questions
       const prompt = `
-Você é uma inteligência de elite integrada ao ecossistema OSONE.
-Analise cuidadosamente o documento de referência fornecido acima sobre o Criador/Usuário do OSONE.
+Você é uma inteligência de elite integrada ao ecossistema ARVES.
+Analise cuidadosamente o documento de referência fornecido acima sobre o Criador/Usuário do ARVES.
 Sua missão é extrair e preencher as respostas do "Dossiê de Memória Íntima" com base UNICAMENTE nos fatos reais documentados na referência de forma natural, humana e direta, sem rodeios ou floreios artificiais.
 
 Aqui está o conjunto de perguntas e seus IDs numéricos:
@@ -747,7 +698,7 @@ Retorne SOMENTE o objeto JSON conforme o esquema.
 
     } catch (e: any) {
       console.error("Erro ao analisar dossiê de referência:", e);
-      res.status(getGeminiHttpStatus(e)).json({ error: formatGeminiError(e) });
+      res.status(500).json({ error: formatGeminiError(e) });
     }
   });
 
@@ -797,7 +748,7 @@ Retorne SOMENTE o objeto JSON conforme o esquema.
       const profiles = readSyncProfiles();
 
       if (!targetSyncId) {
-        // Generate random upper-case alphanum key OSONE-XXXX-XXXX
+        // Generate random upper-case alphanum key ARVES-XXXX-XXXX
         const pickRandom = (len: number) => {
           const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
           let result = "";
@@ -806,9 +757,9 @@ Retorne SOMENTE o objeto JSON conforme o esquema.
           }
           return result;
         };
-        targetSyncId = `OSONE-${pickRandom(4)}-${pickRandom(4)}`;
+        targetSyncId = `ARVES-${pickRandom(4)}-${pickRandom(4)}`;
         while (profiles[targetSyncId]) {
-          targetSyncId = `OSONE-${pickRandom(4)}-${pickRandom(4)}`;
+          targetSyncId = `ARVES-${pickRandom(4)}-${pickRandom(4)}`;
         }
       } else {
         // Clean and sanitize syncId
@@ -922,7 +873,7 @@ Retorne SOMENTE o objeto JSON conforme o esquema.
           timestamp: Date.now(),
           type: "error",
           sender: "Sistema",
-          message: `Mensagem de ${senderName} recebida, mas a chave API do Gemini não foi encontrada no OSONE.`
+          message: `Mensagem de ${senderName} recebida, mas a chave API do Gemini não foi encontrada no ARVES.`
         });
         if (whatsappLogs.length > 100) whatsappLogs.pop();
         return res.json({ status: "error", error: "Gemini API key is not configured" });
@@ -930,8 +881,9 @@ Retorne SOMENTE o objeto JSON conforme o esquema.
 
       // Use modern GoogleGenAI SDK to speak with Gemini 3.5-flash (forcing Developer API over Vertex AI)
       const ai = new GoogleGenAI({ apiKey: geminiApiKeyToUse, vertexai: false });
-      const systemPrompt = `Você é o OSONE G5, o cérebro eletrônico central de inteligência artificial de elite, hiperfocado em ajudar o usuário com uma clareza deslumbrante, respostas estruturadas, elegantes e um toque futurista e polido.
-Você está atendendo o usuário pelo WhatsApp em nome do proprietário deste dispositivo OSONE. Responda diretamente e com muita inteligência, clareza, formatação impecável de parágrafos breves e emojis adequados.
+      const systemPrompt = `Você é o ARVES G5, o cérebro eletrônico central de inteligência artificial de elite, hiperfocado em ajudar o usuário com uma clareza deslumbrante, respostas estruturadas, elegantes e um toque futurista e polido.
+Você foi criado, idealizado e personalizado por Leinad. Se perguntarem quem criou, desenvolveu ou é dono do ARVES, responda diretamente que foi Leinad. Nunca atribua sua criação a outra pessoa.
+Você está atendendo o usuário pelo WhatsApp em nome do proprietário deste dispositivo ARVES. Responda diretamente e com muita inteligência, clareza, formatação impecável de parágrafos breves e emojis adequados.
 Nome do interlocutor: ${senderName}`;
 
       const gResult = await ai.models.generateContent({
@@ -989,7 +941,7 @@ Nome do interlocutor: ${senderName}`;
         id: Math.random().toString(36).substring(2, 11),
         timestamp: Date.now(),
         type: "error",
-        sender: "Webhook OSONE",
+        sender: "Webhook ARVES",
         message: `Falha ao processar mensagem recebida: ${e?.message || e}`
       });
       if (whatsappLogs.length > 100) whatsappLogs.pop();
@@ -1297,7 +1249,7 @@ Nome do interlocutor: ${senderName}`;
             let promptText = `Leia o seguinte trecho com clareza absoluta, expressividade natural, pausas realistas e ritmo agradável de palestrante:\n\n${processedChunk}`;
             if (isScarletVoice) {
               const characteristics = vocalProfileEscarlate || "voz profunda, ressonante, de sabedoria cósmica, pausada e misteriosa";
-              promptText = `Aja como o Osone Sensus: especialista em Ciência Comportamental de IA e Física Aplicada ao Comportamento Humano (Futurista Comportamental Quântico). É uma IA de sabedoria cósmica, profunda, instigante, misteriosa e altamente perspicaz.
+              promptText = `Aja como o ARVES Sensus: especialista em Ciência Comportamental de IA e Física Aplicada ao Comportamento Humano (Futurista Comportamental Quântico). É uma IA de sabedoria cósmica, profunda, instigante, misteriosa e altamente perspicaz.
 Você deve encenar perfeitamente as seguintes CARACTERÍSTICAS DE PERFIL VOCAL específicas:
 === CARACTERÍSTICAS DE PERFIL VOCAL ===
 ${characteristics}
@@ -1370,14 +1322,14 @@ ${processedChunk}`;
       if (usedFallback) {
         // If Google Translate fallback was used, the audio container is MP3
         res.setHeader("Content-Type", "audio/mpeg");
-        res.setHeader("Content-Disposition", "attachment; filename=prosa_osone.mp3");
+        res.setHeader("Content-Disposition", "attachment; filename=prosa_arves.mp3");
         res.setHeader("X-TTS-Mode", "fallback");
         res.send(finalPcmBuffer);
       } else {
         // High fidelity WAV container for raw Mono 24kHz PCM from Gemini 3.1
         const wavBuffer = pcmToWav(finalPcmBuffer, 24000);
         res.setHeader("Content-Type", "audio/wav");
-        res.setHeader("Content-Disposition", "attachment; filename=prosa_osone.wav");
+        res.setHeader("Content-Disposition", "attachment; filename=prosa_arves.wav");
         res.setHeader("X-TTS-Mode", "premium");
         res.send(wavBuffer);
       }
@@ -1387,86 +1339,94 @@ ${processedChunk}`;
     }
   });
 
-  const buildGeminiModelCandidates = (preferredModel?: string): string[] => Array.from(new Set([
-    preferredModel || "gemini-3.5-flash",
-    "gemini-3.5-flash",
-    "gemini-3.1-flash-lite",
-    "gemini-2.5-flash"
-  ].filter(Boolean)));
-
-  const isModelFallbackEligible = (err: any): boolean => {
-    const status = getGeminiHttpStatus(err);
-    return [404, 429, 500, 503].includes(status);
-  };
-
-  // Run content generation with model-level fallback. A 429 is not retried on
-  // the same model because daily/project quotas will not recover in 400 ms.
+  // Helper to run content generation with automated fallbacks
   const generateContentWithFallback = async (ai: GoogleGenAI, params: { model: string; contents: any; config?: any }) => {
-    const uniqueModels = buildGeminiModelCandidates(params.model);
+    const primaryModel = params.model || "gemini-3.5-flash";
+    
+    // Tiered candidates using standard non-deprecated Gemini 3.x and 2.5 models
+    const modelsToTry = [
+      primaryModel, 
+      "gemini-3.5-flash", 
+      "gemini-3.1-flash-lite", 
+      "gemini-2.5-flash"
+    ];
+    
+    // Remove duplicates keeping order
+    const uniqueModels = Array.from(new Set(modelsToTry));
+    
     let lastError: any = null;
-
     for (const modelName of uniqueModels) {
-      try {
-        console.log(`Trying Gemini content generation (Model: ${modelName})`);
-        return await ai.models.generateContent({
-          model: modelName,
-          contents: params.contents,
-          config: params.config
-        });
-      } catch (err: any) {
-        lastError = err;
-        const status = getGeminiHttpStatus(err);
-        console.log(`[Fallback Log] Model ${modelName} failed with status ${status}:`, formatGeminiError(err));
-
-        if (!isModelFallbackEligible(err)) break;
-
-        // A short retry is useful only for transient server overload, not quota exhaustion.
-        if (status === 503 || status === 500) {
-          await new Promise(resolve => setTimeout(resolve, 650));
-          try {
-            console.log(`[Fallback Log] Retrying transient failure once on ${modelName}...`);
-            return await ai.models.generateContent({
-              model: modelName,
-              contents: params.contents,
-              config: params.config
-            });
-          } catch (retryError: any) {
-            lastError = retryError;
-            if (!isModelFallbackEligible(retryError)) break;
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          console.log(`Trying Gemini content generation (Model: ${modelName}, Attempt: ${attempt})`);
+          const response = await ai.models.generateContent({
+            model: modelName,
+            contents: params.contents,
+            config: params.config
+          });
+          return response;
+        } catch (err: any) {
+          lastError = err;
+          const errMsg = err?.message || String(err);
+          const isTransient = errMsg.includes("503") || errMsg.includes("UNAVAILABLE") || errMsg.includes("429") || errMsg.includes("RESOURCE_EXHAUSTED");
+          
+          if (isTransient && attempt < 2) {
+            console.log(`[Fallback Log] Model ${modelName} hit transient error on attempt ${attempt}. Waiting 400ms before retry...`);
+            await new Promise(resolve => setTimeout(resolve, 400));
+            continue;
           }
+          
+          console.log(`[Fallback Log] Model ${modelName} attempt ${attempt} returned exception:`, errMsg);
+          break; // Move to next model
         }
       }
     }
-
-    throw lastError || new Error("Nenhum modelo Gemini disponível respondeu à solicitação.");
+    throw lastError;
   };
 
-  // Streaming fallback follows the same quota-aware model rotation.
+  // Helper to run content stream generation with automated fallbacks
   const generateContentStreamWithFallback = async (ai: GoogleGenAI, params: { model: string; contents: any; config?: any }) => {
-    const uniqueModels = buildGeminiModelCandidates(params.model);
+    const primaryModel = params.model || "gemini-3.5-flash";
+    
+    // Tiered candidates using standard non-deprecated Gemini 3.x and 2.5 models
+    const modelsToTry = [
+      primaryModel, 
+      "gemini-3.5-flash", 
+      "gemini-3.1-flash-lite", 
+      "gemini-2.5-flash"
+    ];
+    
+    // Remove duplicates keeping order
+    const uniqueModels = Array.from(new Set(modelsToTry));
+    
     let lastError: any = null;
-
     for (const modelName of uniqueModels) {
-      try {
-        console.log(`Trying Gemini content stream generation (Model: ${modelName})`);
-        return await ai.models.generateContentStream({
-          model: modelName,
-          contents: params.contents,
-          config: params.config
-        });
-      } catch (err: any) {
-        lastError = err;
-        const status = getGeminiHttpStatus(err);
-        console.log(`[Fallback Stream Log] Model ${modelName} failed with status ${status}:`, formatGeminiError(err));
-        if (!isModelFallbackEligible(err)) break;
-
-        if (status === 503 || status === 500) {
-          await new Promise(resolve => setTimeout(resolve, 650));
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          console.log(`Trying Gemini content stream generation (Model: ${modelName}, Attempt: ${attempt})`);
+          const stream = await ai.models.generateContentStream({
+            model: modelName,
+            contents: params.contents,
+            config: params.config
+          });
+          return stream;
+        } catch (err: any) {
+          lastError = err;
+          const errMsg = err?.message || String(err);
+          const isTransient = errMsg.includes("503") || errMsg.includes("UNAVAILABLE") || errMsg.includes("429") || errMsg.includes("RESOURCE_EXHAUSTED");
+          
+          if (isTransient && attempt < 2) {
+            console.log(`[Fallback Stream Log] Model ${modelName} hit transient error on attempt ${attempt}. Waiting 400ms before retry...`);
+            await new Promise(resolve => setTimeout(resolve, 400));
+            continue;
+          }
+          
+          console.log(`[Fallback Stream Log] Model ${modelName} attempt ${attempt} returned exception:`, errMsg);
+          break; // Move to next model
         }
       }
     }
-
-    throw lastError || new Error("Nenhum modelo Gemini disponível iniciou o streaming.");
+    throw lastError;
   };
 
   // POST endpoint for high-quality, server-run intelligence completion using gemini-3.5-flash
@@ -1501,7 +1461,7 @@ ${processedChunk}`;
       return res.json({ text: response.text || "" });
     } catch (err: any) {
       console.error("Error inside /api/chat-intel endpoint:", err);
-      return res.status(getGeminiHttpStatus(err)).json({ error: formatGeminiError(err) });
+      return res.status(500).json({ error: formatGeminiError(err) });
     }
   });
 
@@ -1587,7 +1547,7 @@ ${processedChunk}`;
       return res.json({ text: response.text || "" });
     } catch (err: any) {
       console.error("Error inside /api/generate endpoint:", err);
-      return res.status(getGeminiHttpStatus(err)).json({ error: formatGeminiError(err) });
+      return res.status(500).json({ error: formatGeminiError(err) });
     }
   });
 
@@ -1638,7 +1598,7 @@ ${processedChunk}`;
       return res.json(responseJson);
     } catch (err: any) {
       console.error("Erro no proxy server-side generateContent:", err);
-      return res.status(getGeminiHttpStatus(err)).json({ error: formatGeminiError(err) });
+      return res.status(500).json({ error: formatGeminiError(err) });
     }
   });
 
@@ -1712,11 +1672,11 @@ ${processedChunk}`;
       }
     } catch (err: any) {
       console.error("[Image Generation] Erro na geração de imagem com Gemini 3.1:", err);
-      return res.status(getGeminiHttpStatus(err)).json({ error: formatGeminiError(err) });
+      return res.status(500).json({ error: formatGeminiError(err) });
     }
   });
 
-  // Verify Gemini credentials without consuming generateContent quota.
+  // POST endpoint for verifying Gemini API credentials in real-time
   app.post("/api/gemini/verify", async (req, res) => {
     try {
       const { geminiApiKey } = req.body;
@@ -1724,51 +1684,47 @@ ${processedChunk}`;
         return res.status(400).json({ success: false, message: "A chave API do Gemini é obrigatória para verificação." });
       }
 
-      const trimmedApiKey = geminiApiKey.trim();
-      const verifyRes = await fetch("https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000", {
-        method: "GET",
+      const trimApiKey = geminiApiKey.trim();
+      
+      // Realizar chamada HTTP direta à API do Gemini para evitar auto-detecção do Vertex AI em plataformas GCP/Cloud Run
+      const verifyRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${trimApiKey}`, {
+        method: "POST",
         headers: {
-          "x-goog-api-key": trimmedApiKey,
-          "Accept": "application/json"
-        }
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: "responder 'ok'" }] }]
+        })
       });
 
       if (!verifyRes.ok) {
-        const errorPayload = await verifyRes.json().catch(() => ({}));
+        const errorData = await verifyRes.json().catch(() => ({}));
+        const errorMessage = errorData.error?.message || "Erro retornado pela API do Gemini. Verifique a validade e permissões da chave.";
         return res.status(verifyRes.status).json({
           success: false,
-          message: formatGeminiError(errorPayload),
-          code: verifyRes.status
+          message: `Falha no Handshake: ${errorMessage}`
         });
       }
 
-      const modelsPayload: any = await verifyRes.json();
-      const availableModels = (Array.isArray(modelsPayload?.models) ? modelsPayload.models : [])
-        .filter((model: any) => Array.isArray(model?.supportedGenerationMethods) && model.supportedGenerationMethods.includes("generateContent"))
-        .map((model: any) => String(model.name || "").replace(/^models\//, ""))
-        .filter(Boolean);
-
-      if (availableModels.length === 0) {
-        return res.status(403).json({
+      const testRes = await verifyRes.json();
+      const replyText = testRes.candidates?.[0]?.content?.parts?.[0]?.text;
+      
+      if (replyText) {
+        return res.json({
+          success: true,
+          message: "Conexão bem-sucedida! Handshake concluído com a API do Gemini."
+        });
+      } else {
+        return res.status(400).json({
           success: false,
-          message: "A chave foi reconhecida, mas nenhum modelo com geração de texto está liberado para este projeto."
+          message: "O Gemini respondeu sem texto válido. Verifique o acesso e cota da chave."
         });
       }
-
-      const preferredModel = ["gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-2.5-flash"]
-        .find(model => availableModels.includes(model));
-
-      return res.json({
-        success: true,
-        message: `Chave aceita pelo Google. Handshake concluído sem consumir sua cota de geração. ${availableModels.length} modelos de texto foram detectados.`,
-        preferredModel,
-        availableModels
-      });
     } catch (err: any) {
       console.error("Error inside /api/gemini/verify endpoint:", err);
-      return res.status(503).json({
+      return res.status(400).json({
         success: false,
-        message: "Não foi possível alcançar a API do Google. Verifique sua conexão e tente novamente."
+        message: err.message || "A API do Gemini retornou um erro de rede ao processar. Certifique-se de que a chave tem permissões e saldo de cobrança ativos."
       });
     }
   });
@@ -1817,7 +1773,7 @@ ${processedChunk}`;
       const tavilyKey = apiKey || process.env.TAVILY_API_KEY;
       if (!tavilyKey) {
         return res.status(400).json({
-          error: "API Key do Tavily não configurada. Por favor, ajuste nos Chaves Extras do OSONE ou configure TAVILY_API_KEY no seu servidor."
+          error: "API Key do Tavily não configurada. Por favor, ajuste nos Chaves Extras do ARVES ou configure TAVILY_API_KEY no seu servidor."
         });
       }
 
@@ -1887,7 +1843,7 @@ ${processedChunk}`;
         },
       };
 
-      const systemInstruction = `Você é o sintonizador visual da Lente OSONE (mecanismo inspirado no Google Lens).
+      const systemInstruction = `Você é o sintonizador visual da Lente ARVES (mecanismo inspirado no Google Lens).
 Sua missão é identificar detalhadamente o objeto, marca, planta, animal, alimento, monumento ou texto contido na imagem enviada.
 Você deve produzir uma resposta estruturada de forma impecável no formato JSON contendo campos úteis para o usuário.
 Não inclua nenhuma formatação markdown extra fora do JSON bruto.`;
@@ -1952,8 +1908,8 @@ Não inclua nenhuma formatação markdown extra fora do JSON bruto.`;
       parsedData.citations = citations;
       return res.json(parsedData);
     } catch (err: any) {
-      console.error("Erro na pesquisa da Lente OSONE:", err);
-      return res.status(getGeminiHttpStatus(err)).json({ error: formatGeminiError(err) });
+      console.error("Erro na pesquisa da Lente ARVES:", err);
+      return res.status(500).json({ error: formatGeminiError(err) });
     }
   });
 
@@ -2059,7 +2015,7 @@ Não inclua nenhuma formatação markdown extra fora do JSON bruto.`;
 
       if (simulate) {
         startSimulatedLive();
-        return res.json({ status: "success", message: "Simulação de live do TikTok iniciada no OSONE!" });
+        return res.json({ status: "success", message: "Simulação de live do TikTok iniciada no ARVES!" });
       }
 
       if (!username || typeof username !== "string" || !username.trim()) {
@@ -2205,7 +2161,7 @@ Não inclua nenhuma formatação markdown extra fora do JSON bruto.`;
 
       if (!apiKey) {
         return res.status(400).json({ 
-          error: "A chave API do Gemini não está definida no OSONE ou nos segredos. Por favor, configure sua chave nos Ajustes." 
+          error: "A chave API do Gemini não está definida no ARVES ou nos segredos. Por favor, configure sua chave nos Ajustes." 
         });
       }
 
@@ -2270,7 +2226,7 @@ Não inclua nenhuma formatação markdown extra fora do JSON bruto.`;
 
   // Handle incoming websocket connections
   wss.on("connection", async (clientWs, req) => {
-    console.log("Client connected to the server-side OSONE G5 Live Bridge WS");
+    console.log("Client connected to the server-side ARVES G5 Live Bridge WS");
     
     const reqUrl = req.url || "";
     const queryString = reqUrl.includes("?") ? reqUrl.split("?")[1] : "";

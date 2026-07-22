@@ -306,7 +306,7 @@ export const TikTokLivePanel = ({
                   <div className="text-left flex-1 pr-4">
                     <span className="block text-[10px] font-bold text-zinc-200 uppercase leading-none">Narração Vocal Ativa</span>
                     <span className="text-[8.5px] text-zinc-500 select-none block mt-1.5 leading-normal">
-                      OSONE lerá em som alto novos chats e presentes em português conforme ocorrem na live!
+                      ARVES lerá em som alto novos chats e presentes em português conforme ocorrem na live!
                     </span>
                   </div>
                   <button
@@ -357,7 +357,7 @@ export const TikTokLivePanel = ({
                   <div className="text-left flex-1 pr-4">
                     <span className="block text-[10px] font-bold text-zinc-200 uppercase leading-none">Auto-responder Gemini</span>
                     <span className="text-[8.5px] text-zinc-500 select-none block mt-1.5 leading-normal">
-                      OSONE criará retornos ultra curtos na CPU central para cada comentário do chat!
+                      ARVES criará retornos ultra curtos na CPU central para cada comentário do chat!
                     </span>
                   </div>
                   <button
@@ -380,7 +380,7 @@ export const TikTokLivePanel = ({
                     <span>Consciência Integrada</span>
                   </div>
                   <p className="text-[9px] leading-relaxed text-zinc-400">
-                    Ao manter a live conectada, a IA OSONE G5 se encarrega de ler e formular piadas, interações e respostas. Na aba do chat principal, você poderá consultar as métricas de retenção e as últimas interações recolhidas da webcast!
+                    Ao manter a live conectada, a IA ARVES G5 se encarrega de ler e formular piadas, interações e respostas. Na aba do chat principal, você poderá consultar as métricas de retenção e as últimas interações recolhidas da webcast!
                   </p>
                 </div>
               </div>

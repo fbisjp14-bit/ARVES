@@ -641,7 +641,7 @@ export const KaraokePanel: React.FC<KaraokePanelProps> = ({
               {lyrics?.title || "Letra Ativa"}
             </h3>
             <span className="text-[9px] text-[#888] font-mono tracking-widest uppercase block mt-0.5">
-              MICRO-SINTETIZADOR SÍNCRONO OSONE
+              MICRO-SINTETIZADOR SÍNCRONO ARVES
             </span>
           </div>
         </div>
@@ -679,7 +679,7 @@ export const KaraokePanel: React.FC<KaraokePanelProps> = ({
                 playPhraseAtIndex(currentLineIndex === -1 ? 0 : currentLineIndex);
               }
             }}
-            title="Ativar/Desativar Voz Cantada do OSONE"
+            title="Ativar/Desativar Voz Cantada do ARVES"
             className={`p-2 border text-xs rounded-xl transition-all cursor-pointer flex items-center gap-1.5 px-3 ${
               !muteVocalGuide 
                 ? "bg-pink-500/10 border-pink-500/25 text-pink-300 shadow-[0_0_15px_rgba(244,63,94,0.15)]" 
@@ -720,7 +720,7 @@ export const KaraokePanel: React.FC<KaraokePanelProps> = ({
             <div className="space-y-1">
               <h2 className="text-lg font-bold text-white uppercase tracking-wider">Música Pronta para Canto</h2>
               <p className="text-xs text-[#888] font-sans leading-relaxed">
-                Clique em Iniciar para ativar o sintetizador de voz. O OSONE modulará as frequências do sintetizador em tempo real, acompanhado por acordes analógicos e beats gerados em loop!
+                Clique em Iniciar para ativar o sintetizador de voz. O ARVES modulará as frequências do sintetizador em tempo real, acompanhado por acordes analógicos e beats gerados em loop!
               </p>
             </div>
 
@@ -746,7 +746,7 @@ export const KaraokePanel: React.FC<KaraokePanelProps> = ({
             <div className="space-y-1">
               <h2 className="text-lg font-bold text-white uppercase tracking-wider">Apresentação Finalizada!</h2>
               <p className="text-xs text-[#888] font-sans">
-                O OSONE concluiu com êxito as modulações e tons neurais da canção. Excelente sincronia acústica!
+                O ARVES concluiu com êxito as modulações e tons neurais da canção. Excelente sincronia acústica!
               </p>
             </div>
 

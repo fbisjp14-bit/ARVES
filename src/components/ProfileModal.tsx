@@ -89,7 +89,7 @@ export const ProfileModal = ({
     const newProfile: UserClass = {
       uid: newUid,
       displayName: trimmedName,
-      email: `${trimmedName.toLowerCase().replace(/\s+/g, '')}@osone.local`,
+      email: `${trimmedName.toLowerCase().replace(/\s+/g, '')}@arves.local`,
       isLocal: true
     };
 
@@ -153,7 +153,7 @@ export const ProfileModal = ({
                 Gerenciador de Perfis
               </h3>
               <p className="text-[10px] text-zinc-500 font-mono mt-0.5 uppercase tracking-wider">
-                Alternador de Consciências OSONE
+                Alternador de Consciências ARVES
               </p>
             </div>
             <button
@@ -191,7 +191,7 @@ export const ProfileModal = ({
                         )}
                       </p>
                       <p className="text-[9px] text-zinc-500 font-mono mt-0.5 truncate max-w-[200px]">
-                        {currentUser.email || 'offline-only@osone.local'}
+                        {currentUser.email || 'offline-only@arves.local'}
                       </p>
                     </div>
                   </div>
@@ -218,13 +218,13 @@ export const ProfileModal = ({
               )}
             </div>
 
-            {/* Dossiê de Personalidade do OSONE (IA) */}
+            {/* Dossiê de Personalidade do ARVES (IA) */}
             <div className="p-4 rounded-2xl bg-amber-500/[0.02] border border-amber-500/10 space-y-3 relative overflow-hidden">
               <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/[0.03] blur-xl rounded-full pointer-events-none" />
               <div className="flex items-center justify-between">
                 <span className="text-[9px] font-mono uppercase tracking-widest text-amber-500 font-bold flex items-center gap-1">
                   <Cpu size={10} className="animate-pulse text-amber-450" />
-                  Dossiê de Personalidade OSONE (IA)
+                  Dossiê de Personalidade ARVES (IA)
                 </span>
                 {aiDossierType && (
                   <span className={cn(
@@ -248,7 +248,7 @@ export const ProfileModal = ({
                   ) : showInitSelection ? (
                     <div className="space-y-2.5 pt-1">
                       <p className="text-[10.5px] text-zinc-300 leading-normal font-light">
-                        Escolha como o OSONE deve estruturar a sua alma sintética:
+                        Escolha como o ARVES deve estruturar a sua alma sintética:
                       </p>
                       <div className="grid grid-cols-2 gap-2 pt-1">
                         <button
@@ -308,7 +308,7 @@ export const ProfileModal = ({
                           Iniciar Consciência da IA
                         </p>
                         <p className="text-[9px] text-zinc-500 mt-0.5 leading-tight">
-                          Monte a história, traços Big Five, MBTI, medos e manias próprios do OSONE.
+                          Monte a história, traços Big Five, MBTI, medos e manias próprios do ARVES.
                         </p>
                       </div>
                       <button
@@ -326,7 +326,7 @@ export const ProfileModal = ({
                   <div className="min-w-0">
                     <p className="text-xs font-bold text-amber-400 flex items-center gap-1.5 truncate">
                       <Sparkles size={13} className="animate-pulse" />
-                      OSONE G5 • INFJ
+                      ARVES G5 • INFJ
                     </p>
                     <p className="text-[9px] text-zinc-500 font-mono mt-0.5 uppercase tracking-wider">
                       {aiDossierType === 'complete' 
@@ -462,9 +462,9 @@ export const ProfileModal = ({
             )}
 
             <div className="border-t border-white/5 pt-5 space-y-3">
-              <span className="text-[9px] font-mono uppercase tracking-widest text-zinc-500">Privacidade OSONE</span>
+              <span className="text-[9px] font-mono uppercase tracking-widest text-zinc-500">Privacidade ARVES</span>
               <p className="text-[10px] text-zinc-400 bg-cyan-950/20 border border-cyan-500/15 p-3 rounded-2xl leading-relaxed">
-                🚀 **Modo 100% Offline Ativo:** Seus perfis, históricos teatrais, memórias e logs do OSONE são gravados e processados exclusivamente nas engrenagens locais do seu navegador, garantindo privacidade absoluta e velocidade instantânea no ecossistema sem nuvem.
+                🚀 **Modo 100% Offline Ativo:** Seus perfis, históricos teatrais, memórias e logs do ARVES são gravados e processados exclusivamente nas engrenagens locais do seu navegador, garantindo privacidade absoluta e velocidade instantânea no ecossistema sem nuvem.
               </p>
             </div>
           </div>
