@@ -1,20 +1,49 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# OSONE Copilot Atualizado
 
-# Run and deploy your AI Studio app
+Versão que mantém o fluxo funcional do OSONE Copilot e incorpora a interface e
+os recursos da edição atual.
 
-This contains everything you need to run your app locally.
+## Executar no computador
 
-View your app in AI Studio: https://ai.studio/apps/6386d2bd-28da-476a-b186-4e838294c2e4
+Requisitos: Node.js 22.x.
 
-## Run Locally
+```bash
+npm install
+npm run dev
+```
 
-**Prerequisites:**  Node.js
+Abra `http://localhost:3000`.
 
+## Publicar no Vercel
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+1. Envie esta pasta para um repositório.
+2. Importe o repositório no Vercel.
+3. Mantenha as configurações detectadas pelo arquivo `vercel.json`.
+4. Publique.
+5. No OSONE, abra **Configurações → Chaves**, cole sua chave Gemini e clique
+   em **Testar Handshake Gemini**.
+
+Também é possível cadastrar `GEMINI_API_KEY` nas variáveis do projeto no
+Vercel. Não coloque uma chave real dentro do código ou do repositório.
+
+## Correções principais desta edição
+
+- autenticação Gemini compatível com as chaves atuais, usando
+  `x-goog-api-key`, sem transformar a chave em token Bearer;
+- validação da chave pela listagem de modelos, sem consumir uma geração;
+- fallback do Copilot no navegador quando uma função do Vercel estiver
+  temporariamente indisponível;
+- conexão direta com o Gemini Live no build de produção, preservando a voz em
+  tempo real mesmo sem WebSocket persistente nas Functions da Vercel;
+- rotas `/api/*` preservadas corretamente no Vercel;
+- chave, histórico e memória existentes não são apagados durante a atualização;
+- validação ElevenLabs unificada;
+- `package-lock.json` sincronizado e Node.js 22.x definido.
+
+## Verificação
+
+```bash
+npm test
+npm run lint
+npm run build
+```

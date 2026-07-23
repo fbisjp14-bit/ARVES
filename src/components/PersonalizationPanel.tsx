@@ -109,17 +109,10 @@ export default function PersonalizationPanel({
       setGeminiVerificationMessage('Por favor, configure sua chave de API Gemini antes de validar.');
       return;
     }
-    const cleanGeminiKey = keys.gemini
-      .trim()
-      .replace(/^Bearer\s+/i, '')
-      .replace(/^["']|["']$/g, '')
-      .replace(/\s+/g, '');
-    const normalizedKeys = { ...keys, gemini: cleanGeminiKey };
-    setKeys(normalizedKeys);
-    localStorage.setItem('osone_api_keys', JSON.stringify(normalizedKeys));
-
+    const normalizedGeminiKey = keys.gemini.trim();
+    setKeys({ ...keys, gemini: normalizedGeminiKey });
     setGeminiVerificationStatus('testing');
-    setGeminiVerificationMessage('Validando a chave sem consumir sua cota de geração...');
+    setGeminiVerificationMessage('Handshake ativo. Testando cognição do Gemini...');
     try {
       const response = await fetch('/api/gemini/verify', {
         method: 'POST',
@@ -127,7 +120,7 @@ export default function PersonalizationPanel({
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          geminiApiKey: cleanGeminiKey
+          geminiApiKey: normalizedGeminiKey
         })
       });
       const data = await response.json();
@@ -165,17 +158,20 @@ export default function PersonalizationPanel({
       const response = await fetch('/api/elevenlabs/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ apiKey: keys.elevenLabsApiKey })
+        body: JSON.stringify({
+          elevenLabsApiKey: keys.elevenLabsApiKey.trim(),
+          elevenLabsVoiceId: keys.elevenLabsVoiceId || ''
+        })
       });
 
       const data = await response.json();
-      if (response.ok && data.status === 'valid') {
+      if (response.ok && data.success) {
         setElVerificationStatus('success');
-        setElVerificationMessage(`Conectado com sucesso como: ${data.username || "Canal Premium"}`);
+        setElVerificationMessage(data.message || 'Conexão ElevenLabs validada com sucesso.');
         onAddNotification("Sintonia Premium ElevenLabs Ativa", "success");
       } else {
         setElVerificationStatus('error');
-        setElVerificationMessage(data.error || 'Autenticação recusada pelos servidores Elevenlabs.');
+        setElVerificationMessage(data.message || data.error || 'Autenticação recusada pelos servidores Elevenlabs.');
         onAddNotification("Erro ao autenticar ElevenLabs", "error");
       }
     } catch (err) {

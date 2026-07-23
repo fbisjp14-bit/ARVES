@@ -7,6 +7,7 @@ import { WebSocketServer, WebSocket } from "ws";
 import { GoogleGenAI, Modality } from "@google/genai";
 import { createServer as createViteServer } from "vite";
 import dotenv from "dotenv";
+import { verifyGeminiApiKey } from "./src/lib/geminiApi";
 
 dotenv.config();
 
@@ -65,6 +66,12 @@ async function startServer() {
   // Gracefully formats Gemini API errors, notifying the user when their key quota is exhausted
   const formatGeminiError = (err: any): string => {
     const msg = err?.message || String(err);
+    if (
+      msg.includes("ACCESS_TOKEN_TYPE_UNSUPPORTED") ||
+      msg.toLowerCase().includes("unsupported credential")
+    ) {
+      return "A chave foi enviada no formato de autenticação errado. O OSONE foi corrigido para usar x-goog-api-key; salve a chave novamente e tente outra vez.";
+    }
     if (
       msg.includes("429") ||
       msg.includes("RESOURCE_EXHAUSTED") ||
@@ -1675,69 +1682,21 @@ ${processedChunk}`;
     }
   });
 
-  // POST endpoint for verifying Gemini API credentials without consuming generation quota
+  // POST endpoint for verifying Gemini API credentials in real-time
   app.post("/api/gemini/verify", async (req, res) => {
     try {
-      const rawKey = req.body?.geminiApiKey;
-      const trimApiKey = String(rawKey || "")
-        .trim()
-        .replace(/^Bearer\s+/i, "")
-        .replace(/^["']|["']$/g, "")
-        .replace(/\s+/g, "");
-
-      if (!trimApiKey) {
+      const { geminiApiKey } = req.body;
+      if (!geminiApiKey || typeof geminiApiKey !== "string" || !geminiApiKey.trim()) {
         return res.status(400).json({ success: false, message: "A chave API do Gemini é obrigatória para verificação." });
       }
 
-      // models.list autentica a chave sem gastar uma solicitação generateContent.
-      const verifyRes = await fetch("https://generativelanguage.googleapis.com/v1beta/models?pageSize=1", {
-        method: "GET",
-        headers: { "x-goog-api-key": trimApiKey }
-      });
-
-      if (verifyRes.ok) {
-        return res.json({
-          success: true,
-          message: "Chave válida. Conexão com a API Gemini confirmada sem consumir a cota de geração."
-        });
-      }
-
-      const errorData: any = await verifyRes.json().catch(() => ({}));
-      const code = Number(errorData?.error?.code || verifyRes.status || 0);
-      const status = String(errorData?.error?.status || "");
-      const rawMessage = String(errorData?.error?.message || "Erro retornado pela API do Gemini.");
-
-      if (code === 429 || status === "RESOURCE_EXHAUSTED") {
-        return res.status(200).json({
-          success: true,
-          warning: true,
-          message: "A chave foi reconhecida, mas a cota temporária da API está esgotada. Ela foi aceita; aguarde a liberação do limite ou revise o plano do projeto."
-        });
-      }
-
-      if (code === 400 && /api[_ ]?key|invalid|malformed/i.test(rawMessage)) {
-        return res.status(400).json({
-          success: false,
-          message: "A chave informada é inválida. Copie novamente a chave completa no Google AI Studio."
-        });
-      }
-
-      if (code === 403 || status === "PERMISSION_DENIED") {
-        return res.status(403).json({
-          success: false,
-          message: "A chave existe, mas não tem permissão para usar a API Gemini neste projeto."
-        });
-      }
-
-      return res.status(verifyRes.status || 400).json({
-        success: false,
-        message: rawMessage.slice(0, 500)
-      });
+      const result = await verifyGeminiApiKey(geminiApiKey);
+      return res.status(result.success ? 200 : 400).json(result);
     } catch (err: any) {
       console.error("Error inside /api/gemini/verify endpoint:", err);
       return res.status(400).json({
         success: false,
-        message: "Não foi possível consultar a API do Gemini agora. Verifique a internet e tente novamente."
+        message: err.message || "A API do Gemini retornou um erro de rede ao processar. Certifique-se de que a chave tem permissões e saldo de cobrança ativos."
       });
     }
   });

@@ -1,5 +1,9 @@
+import { GoogleGenAI } from "@google/genai";
+
 /**
- * Conexão segura via proxy WebSocket local para a API Gemini Live Multimodal
+ * Usa o proxy WebSocket durante o desenvolvimento/servidor persistente.
+ * Em hospedagens serverless, como a Vercel, recupera o fluxo direto do
+ * Copilot original porque Functions não mantêm upgrades WebSocket.
  */
 export async function connectToLiveBridge(options: {
   model: string;
@@ -12,6 +16,29 @@ export async function connectToLiveBridge(options: {
   };
   apiKey: string;
 }) {
+  const hostname = window.location.hostname.toLowerCase();
+  const shouldUseDirectConnection =
+    import.meta.env.PROD ||
+    hostname.endsWith(".vercel.app") ||
+    hostname.endsWith(".netlify.app") ||
+    hostname.endsWith(".pages.dev") ||
+    hostname.endsWith(".github.io");
+
+  if (shouldUseDirectConnection) {
+    const ai = new GoogleGenAI({ apiKey: options.apiKey.trim() });
+
+    console.log("OSONE G5 Client: Conectando diretamente ao Gemini Live em hospedagem serverless.");
+
+    return ai.live.connect({
+      model: options.model,
+      config: options.config,
+      callbacks: {
+        ...options.callbacks,
+        onmessage: options.callbacks.onmessage ?? (() => undefined)
+      }
+    });
+  }
+
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
   const wsUrl = `${protocol}//${window.location.host}/api/live-ws${options.apiKey ? `?apiKey=${encodeURIComponent(options.apiKey)}` : ''}`;
   

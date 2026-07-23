@@ -1837,49 +1837,11 @@ export default function App() {
   }, [orbCenterMode]);
 
   useEffect(() => {
-    // One-time factory restore flag v2 to clean up and fully reset Jarvis & Gemini Live to pristine defaults
+    // Mark the migration without erasing existing Copilot data. The previous
+    // implementation deleted the saved Gemini key and chat on the first load
+    // after an update, which made a valid configuration appear broken.
     const hasRestored = localStorage.getItem('osone_v4_factory_restored_v2_clean');
     if (!hasRestored) {
-      localStorage.removeItem('osone_api_keys');
-      localStorage.removeItem('osone_voice_engine');
-      localStorage.removeItem('osone_voice_page_index');
-      localStorage.removeItem('osone_selected_voice');
-      localStorage.removeItem('osone_long_term_memory');
-      localStorage.removeItem('osone_chat_history');
-      localStorage.removeItem('osone_selected_persona');
-      localStorage.removeItem('osone_ai_profile');
-      localStorage.removeItem('osone_voice_modulation');
-      localStorage.removeItem('osone_google_search_active');
-      localStorage.removeItem('osone_is_duo_mode');
-      localStorage.removeItem('osone_duo_combo_id');
-      localStorage.removeItem('osone_duo_topic_id');
-      localStorage.removeItem('osone_is_duo_voice_active');
-      localStorage.removeItem('osone_chat_auto_speak');
-      
-      localStorage.setItem('osone_orb_style', 'neural');
-       
-      setOrbStyle('neural');
-      setVoiceEngine('gemini');
-      setVoicePageIndex(0);
-      setSelectedVoice('Zephyr');
-      setChatHistory([]);
-      setIsChatAutoSpeakActive(false);
-      setApiKeys({
-        gemini: '', 
-        googleHomeId: '',
-        googleHomeToken: '',
-        elevenLabsApiKey: '',
-        elevenLabsVoiceId: '',
-        elevenLabsVoiceId2: '',
-        elevenLabsVoiceId3: '',
-        elevenLabsActiveVoice: 'voice1',
-        elevenLabsStability: 0.5,
-        elevenLabsSimilarityBoost: 0.75,
-        elevenLabsStyle: 0.0,
-        elevenLabsSpeakerBoost: true,
-        elevenLabsModel: 'eleven_multilingual_v2',
-        geminiModel: 'gemini-3.5-flash',
-      });
       localStorage.setItem('osone_v4_factory_restored_v2_clean', 'true');
     }
   }, []);

@@ -234,17 +234,10 @@ export const SettingsModal = ({
       setGeminiVerificationMessage('Por favor, configure sua chave de API Gemini nos ajustes antes de validar.');
       return;
     }
-    const cleanGeminiKey = keys.gemini
-      .trim()
-      .replace(/^Bearer\s+/i, '')
-      .replace(/^["']|["']$/g, '')
-      .replace(/\s+/g, '');
-    const normalizedKeys = { ...keys, gemini: cleanGeminiKey };
-    setKeys(normalizedKeys);
-    localStorage.setItem('osone_api_keys', JSON.stringify(normalizedKeys));
-
+    const normalizedGeminiKey = keys.gemini.trim();
+    setKeys({ ...keys, gemini: normalizedGeminiKey });
     setGeminiVerificationStatus('testing');
-    setGeminiVerificationMessage('Validando a chave sem consumir sua cota de geração...');
+    setGeminiVerificationMessage('Handshake ativo. Testando cognição do Gemini...');
     try {
       const response = await fetch('/api/gemini/verify', {
         method: 'POST',
@@ -252,7 +245,7 @@ export const SettingsModal = ({
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          geminiApiKey: cleanGeminiKey
+          geminiApiKey: normalizedGeminiKey
         })
       });
       const data = await response.json();
@@ -1446,5 +1439,4 @@ export const SettingsModal = ({
     </AnimatePresence>
   );
 };
-
 
