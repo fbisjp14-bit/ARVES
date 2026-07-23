@@ -1,8 +1,7 @@
-import appPromise from "../server";
-import { restoreVercelApiPath } from "../src/lib/vercelApiPath";
+import { restoreVercelApiPath } from "../src/lib/vercelApiPath.ts";
+import app from "./serverless.ts";
 
-export default async function handler(req: any, res: any) {
+export default function handler(req: any, res: any) {
   restoreVercelApiPath(req);
-  const app = await appPromise;
   return app(req, res);
 }

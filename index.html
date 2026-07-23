@@ -15,7 +15,9 @@
     <script>
       if ('serviceWorker' in navigator && !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1') && !window.location.hostname.includes('.run.app')) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js');
+          navigator.serviceWorker.register('/sw.js')
+            .then(registration => registration.update())
+            .catch(error => console.warn('Service Worker não pôde ser atualizado:', error));
         });
       }
     </script>
@@ -25,4 +27,3 @@
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
-

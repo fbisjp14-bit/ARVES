@@ -2,6 +2,7 @@ import React, { StrictMode, Component, ReactNode, ErrorInfo } from 'react';
 import {createRoot} from 'react-dom/client';
 import { GoogleGenAI } from '@google/genai';
 import { enrichGeminiResponse, normalizeGeminiApiKey, verifyGeminiApiKey } from './lib/geminiApi';
+import { isStaticProductionHost, shouldUseApiFallback } from './lib/apiFallback';
 
 // Safe global process mockup for client-side static environments (e.g. Vercel)
 if (typeof window !== 'undefined') {
@@ -35,15 +36,9 @@ const customFetch = async function (input: RequestInfo | URL, init?: RequestInit
       isMemorySyncSave ||
       isMemorySyncLoad
     ) {
-      const hasBackendServer = window.location.hostname.includes(".run.app") || 
-                               window.location.hostname.includes("localhost") || 
-                               window.location.hostname.includes("127.0.0.1") ||
-                               window.location.hostname.includes("webcontainer-api.io");
-
-      const isStaticHost = !hasBackendServer && (
-        window.location.hostname.includes("vercel.app") || 
-        window.location.hostname.includes("github.io") || 
-        window.location.hostname.includes("netlify.app")
+      const isStaticHost = isStaticProductionHost(
+        window.location.hostname,
+        import.meta.env.PROD
       );
       
       // Keep browser-local sync on static hosts, but try the real API function
@@ -55,13 +50,7 @@ const customFetch = async function (input: RequestInfo | URL, init?: RequestInit
       if (!useFallback) {
         try {
           response = await originalFetch(input, init);
-          const contentType = response?.headers?.get("content-type") || "";
-          if (
-            response.status === 404 || 
-            response.status === 502 || 
-            response.status === 504 ||
-            (contentType.includes("text/html") && urlStr.includes("/api/"))
-          ) {
+          if (isStaticHost && shouldUseApiFallback(response, urlStr)) {
             useFallback = true;
           } else {
             return response;

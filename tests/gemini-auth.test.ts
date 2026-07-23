@@ -6,6 +6,10 @@ import {
   normalizeGeminiApiKey,
   verifyGeminiApiKey
 } from '../src/lib/geminiApi.ts';
+import {
+  isStaticProductionHost,
+  shouldUseApiFallback
+} from '../src/lib/apiFallback.ts';
 import { restoreVercelApiPath } from '../src/lib/vercelApiPath.ts';
 
 test('normaliza a chave sem alterar seu conteúdo interno', () => {
@@ -93,4 +97,55 @@ test('restaura a rota completa da API depois do rewrite do Vercel', () => {
   restoreVercelApiPath(req);
 
   assert.equal(req.url, '/api/gemini/verify?file=teste.md');
+});
+
+test('restaura a rota usando a própria URL quando req.query não existe', () => {
+  const req = {
+    url: '/api?__osone_path=gemini%2Fverify'
+  };
+
+  restoreVercelApiPath(req);
+
+  assert.equal(req.url, '/api/gemini/verify');
+});
+
+test('ativa fallback quando a Function da Vercel cai com HTTP 500', () => {
+  const failedFunctionResponse = new Response(
+    'FUNCTION_INVOCATION_FAILED',
+    {
+      status: 500,
+      headers: {
+        'Content-Type': 'text/plain',
+        'X-Vercel-Error': 'FUNCTION_INVOCATION_FAILED'
+      }
+    }
+  );
+
+  assert.equal(
+    shouldUseApiFallback(
+      failedFunctionResponse,
+      'https://exemplo.vercel.app/api/gemini/verify'
+    ),
+    true
+  );
+});
+
+test('preserva erros JSON válidos e reconhece domínios de produção', () => {
+  const invalidKeyResponse = new Response(
+    JSON.stringify({ success: false }),
+    {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' }
+    }
+  );
+
+  assert.equal(
+    shouldUseApiFallback(
+      invalidKeyResponse,
+      'https://exemplo.vercel.app/api/gemini/verify'
+    ),
+    false
+  );
+  assert.equal(isStaticProductionHost('dominio-personalizado.com', true), true);
+  assert.equal(isStaticProductionHost('localhost', true), false);
 });
