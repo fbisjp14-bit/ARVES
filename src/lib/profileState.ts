@@ -1,5 +1,5 @@
 import type { AIProfile, ChatSession, Message } from '../types';
-import { normalizeExternalHttpUrl } from './externalUrl.ts';
+import { normalizeExternalHttpUrl } from './externalUrl.js';
 
 export const DEFAULT_AI_PROFILE: AIProfile = {
   name: 'OSONE',

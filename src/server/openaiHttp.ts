@@ -2,8 +2,8 @@ import {
   buildOpenAIResponseRequest,
   normalizeOpenAIKey,
   openAIResponseToGemini
-} from '../lib/openaiCompatibility.ts';
-import { redactSecrets } from '../lib/redaction.ts';
+} from '../lib/openaiCompatibility.js';
+import { redactSecrets } from '../lib/redaction.js';
 
 const OPENAI_API_ROOT = 'https://api.openai.com/v1';
 const REQUEST_TIMEOUT_MS = 55_000;

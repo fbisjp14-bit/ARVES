@@ -1,6 +1,6 @@
 import express from 'express';
 import path from 'node:path';
-import apiApp from './api/serverless.ts';
+import apiApp from './api/serverless.js';
 
 const start = async (): Promise<void> => {
   const app = express();

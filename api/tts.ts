@@ -1,3 +1,3 @@
-import ttsHttpHandler from '../src/server/ttsHttp.ts';
+import ttsHttpHandler from '../src/server/ttsHttp.js';
 
 export default ttsHttpHandler;

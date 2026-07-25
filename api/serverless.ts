@@ -4,14 +4,14 @@ import {
   geminiApiFetch,
   normalizeGeminiApiKey,
   verifyGeminiApiKey
-} from '../src/lib/geminiApi.ts';
-import { createOpenAIRouter } from '../src/server/openaiRouter.ts';
+} from '../src/lib/geminiApi.js';
+import { createOpenAIRouter } from '../src/server/openaiRouter.js';
 import {
   fetchExternalWithRedirectGuard,
   getClientId,
   readResponseTextLimited
-} from '../src/server/security.ts';
-import { redactSecrets } from '../src/lib/redaction.ts';
+} from '../src/server/security.js';
+import { redactSecrets } from '../src/lib/redaction.js';
 
 const app = express();
 

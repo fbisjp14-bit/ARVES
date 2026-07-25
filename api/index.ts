@@ -1,5 +1,5 @@
-import { restoreVercelApiPath } from '../src/lib/vercelApiPath.ts';
-import app from './serverless.ts';
+import { restoreVercelApiPath } from '../src/lib/vercelApiPath.js';
+import app from './serverless.js';
 
 export default function handler(req: any, res: any) {
   restoreVercelApiPath(req);

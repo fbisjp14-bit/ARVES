@@ -1,8 +1,8 @@
 import {
   geminiApiFetch,
   normalizeGeminiApiKey
-} from '../lib/geminiApi.ts';
-import { redactSecrets } from '../lib/redaction.ts';
+} from '../lib/geminiApi.js';
+import { redactSecrets } from '../lib/redaction.js';
 
 const REQUEST_TIMEOUT_MS = 55_000;
 const MAX_BODY_BYTES = 4 * 1024 * 1024;

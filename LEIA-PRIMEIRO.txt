@@ -1,0 +1,24 @@
+OSONE AI 3.1.1 — CORREÇÃO VERCEL
+
+Este pacote corrige o erro FUNCTION_INVOCATION_FAILED que impedia as funções
+OpenAI, Gemini e voz de iniciarem na Vercel.
+
+PARA ATUALIZAR:
+
+1. Extraia este ZIP no computador.
+2. No repositório do GitHub, abra Add file > Upload files.
+3. Arraste TODO o conteúdo da pasta extraída.
+4. Confirme em Commit changes.
+5. Aguarde o novo deploy automático da Vercel.
+
+Depois do deploy:
+
+1. Abra https://SEU-SITE.vercel.app/api/health
+2. Confirme que aparece "ok": true.
+3. Volte ao OSONE, informe sua chave e toque em Testar chave OpenAI.
+
+SEGURANÇA:
+
+- Nunca envie sua chave API ao GitHub.
+- Nunca publique a chave em prints ou mensagens.
+- A assinatura do ChatGPT não inclui créditos da API.

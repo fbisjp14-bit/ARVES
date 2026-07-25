@@ -1,4 +1,4 @@
-import { redactSecrets } from './redaction.ts';
+import { redactSecrets } from './redaction.js';
 
 const GEMINI_API_ROOT = 'https://generativelanguage.googleapis.com/v1beta';
 

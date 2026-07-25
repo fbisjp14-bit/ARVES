@@ -1,4 +1,4 @@
-import { normalizeExternalHttpUrl } from './externalUrl.ts';
+import { normalizeExternalHttpUrl } from './externalUrl.js';
 
 const OPENAI_MODEL_IDS = [
   'gpt-5.4-mini',
