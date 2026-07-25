@@ -3,6 +3,9 @@ import {createRoot} from 'react-dom/client';
 import { GoogleGenAI } from '@google/genai';
 import { enrichGeminiResponse, normalizeGeminiApiKey, verifyGeminiApiKey } from './lib/geminiApi';
 import { isStaticProductionHost, shouldUseApiFallback } from './lib/apiFallback';
+import { withOsoneClientId } from './lib/clientIdentity';
+import { normalizeLocalProfile } from './lib/localProfiles';
+import { redactSecrets } from './lib/redaction';
 
 // Safe global process mockup for client-side static environments (e.g. Vercel)
 if (typeof window !== 'undefined') {
@@ -14,8 +17,87 @@ if (typeof window !== 'undefined') {
   }
 }
 
+// Migração única: quem recebeu o 5.6 Sol como padrão na edição anterior passa
+// ao modelo econômico. Depois disso, uma escolha manual do usuário é preservada.
+try {
+  const migrationKey = 'osone_openai_economy_v1';
+  if (!localStorage.getItem(migrationKey)) {
+    const savedKeys = localStorage.getItem('osone_api_keys');
+    if (savedKeys) {
+      const parsedKeys = JSON.parse(savedKeys);
+      localStorage.setItem('osone_api_keys', JSON.stringify({
+        ...parsedKeys,
+        openaiModel:
+          !parsedKeys.openaiModel || String(parsedKeys.openaiModel).startsWith('gpt-5.6')
+            ? 'gpt-5.4-mini'
+            : parsedKeys.openaiModel,
+        openaiResearchMode:
+          !parsedKeys.openaiResearchMode || parsedKeys.openaiResearchMode === 'deep'
+            ? 'standard'
+            : parsedKeys.openaiResearchMode
+      }));
+    }
+    localStorage.setItem(migrationKey, '1');
+  }
+} catch (_) {}
+
+// Migre uma única vez a configuração global antiga para o perfil que estava
+// ativo. Perfis criados depois disso começam sem herdar credenciais.
+try {
+  const migrationKey = 'osone_scoped_api_keys_v1';
+  if (!localStorage.getItem(migrationKey)) {
+    const legacyKeys = localStorage.getItem('osone_api_keys');
+    const savedUser = localStorage.getItem('osone_last_active_user');
+    let scopedKey = 'osone_guest_api_keys';
+    if (savedUser) {
+      const parsedUser = normalizeLocalProfile(JSON.parse(savedUser));
+      if (parsedUser) {
+        scopedKey = `osone_user_${parsedUser.uid}_api_keys`;
+      }
+    }
+    if (legacyKeys && !localStorage.getItem(scopedKey)) {
+      localStorage.setItem(scopedKey, legacyKeys);
+    }
+    localStorage.setItem(migrationKey, '1');
+  }
+
+  const savedUser = localStorage.getItem('osone_last_active_user');
+  let scopedKey = 'osone_guest_api_keys';
+  if (savedUser) {
+    const parsedUser = normalizeLocalProfile(JSON.parse(savedUser));
+    if (parsedUser) scopedKey = `osone_user_${parsedUser.uid}_api_keys`;
+  }
+  const scopedKeys = localStorage.getItem(scopedKey);
+  if (scopedKeys) {
+    sessionStorage.setItem('osone_active_api_keys_v1', scopedKeys);
+  }
+  localStorage.removeItem('osone_api_keys');
+} catch (_) {}
+
+// Versões antigas pediam um cookie de sessão do TikTok para um conector que
+// não funciona em Functions. Remova qualquer resíduo sensível já persistido.
+try {
+  localStorage.removeItem('osone_tiktok_session_id');
+  localStorage.removeItem('osone_tiktok_target_idc');
+} catch (_) {}
+
 // --- Vercel/Static Direct Client-Side Fallback for Gemini and Services ---
 const originalFetch = window.fetch.bind(window);
+const backendFetch = (
+  input: RequestInfo | URL,
+  init?: RequestInit
+): Promise<Response> => originalFetch(input, withOsoneClientId(init));
+
+const safeClientApiError = (error: unknown, activeSecret = ''): string => {
+  const rawMessage =
+    error instanceof Error
+      ? error.message
+      : 'A API não respondeu à solicitação.';
+  return (
+    redactSecrets(rawMessage, [activeSecret], 500) ||
+    'A API não respondeu à solicitação.'
+  );
+};
 
 const customFetch = async function (input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   const urlStr = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
@@ -25,31 +107,71 @@ const customFetch = async function (input: RequestInfo | URL, init?: RequestInit
     const isGeminiGenerateProxy = urlStr.includes("/api/generate");
     const isGeminiImageProxy = urlStr.includes("/api/gemini/generateImages");
     const isGeminiVerifyProxy = urlStr.includes("/api/gemini/verify");
-    const isMemorySyncSave = urlStr.includes("/api/memory-sync/save");
-    const isMemorySyncLoad = urlStr.includes("/api/memory-sync/load/");
+    const isChatIntelStream = urlStr.includes("/api/chat-intel-stream");
+
+    let storedApiKeys: any = {};
+    let parsedRequestBody: any = {};
+    try {
+      const stored = sessionStorage.getItem("osone_active_api_keys_v1");
+      storedApiKeys = stored ? JSON.parse(stored) : {};
+    } catch (_) {}
+    if (init?.body && typeof init.body === "string") {
+      try {
+        parsedRequestBody = JSON.parse(init.body);
+      } catch (_) {}
+    }
+
+    const shouldUseOpenAI =
+      storedApiKeys.aiProvider === "openai" &&
+      !isGeminiVerifyProxy &&
+      (
+        isGeminiContentProxy ||
+        isGeminiGenerateProxy ||
+        isGeminiImageProxy
+      );
+
+    if (shouldUseOpenAI) {
+      const targetEndpoint = isGeminiImageProxy
+        ? "/api/openai/images"
+        : isChatIntelStream
+          ? "/api/openai/chat-intel-stream"
+          : "/api/openai/generate-compatible";
+      const headers = new Headers(init?.headers);
+      headers.set("Content-Type", "application/json");
+
+      return backendFetch(targetEndpoint, {
+        ...init,
+        method: init?.method || "POST",
+        headers,
+        body: JSON.stringify({
+          ...parsedRequestBody,
+          openaiApiKey: storedApiKeys.openaiApiKey || "",
+          openaiModel: storedApiKeys.openaiModel || "gpt-5.4-mini",
+          openaiResearchMode: storedApiKeys.openaiResearchMode || "standard",
+          openaiImageQuality: storedApiKeys.openaiImageQuality || "high"
+        })
+      });
+    }
 
     if (
       isGeminiContentProxy ||
       isGeminiGenerateProxy ||
       isGeminiImageProxy ||
-      isGeminiVerifyProxy ||
-      isMemorySyncSave ||
-      isMemorySyncLoad
+      isGeminiVerifyProxy
     ) {
       const isStaticHost = isStaticProductionHost(
         window.location.hostname,
         import.meta.env.PROD
       );
       
-      // Keep browser-local sync on static hosts, but try the real API function
-      // first for Gemini. If Vercel Functions are unavailable, the same
+      // Try the real API function first. If Vercel Functions are unavailable, the same
       // client-side SDK flow that made the original Copilot reliable takes over.
-      let useFallback = isStaticHost && (isMemorySyncSave || isMemorySyncLoad);
+      let useFallback = false;
       let response: Response | null = null;
 
       if (!useFallback) {
         try {
-          response = await originalFetch(input, init);
+          response = await backendFetch(input, init);
           if (isStaticHost && shouldUseApiFallback(response, urlStr)) {
             useFallback = true;
           } else {
@@ -64,7 +186,7 @@ const customFetch = async function (input: RequestInfo | URL, init?: RequestInit
         let clientApiKey = "";
         let geminiModel = "gemini-3.5-flash";
         try {
-          const stored = localStorage.getItem("osone_api_keys");
+          const stored = sessionStorage.getItem("osone_active_api_keys_v1");
           if (stored) {
             const parsed = JSON.parse(stored);
             clientApiKey = normalizeGeminiApiKey(parsed.gemini);
@@ -177,8 +299,9 @@ const customFetch = async function (input: RequestInfo | URL, init?: RequestInit
             }
 
           } catch (err: any) {
-            console.error("[Vercel-OSONE Fallback] Error in client-side direct fallback:", err);
-            return new Response(JSON.stringify({ error: `Direct Gemini error: ${err.message}` }), {
+            const safeMessage = safeClientApiError(err, clientApiKey);
+            console.warn("[Vercel-OSONE Fallback] A chamada direta ao Gemini falhou.");
+            return new Response(JSON.stringify({ error: `Falha do Gemini: ${safeMessage}` }), {
               status: 500,
               headers: { "Content-Type": "application/json" }
             });
@@ -194,62 +317,15 @@ const customFetch = async function (input: RequestInfo | URL, init?: RequestInit
           }
         }
 
-        if (isMemorySyncSave) {
-          try {
-            const syncId = reqBody.syncId || `OSONE-LCL-${Math.floor(1000 + Math.random() * 9000)}`;
-            const payloadStr = JSON.stringify(reqBody.payload);
-            localStorage.setItem(`osone_sync_fallback_${syncId}`, payloadStr);
-            return new Response(JSON.stringify({
-              status: "success",
-              syncId: syncId,
-              message: "Perfil salvo localmente no navegador (Sincronização estática ativa)."
-            }), {
-              status: 200,
-              headers: { "Content-Type": "application/json" }
-            });
-          } catch (err: any) {
-            return new Response(JSON.stringify({ status: "error", error: err.message }), {
-              status: 500,
-              headers: { "Content-Type": "application/json" }
-            });
-          }
-        }
-
-        if (isMemorySyncLoad) {
-          try {
-            const syncId = urlStr.split("/").pop() || "";
-            const savedPayload = localStorage.getItem(`osone_sync_fallback_${syncId}`);
-            if (savedPayload) {
-              return new Response(JSON.stringify({
-                status: "success",
-                payload: JSON.parse(savedPayload)
-              }), {
-                status: 200,
-                headers: { "Content-Type": "application/json" }
-              });
-            } else {
-              return new Response(JSON.stringify({
-                status: "error",
-                error: `Sincronia local '${syncId}' não encontrada neste navegador. No Vercel estático, os backups ficam salvos no seu localStorage atual.`
-              }), {
-                status: 404,
-                headers: { "Content-Type": "application/json" }
-              });
-            }
-          } catch (err: any) {
-            return new Response(JSON.stringify({ status: "error", error: err.message }), {
-              status: 500,
-              headers: { "Content-Type": "application/json" }
-            });
-          }
-        }
       }
 
       if (response) return response;
     }
   }
 
-  return originalFetch(input, init);
+  return urlStr.includes('/api/')
+    ? backendFetch(input, init)
+    : originalFetch(input, init);
 };
 
 try {

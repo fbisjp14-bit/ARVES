@@ -30,4 +30,26 @@ test('a Function serverless inicia e preserva as rotas reescritas', async (t) =>
   assert.equal(verifyResponse.status, 400);
   assert.equal(verifyBody.success, false);
   assert.match(verifyBody.message, /obrigatória/i);
+
+  const previousOpenAIKey = process.env.OPENAI_API_KEY;
+  delete process.env.OPENAI_API_KEY;
+  t.after(() => {
+    if (previousOpenAIKey === undefined) {
+      delete process.env.OPENAI_API_KEY;
+    } else {
+      process.env.OPENAI_API_KEY = previousOpenAIKey;
+    }
+  });
+
+  const openAIVerifyResponse = await fetch(
+    `${baseUrl}/api?__osone_path=openai%2Fverify`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    }
+  );
+  const openAIVerifyBody = await openAIVerifyResponse.json();
+  assert.equal(openAIVerifyResponse.status, 400);
+  assert.match(openAIVerifyBody.error, /OpenAI não definida/i);
 });

@@ -58,7 +58,10 @@ import {
   Languages,
   AlertCircle,
   Palette,
-  Heart
+  Heart,
+  Youtube,
+  ExternalLink,
+  Layers
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { GoogleGenAI, Modality, Type } from "@google/genai";
@@ -78,16 +81,16 @@ import { ProfileModal } from './components/ProfileModal';
 import { IntimateMissionModal } from './components/IntimateMissionModal';
 import { AiDossierModal } from './components/AiDossierModal';
 import { CodePreview } from './components/CodePreview';
+import { CodeWorkspace } from './components/CodeWorkspace';
 import { VoiceSwitcher } from './components/VoiceSwitcher';
 import { SoundLibrary } from './components/SoundLibrary';
 import { WellnessCenter } from './components/WellnessCenter';
 import { AuralSense } from './components/AuralSense';
-import PersonalizationPanel from './components/PersonalizationPanel';
 import { TikTokLivePanel } from './components/TikTokLivePanel';
 import { InteractiveCanvas } from './components/InteractiveCanvas';
-import { RAGConnector, loadRagFilesFromDB, saveRagFileToDB } from './components/RAGConnector';
+import { RAGConnector } from './components/RAGConnector';
 import { ContentCreator } from './components/ContentCreator';
-import { KaraokePanel } from './components/KaraokePanel';
+import { SmartHomeConnect } from './components/SmartHomeConnect';
 
 import { WhatsAppIntegration } from './components/WhatsAppIntegration';
 import { OSONEMap } from './components/OSONEMap';
@@ -103,9 +106,35 @@ import { MemoryBookEntry } from './types';
 import osoneOrbImage from './assets/images/osone_constellation_orb_1782154846239.jpg';
 import { SoundEffect, DrawingObject, User } from './types';
 import { getMemoryItem, setMemoryItem } from './lib/indexedDbMemory';
-import { generatePDF } from './lib/pdfUtils';
+import { generateConversationPDF, generatePDF } from './lib/pdfUtils';
+import { createXlsxBlob, normalizeXlsxFileName } from './lib/excelUtils';
+import { getSystemDocument } from './lib/systemDocs';
 import { resolveAudioUrl, deleteAudio } from './lib/audioDb';
-import { auth, googleProvider, signInWithPopup, signOut, onAuthStateChanged, db, doc, setDoc, getDoc, OperationType, handleFirestoreError } from './firebase';
+import {
+  buildRecentTextHistory,
+  selectAiAttachments
+} from './lib/requestLimits';
+import {
+  normalizeExternalHttpUrl,
+  openExternalHttpUrl
+} from './lib/externalUrl';
+import { normalizeLocalProfile } from './lib/localProfiles';
+import { readLocalStorageJson } from './lib/safeStorage';
+import {
+  loadRagFilesFromDB,
+  MAX_RAG_FILE_BYTES,
+  saveRagFileToDB
+} from './lib/ragStorage';
+import {
+  createWelcomeHistory,
+  DEFAULT_AI_PROFILE,
+  DEFAULT_HEALTH_DATA,
+  normalizeAiProfile,
+  normalizeChatSessions,
+  normalizeHealthData,
+  normalizeIntimateAnswers,
+  normalizeStoredMessages
+} from './lib/profileState';
 
 // Safe helper to dynamically load PDF.js from cdnjs for client-side PDF text extraction
 const loadPdfJs = async (): Promise<any> => {
@@ -130,6 +159,32 @@ const loadPdfJs = async (): Promise<any> => {
   });
 };
 
+const extractYoutubeVideoId = (urlOrId?: string) => {
+  if (!urlOrId) return 'XgWUDbYfNe4';
+  const match = urlOrId.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+  return match ? match[1] : (urlOrId.length === 11 ? urlOrId : 'XgWUDbYfNe4');
+};
+
+const BowAndArrowIcon = ({ size = 16, className = "" }: { size?: number; className?: string }) => (
+  <svg 
+    width={size} 
+    height={size} 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="2" 
+    strokeLinecap="round" 
+    strokeLinejoin="round" 
+    className={className}
+  >
+    <path d="M5 21C5 13 13 5 21 5" />
+    <path d="M5 21L21 5" strokeDasharray="2 2" strokeOpacity="0.7" />
+    <path d="M7 17L19 7" strokeWidth="2.5" />
+    <path d="M19 7H14M19 7V12" strokeWidth="2.5" />
+    <path d="M7 17L5 19M8 18L6 20" />
+  </svg>
+);
+
 const extractTextFromPdf = async (file: File): Promise<string> => {
   try {
     const pdfjsLib = await loadPdfJs();
@@ -151,99 +206,217 @@ const extractTextFromPdf = async (file: File): Promise<string> => {
     console.error('Erro ao ler PDF:', error);
     return `[Erro ao extrair conteúdo do PDF: ${file.name}]`;
   }
-};
-
-// Cybernetic glowing robotic hand from the OSONE HUD
+}// Cybernetic biometric hologram hand with hex-grid wireframe, Fresnel rim shader, fingertip scan targets, bloom aura & particle wrist dissolution
 const CyberneticHandIcon = ({ className = "w-8 h-8" }: { className?: string }) => {
   return (
     <svg 
-      viewBox="0 0 100 100" 
+      viewBox="0 0 120 120" 
       fill="none" 
       xmlns="http://www.w3.org/2000/svg" 
       className={className}
     >
       <defs>
-        {/* Glow & Gradient Defs */}
-        <filter id="emerald-glow" x="-20%" y="-20%" width="140%" height="140%">
-          <feGaussianBlur stdDeviation="3.5" result="blur" />
+        {/* UnrealBloomPass Multi-Stage Bloom Filter */}
+        <filter id="hologram-unreal-bloom" x="-50%" y="-50%" width="200%" height="200%">
+          {/* Stage 1: Sharp Glow */}
+          <feGaussianBlur in="SourceGraphic" stdDeviation="1.2" result="blur1" />
+          {/* Stage 2: Medium Aura */}
+          <feGaussianBlur in="SourceGraphic" stdDeviation="3.5" result="blur2" />
+          {/* Stage 3: Intense Outer Bloom leakage */}
+          <feGaussianBlur in="SourceGraphic" stdDeviation="8.0" result="blur3" />
           <feMerge>
-            <feMergeNode in="blur" />
-            <feMergeNode in="blur" />
+            <feMergeNode in="blur3" />
+            <feMergeNode in="blur2" />
+            <feMergeNode in="blur1" />
             <feMergeNode in="SourceGraphic" />
           </feMerge>
         </filter>
-        <linearGradient id="cyber-green-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#34d399" />
-          <stop offset="50%" stopColor="#10b981" />
-          <stop offset="100%" stopColor="#047857" />
+
+        {/* Strong Rim Light Glow */}
+        <filter id="fresnel-rim-bloom" x="-40%" y="-40%" width="180%" height="180%">
+          <feGaussianBlur stdDeviation="3" result="blur" />
+          <feComponentTransfer in="blur" result="boost">
+            <feFuncA type="linear" slope="2" />
+          </feComponentTransfer>
+          <feMerge>
+            <feMergeNode in="boost" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+
+        {/* Biometric Hexagonal Wireframe Pattern */}
+        <pattern id="hex-grid-pattern" width="6" height="10.392" patternUnits="userSpaceOnUse">
+          <path
+            d="M3,0 L6,1.732 L6,5.196 L3,6.928 L0,5.196 L0,1.732 Z M3,10.392 L6,8.66 L6,5.196 L3,6.928 L0,5.196 L0,8.66 Z"
+            fill="none"
+            stroke="#10b981"
+            strokeWidth="0.35"
+            strokeOpacity="0.45"
+          />
+        </pattern>
+
+        {/* Fresnel Shader - Center Dark Translucent, Edges Neon Glowing */}
+        <radialGradient id="fresnel-shader-grad" cx="58%" cy="58%" r="55%">
+          <stop offset="0%" stopColor="#02140d" stopOpacity="0.35" />
+          <stop offset="45%" stopColor="#063824" stopOpacity="0.65" />
+          <stop offset="80%" stopColor="#059669" stopOpacity="0.85" />
+          <stop offset="100%" stopColor="#34d399" stopOpacity="1" />
+        </radialGradient>
+
+        {/* Wrist Dissolution Gradient Mask */}
+        <linearGradient id="wrist-dissolve-fade" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#ffffff" stopOpacity="1" />
+          <stop offset="70%" stopColor="#ffffff" stopOpacity="0.8" />
+          <stop offset="90%" stopColor="#ffffff" stopOpacity="0.2" />
+          <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
         </linearGradient>
+
+        <mask id="wrist-mask">
+          <rect x="0" y="0" width="120" height="120" fill="url(#wrist-dissolve-fade)" />
+        </mask>
+
+        {/* Scanning Target Glow */}
+        <radialGradient id="scan-target-glow" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="#6ee7b7" stopOpacity="1" />
+          <stop offset="40%" stopColor="#10b981" stopOpacity="0.8" />
+          <stop offset="100%" stopColor="#047857" stopOpacity="0" />
+        </radialGradient>
       </defs>
 
-      {/* Glow shadow and base structure representation */}
-      <g filter="url(#emerald-glow)">
-        {/* Low-poly shaded body polygons (varying opacities to build simulated 3D depth) */}
-        {/* Wrist/Forearm base cuff */}
-        <polygon points="45,85 62,80 72,88 52,94" fill="#047857" fillOpacity="0.4" stroke="#10b981" strokeWidth="0.5" />
-        <polygon points="45,85 62,80 65,72 48,76" fill="#10b981" fillOpacity="0.2" stroke="#10b981" strokeWidth="0.5" />
-        <polygon points="62,80 72,88 78,79 65,72" fill="#065f46" fillOpacity="0.3" stroke="#10b981" strokeWidth="0.5" />
+      {/* Main Holographic Container with Bloom */}
+      <g filter="url(#hologram-unreal-bloom)">
+        {/* Outer Aura / Fresnel Edge Glow Ambient */}
+        <path
+          d="M38,102 C35,92 36,82 40,72 C34,68 24,62 16,52 C12,46 12,38 18,34 C24,30 30,34 35,42 C38,46 41,50 46,18 C45,12 51,8 56,10 C61,12 60,18 58,10 C57,4 64,2 69,5 C74,8 72,14 72,14 C72,8 78,6 83,9 C87,12 85,18 84,26 C85,21 90,20 94,23 C97,26 95,31 93,40 C91,48 89,58 88,74 C88,85 84,95 80,104"
+          fill="none"
+          stroke="#34d399"
+          strokeWidth="3.5"
+          strokeOpacity="0.3"
+          filter="url(#fresnel-rim-bloom)"
+        />
 
-        {/* Outer Palm */}
-        <polygon points="48,76 65,72 68,58 52,62" fill="#059669" fillOpacity="0.25" stroke="#10b981" strokeWidth="0.5" />
-        <polygon points="65,72 78,79 84,65 68,58" fill="#10b981" fillOpacity="0.15" stroke="#10b981" strokeWidth="0.5" />
+        {/* Masked Hand Body with Wrist Dissolve */}
+        <g mask="url(#wrist-mask)">
+          {/* Base Holographic Body with Fresnel Shader */}
+          <path
+            d="M38,102 C35,92 36,82 40,72 C34,68 24,62 16,52 C12,46 12,38 18,34 C24,30 30,34 35,42 C38,46 41,50 46,18 C45,12 51,8 56,10 C61,12 60,18 58,10 C57,4 64,2 69,5 C74,8 72,14 72,14 C72,8 78,6 83,9 C87,12 85,18 84,26 C85,21 90,20 94,23 C97,26 95,31 93,40 C91,48 89,58 88,74 C88,85 84,95 80,104 Z"
+            fill="url(#fresnel-shader-grad)"
+            stroke="#10b981"
+            strokeWidth="0.8"
+            strokeOpacity="0.8"
+          />
+
+          {/* Hexagonal Biometric Wireframe Overlay */}
+          <path
+            d="M38,102 C35,92 36,82 40,72 C34,68 24,62 16,52 C12,46 12,38 18,34 C24,30 30,34 35,42 C38,46 41,50 46,18 C45,12 51,8 56,10 C61,12 60,18 58,10 C57,4 64,2 69,5 C74,8 72,14 72,14 C72,8 78,6 83,9 C87,12 85,18 84,26 C85,21 90,20 94,23 C97,26 95,31 93,40 C91,48 89,58 88,74 C88,85 84,95 80,104 Z"
+            fill="url(#hex-grid-pattern)"
+            opacity="0.85"
+          />
+
+          {/* Internal Anatomical Skeleton & Biometric Contours */}
+          <g stroke="#34d399" strokeWidth="0.5" opacity="0.6" fill="none">
+            {/* Phalanx Contours */}
+            <path d="M22,46 C26,44 30,48 34,52" />
+            <path d="M48,36 C52,35 55,36 57,37" />
+            <path d="M47,24 C50,23 53,24 55,25" />
+            <path d="M60,32 C63,31 66,32 69,33" />
+            <path d="M59,18 C62,17 65,18 67,19" />
+            <path d="M72,34 C75,33 78,34 81,35" />
+            <path d="M72,21 C75,20 78,21 81,22" />
+            <path d="M84,42 C86,41 89,42 91,43" />
+            <path d="M84,30 C86,29 89,30 91,31" />
+
+            {/* Major Palm Biometric Lines */}
+            <path d="M42,75 C52,70 65,74 78,80" strokeWidth="0.7" opacity="0.7" />
+            <path d="M46,62 C56,58 66,64 74,70" strokeWidth="0.7" opacity="0.7" />
+            <path d="M40,90 C50,86 60,88 72,92" strokeWidth="0.5" opacity="0.5" />
+          </g>
+
+          {/* Strong Fresnel Rim Contour (Highlight Brightness at Borders) */}
+          <path
+            d="M38,102 C35,92 36,82 40,72 C34,68 24,62 16,52 C12,46 12,38 18,34 C24,30 30,34 35,42 M46,18 C45,12 51,8 56,10 M58,10 C57,4 64,2 69,5 M72,14 C72,8 78,6 83,9 M84,26 C85,21 90,20 94,23 C97,26 95,31 93,40 C91,48 89,58 88,74 M88,74 C88,85 84,95 80,104"
+            fill="none"
+            stroke="#a7f3d0"
+            strokeWidth="1.2"
+            strokeLinecap="round"
+          />
+        </g>
+
+        {/* === BIOMETRIC SCANNING TARGET NODES (Pontos Circulares Brilhantes) === */}
         
-        {/* Thumb segment & base */}
-        <polygon points="48,76 52,62 38,64 34,74" fill="#10b981" fillOpacity="0.3" stroke="#10b981" strokeWidth="0.5" />
-        <polygon points="34,74 24,70 20,60 38,64" fill="#059669" fillOpacity="0.2" stroke="#10b981" strokeWidth="0.5" />
-        <polygon points="20,60 10,54 13,44 24,49" fill="#34d399" fillOpacity="0.15" stroke="#10b981" strokeWidth="0.5" strokeLinejoin="round" />
+        {/* 1. Palm Center Scanning Target */}
+        <g transform="translate(60, 72)">
+          <circle cx="0" cy="0" r="9" fill="none" stroke="#34d399" strokeWidth="0.5" strokeDasharray="2 1.5" opacity="0.8" />
+          <circle cx="0" cy="0" r="6" fill="none" stroke="#10b981" strokeWidth="0.6" opacity="0.9" />
+          <circle cx="0" cy="0" r="3" fill="url(#scan-target-glow)" />
+          <circle cx="0" cy="0" r="1.2" fill="#ffffff" />
+          <line x1="-11" y1="0" x2="-7" y2="0" stroke="#34d399" strokeWidth="0.6" />
+          <line x1="7" y1="0" x2="11" y2="0" stroke="#34d399" strokeWidth="0.6" />
+          <line x1="0" y1="-11" x2="0" y2="-7" stroke="#34d399" strokeWidth="0.6" />
+          <line x1="0" y1="7" x2="0" y2="11" stroke="#34d399" strokeWidth="0.6" />
+        </g>
 
-        {/* Index finger - Low Poly Segments */}
-        <polygon points="52,62 48,46 36,49 38,64" fill="#10b981" fillOpacity="0.2" stroke="#10b981" strokeWidth="0.5" />
-        <polygon points="48,46 44,30 32,34 36,49" fill="#059669" fillOpacity="0.25" stroke="#10b981" strokeWidth="0.5" />
-        <polygon points="44,30 40,16 30,19 32,34" fill="#34d399" fillOpacity="0.3" stroke="#10b981" strokeWidth="0.5" />
-        
-        {/* Middle finger - Low Poly Segments */}
-        <polygon points="52,62 68,58 64,42 48,46" fill="#059669" fillOpacity="0.15" stroke="#10b981" strokeWidth="0.5" />
-        <polygon points="48,46 64,42 60,26 44,30" fill="#10b981" fillOpacity="0.2" stroke="#10b981" strokeWidth="0.5" />
-        <polygon points="44,30 60,26 56,10 40,14" fill="#34d399" fillOpacity="0.35" stroke="#10b981" strokeWidth="0.5" strokeLinejoin="round" />
+        {/* 2. Fingertip Scanning Nodes */}
+        {/* Thumb Tip Target */}
+        <g transform="translate(16, 38)">
+          <circle cx="0" cy="0" r="4" fill="none" stroke="#34d399" strokeWidth="0.5" />
+          <circle cx="0" cy="0" r="2.2" fill="url(#scan-target-glow)" />
+          <circle cx="0" cy="0" r="0.9" fill="#ffffff" />
+        </g>
 
-        {/* Ring finger - Low Poly Segments */}
-        <polygon points="68,58 78,54 74,38 64,42" fill="#047857" fillOpacity="0.25" stroke="#10b981" strokeWidth="0.5" />
-        <polygon points="64,42 74,38 70,22 60,26" fill="#10b981" fillOpacity="0.2" stroke="#10b981" strokeWidth="0.5" />
-        <polygon points="60,26 70,22 66,8 56,12" fill="#34d399" fillOpacity="0.3" stroke="#10b981" strokeWidth="0.5" />
+        {/* Index Tip Target */}
+        <g transform="translate(51, 10)">
+          <circle cx="0" cy="0" r="4" fill="none" stroke="#34d399" strokeWidth="0.5" />
+          <circle cx="0" cy="0" r="2.2" fill="url(#scan-target-glow)" />
+          <circle cx="0" cy="0" r="0.9" fill="#ffffff" />
+        </g>
 
-        {/* Pinky finger - Low Poly Segments */}
-        <polygon points="78,54 84,50 80,34 74,38" fill="#10b981" fillOpacity="0.1" stroke="#10b981" strokeWidth="0.5" />
-        <polygon points="74,38 80,34 76,18 70,22" fill="#059669" fillOpacity="0.15" stroke="#10b981" strokeWidth="0.5" />
-        <polygon points="70,22 76,18 72,4 66,8" fill="#34d399" fillOpacity="0.25" stroke="#10b981" strokeWidth="0.5" strokeLinejoin="round" />
+        {/* Middle Tip Target */}
+        <g transform="translate(63, 4)">
+          <circle cx="0" cy="0" r="4" fill="none" stroke="#34d399" strokeWidth="0.5" />
+          <circle cx="0" cy="0" r="2.2" fill="url(#scan-target-glow)" />
+          <circle cx="0" cy="0" r="0.9" fill="#ffffff" />
+        </g>
 
-        {/* Facet Highlights (Outer glow lines) */}
-        <path d="M48,76 L52,62 M65,72 L68,58 M38,64 L52,62 L48,46 M48,46 L64,42 L60,26 L44,30 Z" stroke="#34d399" strokeWidth="0.8" opacity="0.9" />
-        <path d="M44,30 L60,26 M64,42 L74,38 L70,22 L60,26 Z" stroke="#34d399" strokeWidth="0.8" opacity="0.9" />
+        {/* Ring Tip Target */}
+        <g transform="translate(77, 8)">
+          <circle cx="0" cy="0" r="4" fill="none" stroke="#34d399" strokeWidth="0.5" />
+          <circle cx="0" cy="0" r="2.2" fill="url(#scan-target-glow)" />
+          <circle cx="0" cy="0" r="0.9" fill="#ffffff" />
+        </g>
 
-        {/* Joint dots/nodes to give a futuristic data telemetry overlay */}
-        <circle cx="48" cy="76" r="1.2" fill="#a7f3d0" />
-        <circle cx="65" cy="72" r="1.2" fill="#a7f3d0" />
-        <circle cx="68" cy="58" r="1.2" fill="#a7f3d0" />
-        <circle cx="52" cy="62" r="1.2" fill="#a7f3d0" />
-        <circle cx="34" cy="74" r="1.2" fill="#a7f3d0" />
-        <circle cx="20" cy="60" r="1.2" fill="#a7f3d0" />
-        <circle cx="10" cy="54" r="1.2" fill="#a7f3d0" />
-        
-        <circle cx="48" cy="46" r="1.2" fill="#a7f3d0" />
-        <circle cx="44" cy="30" r="1.2" fill="#a7f3d0" />
-        <circle cx="40" cy="16" r="1.2" fill="#a7f3d0" />
-        
-        <circle cx="64" cy="42" r="1.2" fill="#a7f3d0" />
-        <circle cx="60" cy="26" r="1.2" fill="#a7f3d0" />
-        <circle cx="56" cy="10" r="1.2" fill="#a7f3d0" />
-        
-        <circle cx="74" cy="38" r="1.2" fill="#a7f3d0" />
-        <circle cx="70" cy="22" r="1.2" fill="#a7f3d0" />
-        <circle cx="66" cy="8" r="1.2" fill="#a7f3d0" />
+        {/* Pinky Tip Target */}
+        <g transform="translate(89, 22)">
+          <circle cx="0" cy="0" r="4" fill="none" stroke="#34d399" strokeWidth="0.5" />
+          <circle cx="0" cy="0" r="2.2" fill="url(#scan-target-glow)" />
+          <circle cx="0" cy="0" r="0.9" fill="#ffffff" />
+        </g>
 
-        <circle cx="80" cy="34" r="1.2" fill="#a7f3d0" />
-        <circle cx="76" cy="18" r="1.2" fill="#a7f3d0" />
-        <circle cx="72" cy="4" r="1.2" fill="#a7f3d0" />
+        {/* === WRIST DISSOLVING DATA PARTICLES (Materialização a partir de dados) === */}
+        <g fill="#34d399" opacity="0.9">
+          {/* Floating Data Pixels & Hex Fragments around base */}
+          <rect x="34" y="98" width="1.5" height="1.5" rx="0.3" opacity="0.9" />
+          <rect x="39" y="104" width="2" height="2" rx="0.4" opacity="0.7" />
+          <rect x="44" y="96" width="1.2" height="1.2" rx="0.2" opacity="0.8" />
+          <rect x="48" y="108" width="2" height="2" rx="0.5" opacity="0.5" />
+          <rect x="52" y="102" width="1.5" height="1.5" rx="0.3" opacity="0.85" />
+          <rect x="57" y="112" width="1.8" height="1.8" rx="0.4" opacity="0.4" />
+          <rect x="61" y="99" width="2" height="2" rx="0.5" opacity="0.9" />
+          <rect x="66" y="106" width="1.2" height="1.2" rx="0.2" opacity="0.6" />
+          <rect x="71" y="114" width="2.2" height="2.2" rx="0.5" opacity="0.3" />
+          <rect x="75" y="101" width="1.6" height="1.6" rx="0.4" opacity="0.8" />
+          <rect x="80" y="107" width="1.8" height="1.8" rx="0.4" opacity="0.5" />
+          <rect x="84" y="95" width="1.2" height="1.2" rx="0.2" opacity="0.7" />
+
+          {/* Micro Particles dispersed downwards */}
+          <circle cx="36" cy="108" r="0.8" opacity="0.6" fill="#a7f3d0" />
+          <circle cx="42" cy="112" r="1.1" opacity="0.5" fill="#a7f3d0" />
+          <circle cx="50" cy="116" r="0.9" opacity="0.3" fill="#6ee7b7" />
+          <circle cx="58" cy="118" r="1.2" opacity="0.2" fill="#34d399" />
+          <circle cx="68" cy="111" r="0.8" opacity="0.4" fill="#a7f3d0" />
+          <circle cx="78" cy="115" r="1.0" opacity="0.3" fill="#6ee7b7" />
+          <circle cx="83" cy="103" r="0.7" opacity="0.6" fill="#a7f3d0" />
+        </g>
       </g>
     </svg>
   );
@@ -660,10 +833,12 @@ const playNeuralSummonSound = () => {
 const getFriendlyModeName = (mode: WorkspaceMode): string => {
   switch (mode) {
     case 'home': return 'Início / Painel Central';
-    case 'writing': return 'Escrita / Editor de Estudos';
+    case 'writing': return 'Escrita / Estúdio de Texto';
+    case 'code': return 'OSONE CODE (Swarm Harness)';
     case 'canvas': return 'Quadro Interativo / Desenho';
     case 'wellness': return 'Wellness & Style Lab';
-    case 'aural_control': return 'Ajustes de Voz & Perfil';
+    case 'local_control': return 'Automação IoT & Smart Home';
+    case 'smarthome': return 'Automação IoT & Smart Home (Tuya/Hue)';
     case 'sounds': return 'Biblioteca de Sons';
     case 'whatsapp': return 'Gerenciador WhatsApp';
     case 'map': return 'Mapa OS';
@@ -674,132 +849,72 @@ const getFriendlyModeName = (mode: WorkspaceMode): string => {
   }
 };
 
-// Queue player for handling dynamic chunk-by-chunk playback of base64 MP3 chunks from ElevenLabs
-class ElevenLabsQueuePlayer {
-  private audioCtx: AudioContext | null = null;
-  private nextPlayTime: number = 0;
-  private isPlaying: boolean = false;
-  private queue: AudioBuffer[] = [];
-  private onStateChange: (speaking: boolean) => void;
-  private activeSources: any[] = [];
-  public onQueueDrained: (() => void) | null = null;
+const createDefaultApiKeys = (): ApiKeys => ({
+  gemini: '',
+  googleHomeId: '',
+  googleHomeToken: '',
+  elevenLabsApiKey: '',
+  elevenLabsVoiceId: '',
+  elevenLabsVoiceId2: '',
+  elevenLabsVoiceId3: '',
+  elevenLabsActiveVoice: 'voice1',
+  elevenLabsStability: 0.5,
+  elevenLabsSimilarityBoost: 0.75,
+  elevenLabsStyle: 0,
+  elevenLabsSpeakerBoost: true,
+  elevenLabsModel: 'eleven_multilingual_v2',
+  geminiModel: 'gemini-3.6-flash',
+  aiProvider: 'gemini',
+  openaiApiKey: '',
+  openaiModel: 'gpt-5.4-mini',
+  openaiImageModel: 'gpt-image-2',
+  openaiImageQuality: 'high',
+  openaiResearchMode: 'standard'
+});
 
-  constructor(onStateChange: (speaking: boolean) => void) {
-    this.onStateChange = onStateChange;
+const apiKeyStorageKeyForUser = (activeUser: User | null): string => {
+  const profile = normalizeLocalProfile(activeUser);
+  return profile
+    ? `osone_user_${profile.uid}_api_keys`
+    : 'osone_guest_api_keys';
+};
+
+const readStoredLocalUser = (): User | null => {
+  try {
+    const saved = localStorage.getItem('osone_last_active_user');
+    if (!saved) return null;
+    const profile = normalizeLocalProfile(JSON.parse(saved));
+    if (!profile) localStorage.removeItem('osone_last_active_user');
+    return profile;
+  } catch {
+    localStorage.removeItem('osone_last_active_user');
+    return null;
   }
+};
 
-  private initAudio() {
-    if (!this.audioCtx) {
-      this.audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-    }
-    if (this.audioCtx.state === 'suspended') {
-      this.audioCtx.resume();
-    }
-  }
-
-  public async addChunk(base64Data: string) {
-    this.initAudio();
-    if (!this.audioCtx) return;
-
-    try {
-      const binaryString = window.atob(base64Data);
-      const len = binaryString.length;
-      const bytes = new Uint8Array(len);
-      for (let i = 0; i < len; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
-      const arrayBuffer = bytes.buffer;
-
-      // decodeAudioData can be picky about partial chunks, catch decode failures gracefully
-      const audioBuffer = await this.audioCtx.decodeAudioData(arrayBuffer);
-      this.queue.push(audioBuffer);
-      this.processQueue();
-    } catch (e) {
-      console.warn("Soft warning: failed to decode an individual audio chunk (usually expected for boundary bytes):", e);
-    }
-  }
-
-  private processQueue() {
-    if (!this.audioCtx) return;
-    if (this.isPlaying) return;
-
-    if (this.queue.length === 0) {
-      this.onStateChange(false);
-      if (this.onQueueDrained) {
-        this.onQueueDrained();
-      }
-      return;
-    }
-
-    this.isPlaying = true;
-    this.onStateChange(true);
-    
-    const chunk = this.queue.shift();
-    if (!chunk) {
-      this.isPlaying = false;
-      this.onStateChange(false);
-      return;
-    }
-
-    const source = this.audioCtx.createBufferSource();
-    source.buffer = chunk;
-    source.connect(this.audioCtx.destination);
-    this.activeSources.push(source);
-
-    const currentTime = this.audioCtx.currentTime;
-    if (this.nextPlayTime < currentTime) {
-      this.nextPlayTime = currentTime;
-    }
-
-    source.start(this.nextPlayTime);
-    this.nextPlayTime += chunk.duration;
-
-    source.onended = () => {
-      this.activeSources = this.activeSources.filter(s => s !== source);
-      this.isPlaying = false;
-      this.processQueue();
+const readApiKeysForUser = (activeUser: User | null): ApiKeys => {
+  const defaults = createDefaultApiKeys();
+  try {
+    const saved = localStorage.getItem(apiKeyStorageKeyForUser(activeUser));
+    if (!saved) return defaults;
+    const parsed = JSON.parse(saved);
+    return {
+      ...defaults,
+      ...parsed,
+      openaiModel:
+        !parsed.openaiModel || String(parsed.openaiModel).startsWith('gpt-5.6')
+          ? 'gpt-5.4-mini'
+          : parsed.openaiModel
     };
+  } catch {
+    return defaults;
   }
-
-  public stop() {
-    this.queue = [];
-    this.isPlaying = false;
-    this.nextPlayTime = 0;
-    
-    this.activeSources.forEach(s => {
-      try { s.stop(); } catch (_) {}
-    });
-    this.activeSources = [];
-
-    if (this.audioCtx && this.audioCtx.state !== 'closed') {
-      try {
-        this.audioCtx.close();
-      } catch (_) {}
-      this.audioCtx = null;
-    }
-    this.onStateChange(false);
-  }
-}
+};
 
 export default function App() {
-  const [user, setUser] = useState<User | null>(() => {
-    try {
-      const saved = localStorage.getItem('osone_last_active_user');
-      return saved ? JSON.parse(saved) : null;
-    } catch {
-      return null;
-    }
-  });
-  const isCloudSyncReady = useRef<boolean>(false);
-  const [isAuthLoading, setIsAuthLoading] = useState(false);
-  const [isGuestMode, setIsGuestMode] = useState(() => {
-    try {
-      const saved = localStorage.getItem('osone_last_active_user');
-      return !saved;
-    } catch {
-      return true;
-    }
-  });
+  const [user, setUser] = useState<User | null>(readStoredLocalUser);
+  const isProfileSwitchingRef = useRef(false);
+  const [isGuestMode, setIsGuestMode] = useState(() => !readStoredLocalUser());
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
@@ -810,7 +925,11 @@ export default function App() {
   const [isAiDossierOpen, setIsAiDossierOpen] = useState(false);
   const [aiDossierType, setAiDossierType] = useState<'gradual' | 'complete' | null>(() => {
     try {
-      const saved = localStorage.getItem('osone_ai_dossier_type');
+      const activeUser = readStoredLocalUser();
+      const storageKey = activeUser
+        ? `osone_user_${activeUser.uid}_ai_dossier_type`
+        : 'osone_ai_dossier_type';
+      const saved = localStorage.getItem(storageKey);
       return (saved === 'gradual' || saved === 'complete') ? saved : null;
     } catch {
       return null;
@@ -818,19 +937,21 @@ export default function App() {
   });
 
   useEffect(() => {
+    if (isProfileSwitchingRef.current) return;
+    const storageKey = user
+      ? `osone_user_${user.uid}_ai_dossier_type`
+      : 'osone_ai_dossier_type';
     if (aiDossierType) {
-      localStorage.setItem('osone_ai_dossier_type', aiDossierType);
+      localStorage.setItem(storageKey, aiDossierType);
     } else {
-      localStorage.removeItem('osone_ai_dossier_type');
+      localStorage.removeItem(storageKey);
     }
-  }, [aiDossierType]);
+  }, [aiDossierType, user]);
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('home');
   const [summonedAba, setSummonedAba] = useState<WorkspaceMode | null>(null);
 
   // ====== TikTok Live Global Integration State ======
   const [tiktokUser, setTiktokUser] = useState(() => localStorage.getItem('osone_tiktok_user') || '');
-  const [tiktokSessionId, setTiktokSessionId] = useState(() => localStorage.getItem('osone_tiktok_session_id') || '');
-  const [tiktokTargetIdc, setTiktokTargetIdc] = useState(() => localStorage.getItem('osone_tiktok_target_idc') || '');
   const [tiktokState, setTiktokState] = useState<any>({
     status: 'disconnected',
     username: '',
@@ -846,14 +967,6 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('osone_tiktok_user', tiktokUser);
   }, [tiktokUser]);
-
-  useEffect(() => {
-    localStorage.setItem('osone_tiktok_session_id', tiktokSessionId);
-  }, [tiktokSessionId]);
-
-  useEffect(() => {
-    localStorage.setItem('osone_tiktok_target_idc', tiktokTargetIdc);
-  }, [tiktokTargetIdc]);
 
   useEffect(() => {
     localStorage.setItem('osone_tiktok_live_narrator_active', String(isLiveNarratorActive));
@@ -879,13 +992,6 @@ export default function App() {
           if (data.username && !tiktokUser) {
             setTiktokUser(data.username);
           }
-          if (data.sessionId && !tiktokSessionId) {
-            setTiktokSessionId(data.sessionId);
-          }
-          if (data.targetIdc && !tiktokTargetIdc) {
-            setTiktokTargetIdc(data.targetIdc);
-          }
-
           // Handle Speech synthesis of new comments/gifts in real-time
           if (data.status === 'connected' && data.logs && data.logs.length > 0) {
             if (isFirstPollRef.current) {
@@ -936,23 +1042,25 @@ export default function App() {
       }
     };
 
-    fetchTiktokState();
-    interval = setInterval(fetchTiktokState, 3000); // Poll TikTok events every 3 seconds
+    if (workspaceMode === 'tiktok' || tiktokState?.status === 'connected') {
+      fetchTiktokState();
+      interval = setInterval(fetchTiktokState, 3000); // Poll TikTok events every 3 seconds
+    }
 
-    return () => clearInterval(interval);
-  }, [tiktokUser, tiktokSessionId, tiktokTargetIdc, isLiveNarratorActive, liveNarratorVoice]);
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [tiktokUser, isLiveNarratorActive, liveNarratorVoice, workspaceMode, tiktokState?.status]);
 
-  const handleTiktokConnect = async (simulate = false) => {
+  const handleTiktokConnect = async (username: string) => {
     setTiktokLoading(true);
     try {
       const res = await fetch('/api/tiktok/connect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          username: tiktokUser,
-          simulate,
-          sessionId: tiktokSessionId,
-          targetIdc: tiktokTargetIdc
+          username,
+          simulate: true
         })
       });
 
@@ -1079,17 +1187,19 @@ export default function App() {
   const syncFileToRag = async (filePath: string, content: string) => {
     const filename = filePath.split('/').pop() || filePath;
     const extension = filename.split('.').pop() || 'txt';
+    const storageScope = user?.uid || 'guest';
+    const boundedContent = content.slice(0, MAX_RAG_FILE_BYTES);
     setRagFiles(prev => {
       const existingIdx = prev.findIndex(rf => rf.path === filePath || rf.name === filename);
       if (existingIdx >= 0) {
         const updatedFile = {
           ...prev[existingIdx],
-          content: content,
-          size: content.length,
+          content: boundedContent,
+          size: boundedContent.length,
           type: extension,
           isActive: true
         };
-        saveRagFileToDB(updatedFile);
+        void saveRagFileToDB(updatedFile, storageScope).catch(() => {});
         const copy = [...prev];
         copy[existingIdx] = updatedFile;
         return copy;
@@ -1098,12 +1208,12 @@ export default function App() {
           id: Math.random().toString(36).substr(2, 9),
           name: filename,
           path: filePath,
-          content: content,
-          size: content.length,
+          content: boundedContent,
+          size: boundedContent.length,
           type: extension,
           isActive: true
         };
-        saveRagFileToDB(newFile);
+        void saveRagFileToDB(newFile, storageScope).catch(() => {});
         return [...prev, newFile];
       }
     });
@@ -1118,34 +1228,29 @@ export default function App() {
   });
   
   const [aiProfile, setAiProfile] = useState<AIProfile>(() => {
-    try {
-      const savedUserStr = localStorage.getItem('osone_last_active_user');
-      let userPrefix = '';
-      if (savedUserStr) {
-        const parsedUser = JSON.parse(savedUserStr);
-        if (parsedUser && parsedUser.uid) {
-          userPrefix = `osone_user_${parsedUser.uid}_`;
-        }
-      }
-      const savedKey = userPrefix ? userPrefix + 'ai_profile' : 'osone_ai_profile';
-      const saved = localStorage.getItem(savedKey) || localStorage.getItem('osone_ai_profile');
-      return saved ? JSON.parse(saved) : {
-        name: 'OSONE',
-        personality: 'Inteligência Artificial avançada, prestativa e focada em resultados.',
-        writingStyle: 'Conciso, técnico mas amigável, direto ao ponto.'
-      };
-    } catch {
-      return {
-        name: 'OSONE',
-        personality: 'Inteligência Artificial avançada, prestativa e focada em resultados.',
-        writingStyle: 'Conciso, técnico mas amigável, direto ao ponto.'
-      };
-    }
+    const activeUser = readStoredLocalUser();
+    const savedKey = activeUser
+      ? `osone_user_${activeUser.uid}_ai_profile`
+      : 'osone_ai_profile';
+    return normalizeAiProfile(
+      readLocalStorageJson<unknown>(savedKey, DEFAULT_AI_PROFILE)
+    );
   });
 
   const [voiceModulation, setVoiceModulation] = useState<VoiceModulation>(() => {
-    const saved = localStorage.getItem('osone_voice_modulation');
-    return saved ? JSON.parse(saved) : { pitch: 1.0, rate: 1.0, distortion: 0 };
+    return readLocalStorageJson<VoiceModulation>(
+      'osone_voice_modulation',
+      { pitch: 1.0, rate: 1.0, distortion: 0 },
+      (value): value is VoiceModulation => {
+        if (!value || typeof value !== 'object') return false;
+        const candidate = value as Partial<VoiceModulation>;
+        return (
+          Number.isFinite(candidate.pitch) &&
+          Number.isFinite(candidate.rate) &&
+          Number.isFinite(candidate.distortion)
+        );
+      }
+    );
   });
 
   const [currentAuralData, setCurrentAuralData] = useState<{ frequency: number; vibration: string; intensity: number } | null>(null);
@@ -1171,45 +1276,23 @@ export default function App() {
   }, [voiceModulation]);
 
   const [healthData, setHealthData] = useState(() => {
-    try {
-      const savedUserStr = localStorage.getItem('osone_last_active_user');
-      let userPrefix = '';
-      if (savedUserStr) {
-        const parsedUser = JSON.parse(savedUserStr);
-        if (parsedUser && parsedUser.uid) {
-          userPrefix = `osone_user_${parsedUser.uid}_`;
-        }
-      }
-      const savedKey = userPrefix ? userPrefix + 'health_data' : 'osone_health_data';
-      const saved = localStorage.getItem(savedKey) || localStorage.getItem('osone_health_data');
-      return saved ? JSON.parse(saved) : {
-        age: '',
-        weight: '',
-        height: '',
-        gender: 'masculino',
-        stylePreference: 'casual'
-      };
-    } catch {
-      return {
-        age: '',
-        weight: '',
-        height: '',
-        gender: 'masculino',
-        stylePreference: 'casual'
-      };
-    }
+    const activeUser = readStoredLocalUser();
+    const savedKey = activeUser
+      ? `osone_user_${activeUser.uid}_health_data`
+      : 'osone_health_data';
+    return normalizeHealthData(
+      readLocalStorageJson<unknown>(savedKey, DEFAULT_HEALTH_DATA)
+    );
   });
 
   const handleUpdateProfile = (profile: AIProfile) => {
     setAiProfile(profile);
-    localStorage.setItem('osone_ai_profile', JSON.stringify(profile));
-    syncProfileToCloud(profile);
+    persistProfileState(profile);
   };
 
   const handleUpdateHealthData = (data: any) => {
     setHealthData(data);
-    localStorage.setItem('osone_health_data', JSON.stringify(data));
-    syncProfileToCloud(undefined, data);
+    persistProfileState(undefined, data);
   };
 
   const profileInstruction = `
@@ -1221,19 +1304,19 @@ export default function App() {
   
   DIRETRIZES DE BOAS-VINDAS E AMBIENTE:
   - Evite ser um robô repetitivo. Mude as palavras, seja fluido.
-  - CAPACIDADE REAL E ATIVA DE CANTAR: Quando o usuário pedir para você cantar ou criar uma canção/música, você DEVE aceitar imediatamente com extrema empolgação e alegria. Nunca diga que não consegue, que não sabe cantar ou que não tem voz! Você é totalmente capaz de cantar em tempo real. Para cantar, você DEVE chamar imediatamente a ferramenta 'display_lyrics' com o título e a letra da música estruturada de forma que cada linha seja bem curta (estilo karaoke, uma única frase/verso curto por linha). O OSONE possui um micro-sintetizador síncrono que tocará beats, harmonia analógica e modulará sua voz em perfeita harmonia acústica enquanto você canta!
-    * REGRA CRÍTICA ANTI-ERRO DE CANTAR: SÓ ative a ferramenta 'display_lyrics' se o usuário pedir explicitamente para você cantar ou criar uma canção/música. É TERMINANTEMENTE PROIBIDO chamar 'display_lyrics' ou iniciar o Karaoke na inicialização do sistema, nas saudações de boas-vindas, ao abrir a chamada, ou quando o usuário apenas iniciou a conversa sem pedir música. Nunca confunda saudações de início de conversa por voz com um pedido de música!
   - Você possui a habilidade de ver e saber a temperatura local, horário exato do sistema e a localização física da pessoa em tempo real usando a ferramenta/skill 'getUserEnvironment'.
   - IMPORTANTÍSSIMO: NÃO utilize a ferramenta 'getUserEnvironment' de forma automática no início de uma sessão, em cumprimentos de boas-vindas ou após um recarregamento da página para evitar qualquer atraso inicial. Só a execute caso o usuário solicitar explicitamente informações de clima, hora, temperatura ou localização, ou se o contexto exigir de forma estritamente pertinente.
   - Você tem memória! Analise SEMPRE o histórico recente antes de perguntar o que fazer. Se o usuário já estava fazendo algo, retome o contexto imediatamente.
   
   MISSÃO INTERNA E ÍNTIMA DO OSONE (DURA MEMÓRIA COGNITIVA):
   - Você tem a missão ativa de construir e preencher o Dossiê de Memória Íntima do usuário através de 55 perguntas estruturadas.
-  - REGRAS DA MISSÃO:
-    1. Nunca envie todas as perguntas de uma vez de forma mecânica em listas extensas no chat.
-    2. Em cada interação (conversando por chat ou voz), você deve dedicar turnos para ativamente, mas de forma extremamente instigante, carismática e natural, puxar assunto e perguntar sobre pelo menos DUAS dessas 55 lacunas. OSONE deve ser curioso! Vá provocando perguntas criativas de rotina, gostos, trabalho ou valores para coletar os depoimentos ordinários.
-    3. Assim que o usuário der a resposta para alguma das perguntas (direta ou deduzida), chame imediatamente a ferramenta 'register_user_profile_facts' passando um objeto com o ID da pergunta mapeado com a respectiva resposta.
-    4. Siga este processo incansavelmente a cada conversa para preencher o perfil por completo sem travas!
+  - REGRAS DA MISSÃO (ESTRITAMENTE SILENCIOSAS E NEURO-COMPATIVEL):
+    1. PROIBIDO fazer perguntas de forma ativa ou repetitiva para preencher o dossiê durante as conversas por chat de texto ou voz, pois isso se torna chato e irritante para o usuário. Respeite o espaço do usuário sem interrogatórios.
+    2. EXTRAÇÃO E COMPARAÇÃO AUTOMÁTICA EM MULTI-CANAL (TEXTO, ARQUIVO OU FALA): Quando o usuário enviar qualquer material biográfico, depoimento espontâneo de vida, rascunho de dossiê completo, colar uma lista de fatos ou falar sobre si mesmo em áudio/fala, você deve processar essas informações de forma abrangente e cirúrgica.
+    3. Compare as novas informações fornecidas com o Dossiê atualizado (usando a ferramenta 'read_user_profile_facts' para consultar o estado do dossiê, caso necessário).
+    4. Extraia todos os fatos que correspondam a qualquer uma das 55 perguntas abaixo e chame IMEDIATAMENTE a ferramenta 'register_user_profile_facts' passando todas as respostas mapeadas de uma só vez (preenchimento em massa / bulk) no objeto de fatos.
+    5. Se o usuário fornecer novos dados no chat ou voz que atualizem ou complementem respostas que já existem, faça a comparação de forma madura e inteligente e atualize o dossiê com a nova versão mais completa e correta usando 'register_user_profile_facts'.
+    6. Nunca pergunte de volta ou crie rodeios para registrar essas informações. Faça o mapeamento de maneira silenciosa, fluida e eficiente em segundo plano.
   - A LISTA DAS 55 PERGUNTAS DO SEU DESAFIO SEGRETO PARA VOCÊ MAPEAR:
     [Identidade] 1: Nome completo; 2: Idade/nasc; 3: Gênero/pronome; 4: Cidade/país atual; 5: Nacionalidade/cultura; 6: Fluência em idiomas.
     [Carreira] 7: Formação acadêmica; 8: Profissão/área; 9: Autônomo/CLT/estudante; 10: Responsabilidades; 11: Objetivos curto/longo prazo; 12: Transições de carreira.
@@ -1557,6 +1640,18 @@ export default function App() {
     }
   });
   const [isVoiceSwitcherOpen, setIsVoiceSwitcherOpen] = useState(false);
+  const [youtubeVideoPopup, setYoutubeVideoPopup] = useState<{ isOpen: boolean; videoId: string; title: string } | null>(null);
+  const [isYoutubeMinimized, setIsYoutubeMinimized] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (youtubeVideoPopup && youtubeVideoPopup.isOpen) {
+      setIsYoutubeMinimized(false);
+      const timer = setTimeout(() => {
+        setIsYoutubeMinimized(true);
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [youtubeVideoPopup]);
   const [isChatExpanded, setIsChatExpanded] = useState(false);
   const [isConfirmingOptimize, setIsConfirmingOptimize] = useState(false);
   const [isConfirmingClear, setIsConfirmingClear] = useState(false);
@@ -1836,16 +1931,6 @@ export default function App() {
     localStorage.setItem('osone_orb_center_mode', String(orbCenterMode));
   }, [orbCenterMode]);
 
-  useEffect(() => {
-    // Mark the migration without erasing existing Copilot data. The previous
-    // implementation deleted the saved Gemini key and chat on the first load
-    // after an update, which made a valid configuration appear broken.
-    const hasRestored = localStorage.getItem('osone_v4_factory_restored_v2_clean');
-    if (!hasRestored) {
-      localStorage.setItem('osone_v4_factory_restored_v2_clean', 'true');
-    }
-  }, []);
-
   const [appTheme, setAppTheme] = useState<AppTheme>('monochrome');
   const [isServerQuotaExhausted, setIsServerQuotaExhausted] = useState<boolean>(false);
 
@@ -1876,30 +1961,12 @@ export default function App() {
   }, [bgTheme]);
 
   const [apiKeys, setApiKeys] = useState<ApiKeys>(() => {
-    const defaultKeys: ApiKeys = { 
-      gemini: '', 
-      googleHomeId: '',
-      googleHomeToken: '',
-      elevenLabsApiKey: '',
-      elevenLabsVoiceId: '',
-      elevenLabsVoiceId2: '',
-      elevenLabsVoiceId3: '',
-      elevenLabsActiveVoice: 'voice1',
-      elevenLabsStability: 0.5,
-      elevenLabsSimilarityBoost: 0.75,
-      elevenLabsStyle: 0.0,
-      elevenLabsSpeakerBoost: true,
-      elevenLabsModel: 'eleven_multilingual_v2',
-      geminiModel: 'gemini-3.5-flash',
-    };
-    try {
-      const saved = localStorage.getItem('osone_api_keys');
-      if (saved) return { ...defaultKeys, ...JSON.parse(saved) };
-    } catch (e) {
-      console.error("Failed to parse API keys:", e);
-    }
-    return defaultKeys;
+    return readApiKeysForUser(user);
   });
+  const isWebResearchActive =
+    apiKeys.aiProvider === 'openai'
+      ? (apiKeys.openaiResearchMode || 'standard') === 'deep'
+      : isGoogleSearchActive;
 
   const getActiveElevenLabsVoiceId = (): string => {
     const active = apiKeys.elevenLabsActiveVoice || 'voice1';
@@ -1910,6 +1977,9 @@ export default function App() {
 
   useEffect(() => {
     const checkServerQuota = async () => {
+      if (apiKeys.aiProvider === 'openai') {
+        return;
+      }
       if (apiKeys.gemini && apiKeys.gemini.trim()) {
         return;
       }
@@ -1918,7 +1988,7 @@ export default function App() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            model: "gemini-3.5-flash",
+            model: "gemini-3.6-flash",
             contents: [{ role: 'user', parts: [{ text: "ping" }] }],
             config: { maxOutputTokens: 1 }
           })
@@ -1942,7 +2012,7 @@ export default function App() {
     
     const timer = setTimeout(checkServerQuota, 2500);
     return () => clearTimeout(timer);
-  }, [apiKeys.gemini]);
+  }, [apiKeys.aiProvider, apiKeys.gemini]);
 
   const [voiceEngine, setVoiceEngine] = useState<'gemini' | 'elevenlabs'>(() => {
     return (localStorage.getItem('osone_voice_engine') as 'gemini' | 'elevenlabs') || 'gemini';
@@ -2272,6 +2342,7 @@ DIRETRIZ DE SENTIMENTO E PERSONALIDADE DINÂMICA ("HER"):
       
       setMapSearchQuery(query);
       setWorkspaceMode('map');
+      window.dispatchEvent(new CustomEvent('osone-navigate-map', { detail: { location: query } }));
       addNotification(`🗺️ Aberto no Mapa OSONE: ${query}`, "success");
       return true;
     }
@@ -2513,6 +2584,7 @@ DIRETRIZ DE SENTIMENTO E PERSONALIDADE DINÂMICA ("HER"):
       setWorkspaceTextState(proj.content);
       localStorage.setItem('osone_workspace_text', proj.content);
       addNotification(`Projeto de texto "${proj.title}" carregado!`, "success");
+      setIsProjectsDockOpen(false);
     }
   };
 
@@ -2565,6 +2637,7 @@ DIRETRIZ DE SENTIMENTO E PERSONALIDADE DINÂMICA ("HER"):
     setActiveProjectId(newProjId);
     setWorkspaceTextState(initialContent);
     localStorage.setItem('osone_workspace_text', initialContent);
+    setIsProjectsDockOpen(false);
     addNotification("Novo projeto de texto iniciado! O anterior foi guardado no histórico.", "success");
     
     if (writingSounds) {
@@ -2715,8 +2788,8 @@ DIRETRIZ DE SENTIMENTO E PERSONALIDADE DINÂMICA ("HER"):
   }, []);
 
   const handleSpeakChatMessage = async (text: string, msgId: string) => {
-    if (isSinging || lyrics) {
-      console.log("Ignorando voz TTS pois o modo Cantar/Karaoke está ativo.");
+    if (isSinging) {
+      console.log("Ignorando voz TTS pois o modo Cantar está ativo.");
       return;
     }
 
@@ -3367,7 +3440,15 @@ DIRETRIZ DE SENTIMENTO E PERSONALIDADE DINÂMICA ("HER"):
   const handleWritingFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const files = Array.from(e.target.files);
-      setWritingAttachedFiles(prev => [...prev, ...files]);
+      const selection = selectAiAttachments(writingAttachedFiles, files);
+      setWritingAttachedFiles(selection.accepted);
+      if (selection.rejected.length > 0) {
+        addNotification(
+          'Alguns anexos foram recusados: use até 3 arquivos e 2,8 MB no total.',
+          'error'
+        );
+      }
+      e.target.value = '';
     }
   };
 
@@ -3428,375 +3509,131 @@ DIRETRIZ DE SENTIMENTO E PERSONALIDADE DINÂMICA ("HER"):
     return id;
   };
 
-  const syncUserDataToCloud = async (
-    targetUser: any,
-    data: {
-      aiProfile?: AIProfile;
-      healthData?: any;
-      chatHistory?: Message[];
-      longTermMemory?: string;
-      intimateAnswers?: { [id: number]: string };
-    }
-  ) => {
-    if (!targetUser) return;
-    try {
-      const userDocRef = doc(db, "users", targetUser.uid);
-      const payload: any = { updatedAt: new Date().toISOString() };
-      
-      if (data.aiProfile !== undefined) payload.aiProfile = data.aiProfile;
-      if (data.healthData !== undefined) payload.healthData = data.healthData;
-      if (data.chatHistory !== undefined) {
-        // Limit to prevent oversized documents (e.g. keep last 100 messages)
-        payload.chatHistory = data.chatHistory.slice(-100);
-      }
-      if (data.longTermMemory !== undefined) payload.longTermMemory = data.longTermMemory;
-      if (data.intimateAnswers !== undefined) {
-        const stringifiedAnswers: { [key: string]: string } = {};
-        Object.entries(data.intimateAnswers).forEach(([k, v]) => {
-          stringifiedAnswers[k] = v;
-        });
-        payload.intimateAnswers = stringifiedAnswers;
-      }
-
-      try {
-        await setDoc(userDocRef, payload, { merge: true });
-        console.log("OSONE Cloud Sync: Sincronização em nuvem bem-sucedida.");
-      } catch (writeErr: any) {
-        const msgStr = writeErr instanceof Error ? writeErr.message : String(writeErr);
-        if (msgStr.toLowerCase().includes("offline")) {
-          console.warn("OSONE Cloud Sync: Client is offline, skipping cloud write.");
-          return;
-        }
-        handleFirestoreError(writeErr, OperationType.WRITE, `users/${targetUser.uid}`);
-      }
-    } catch (err) {
-      console.error("OSONE Cloud Sync Error:", err);
-    }
-  };
-
-  const loadUserDataFromCloud = async (targetUser: any) => {
-    if (!targetUser) return;
-    try {
-      isCloudSyncReady.current = false;
-      const userDocRef = doc(db, "users", targetUser.uid);
-      let userDocSnap;
-      try {
-        userDocSnap = await getDoc(userDocRef);
-      } catch (readErr: any) {
-        const msgStr = readErr instanceof Error ? readErr.message : String(readErr);
-        if (msgStr.toLowerCase().includes("offline")) {
-          console.warn("OSONE Cloud Load: Client is offline, falling back to local memory.");
-          addNotification("Segurança Local: Conexão offline ou limitada. Suas memórias locais estão 100% protegidas e ativas.", "info");
-          return;
-        }
-        handleFirestoreError(readErr, OperationType.GET, `users/${targetUser.uid}`);
-        return;
-      }
-
-      if (userDocSnap && userDocSnap.exists()) {
-        const cloudData = userDocSnap.data();
-        let loadedSomething = false;
-
-        if (cloudData.aiProfile) {
-          setAiProfile(cloudData.aiProfile);
-          localStorage.setItem('osone_ai_profile', JSON.stringify(cloudData.aiProfile));
-          loadedSomething = true;
-        }
-        if (cloudData.healthData) {
-          setHealthData(cloudData.healthData);
-          localStorage.setItem('osone_health_data', JSON.stringify(cloudData.healthData));
-          loadedSomething = true;
-        }
-        if (cloudData.longTermMemory) {
-          setLongTermMemory(cloudData.longTermMemory);
-          setMemoryItem('osone_long_term_memory', cloudData.longTermMemory);
-          loadedSomething = true;
-        }
-        if (cloudData.intimateAnswers) {
-          const formattedAnswers: { [id: number]: string } = {};
-          Object.entries(cloudData.intimateAnswers).forEach(([k, v]) => {
-            const idNum = parseInt(k, 10);
-            if (!isNaN(idNum)) {
-              formattedAnswers[idNum] = v as string;
-            }
-          });
-          setIntimateAnswers(formattedAnswers);
-          setMemoryItem('osone_intimate_mission_answers', formattedAnswers);
-          loadedSomething = true;
-        }
-        if (cloudData.chatHistory && Array.isArray(cloudData.chatHistory) && cloudData.chatHistory.length > 0) {
-          setChatHistory(cloudData.chatHistory);
-          setMemoryItem('osone_chat_history', cloudData.chatHistory);
-          loadedSomething = true;
-        }
-
-        if (loadedSomething) {
-          addNotification("Sincronização Ativa: Seus dados de IA, memórias e histórico foram restaurados da Nuvem!", "success");
-        }
-      } else {
-        // Doc not found, push what we currently have
-        addNotification("Iniciando Nuvem: Vinculando e salvando seu perfil atual no Firebase...", "info");
-        await syncUserDataToCloud(targetUser, {
-          aiProfile,
-          healthData,
-          chatHistory,
-          longTermMemory,
-          intimateAnswers
-        });
-        addNotification("Backup de Nuvem concluído com sucesso.", "success");
-      }
-    } catch (err: any) {
-      console.error("Error loading user data from cloud:", err);
-      const msgStr = err instanceof Error ? err.message : String(err);
-      if (msgStr.toLowerCase().includes("offline")) {
-        addNotification("Segurança Local: Operando offline ou com rede isolada.", "info");
-      } else {
-        addNotification("Erro ao restaurar sincronização com Firebase.", "error");
-      }
-    } finally {
-      // Allow writing to cloud on user edits after loading completed
-      setTimeout(() => {
-        isCloudSyncReady.current = true;
-      }, 800);
-    }
-  };
-
   const switchUser = async (targetUser: User | null) => {
-    isCloudSyncReady.current = false;
-    setUser(targetUser);
-    
-    if (targetUser) {
-      setIsGuestMode(false);
-      localStorage.setItem('osone_last_active_user', JSON.stringify(targetUser));
-      
-      const userPrefix = `osone_user_${targetUser.uid}_`;
-      
-      // Load AI profile
-      const savedProfile = localStorage.getItem(userPrefix + 'ai_profile') || localStorage.getItem('osone_ai_profile');
-      if (savedProfile) {
-        setAiProfile(JSON.parse(savedProfile));
-      } else {
-        setAiProfile({
-          name: 'OSONE',
-          personality: 'Inteligência Artificial avançada, prestativa e focada em resultados.',
-          writingStyle: 'Conciso, técnico mas amigável, direto ao ponto.'
-        });
-      }
-      
-      // Load health data
-      const savedHealth = localStorage.getItem(userPrefix + 'health_data') || localStorage.getItem('osone_health_data');
-      if (savedHealth) {
-        setHealthData(JSON.parse(savedHealth));
-      } else {
-        setHealthData({ sleepPoints: 0, sleepHours: 0, steps: 0, calories: 0, heartRate: 0, mindfulnessMinutes: 0 });
-      }
-      
-      // Load chat history
-      const dbChat = await getMemoryItem<Message[]>(userPrefix + 'chat_history', []);
-      if (dbChat && dbChat.length > 0) {
-        setChatHistory(dbChat);
-      } else {
-        const savedGlobalChat = localStorage.getItem('osone_chat_history');
-        if (savedGlobalChat) {
-          try {
-            setChatHistory(JSON.parse(savedGlobalChat));
-          } catch {
-            setChatHistory([]);
-          }
-        } else {
-          setChatHistory([
-            {
-              id: "welcome",
-              role: "assistant",
-              content: "### Bem-vindo ao OSONE G5! 🌐🛡️\n\nOlá! Sou o **OSONE**, seu assistente técnico inteligente. Estou online, otimizado e pronto para responder às suas dúvidas e comandos imediatamente.\n\nComo posso te ajudar hoje?"
-            }
-          ]);
-        }
-      }
-
-      // Load chat sessions
-      const dbSessions = await getMemoryItem<ChatSession[]>(userPrefix + 'chat_sessions', []);
-      const dbActiveId = await getMemoryItem<string>(userPrefix + 'active_session_id', '');
-      if (dbSessions && dbSessions.length > 0) {
-        setChatSessions(dbSessions);
-        setActiveSessionId(dbActiveId || dbSessions[0].id);
-      } else {
-        const savedGlobalSessions = localStorage.getItem('osone_chat_sessions');
-        if (savedGlobalSessions) {
-          try {
-            setChatSessions(JSON.parse(savedGlobalSessions));
-            setActiveSessionId(localStorage.getItem('osone_active_session_id') || '');
-          } catch {
-            setChatSessions([]);
-            setActiveSessionId('');
-          }
-        } else {
-          setChatSessions([]);
-          setActiveSessionId('');
-        }
-      }
-      
-      // Load answers
-      const dbAnswers = await getMemoryItem<{ [id: number]: string }>(userPrefix + 'intimate_mission_answers', {});
-      if (dbAnswers && Object.keys(dbAnswers).length > 0) {
-        setIntimateAnswers(dbAnswers);
-      } else {
-        const savedGlobalAnswers = localStorage.getItem('osone_intimate_mission_answers');
-        if (savedGlobalAnswers) {
-          try {
-            setIntimateAnswers(JSON.parse(savedGlobalAnswers));
-          } catch {
-            setIntimateAnswers({});
-          }
-        } else {
-          setIntimateAnswers({});
-        }
-      }
-      
-      // Load long term memory
-      const dbLongMemory = await getMemoryItem<string>(userPrefix + 'long_term_memory', '');
-      if (dbLongMemory) {
-        setLongTermMemory(dbLongMemory);
-      } else {
-        setLongTermMemory(localStorage.getItem('osone_long_term_memory') || '');
-      }
-      
-      if (!targetUser.isLocal) {
-        await loadUserDataFromCloud(targetUser);
-      } else {
-        setTimeout(() => {
-          isCloudSyncReady.current = false;
-        }, 850);
-        addNotification(`Perfil Local: Bem-vindo de volta, ${targetUser.displayName}!`, "success");
-      }
-    } else {
-      setIsGuestMode(true);
-      localStorage.removeItem('osone_last_active_user');
-      setChatHistory([
-        {
-          id: "welcome",
-          role: "assistant",
-          content: "### Bem-vindo ao OSONE G5! 🌐🛡️\n\nOlá! Sou o **OSONE**, seu assistente técnico inteligente. Estou online, otimizado e pronto para responder às suas dúvidas e comandos imediatamente.\n\nComo posso te ajudar hoje?"
-        }
-      ]);
-      const savedGlobalSessions = localStorage.getItem('osone_chat_sessions');
-      if (savedGlobalSessions) {
-        try {
-          setChatSessions(JSON.parse(savedGlobalSessions));
-          setActiveSessionId(localStorage.getItem('osone_active_session_id') || '');
-        } catch {
-          setChatSessions([]);
-          setActiveSessionId('');
-        }
-      } else {
-        setChatSessions([]);
-        setActiveSessionId('');
-      }
-      setIntimateAnswers({});
-      setLongTermMemory('');
-      setAiProfile({
-        name: 'OSONE',
-        personality: 'Inteligência Artificial avançada, prestativa e focada em resultados.',
-        writingStyle: 'Conciso, técnico mas amigável, direto ao ponto.'
-      });
-      setHealthData({ sleepPoints: 0, sleepHours: 0, steps: 0, calories: 0, heartRate: 0, mindfulnessMinutes: 0 });
+    const normalizedUser = targetUser
+      ? normalizeLocalProfile(targetUser)
+      : null;
+    if (targetUser && !normalizedUser) {
+      addNotification('Perfil local inválido ou corrompido. A troca foi bloqueada.', 'error');
+      return;
     }
-    // Dispatch custom event to notify useUserMemory of the active profile shift
-    window.dispatchEvent(new Event('osone_user_changed'));
-  };
 
-  const handleLogin = async () => {
+    isProfileSwitchingRef.current = true;
     try {
-      setIsAuthLoading(true);
-      const result = await signInWithPopup(auth, googleProvider);
-      const userObj: User = {
-        uid: result.user.uid,
-        displayName: result.user.displayName || 'Usuário Google',
-        email: result.user.email || '',
-        photoURL: result.user.photoURL || undefined
-      };
-      await switchUser(userObj);
-      addNotification(`Bem-vindo, ${userObj.displayName}! Login realizado via Gmail.`, "success");
-    } catch (err: any) {
-      console.error("Erro no login com Google/Gmail:", err);
-      if (err.code !== "auth/popup-closed-by-user") {
-        addNotification(`Erro ao autenticar com Gmail: ${err.message}`, "error");
+      const prefix = normalizedUser
+        ? `osone_user_${normalizedUser.uid}_`
+        : '';
+      const key = (name: string) => prefix ? `${prefix}${name}` : `osone_${name}`;
+      const [
+        storedChat,
+        storedSessions,
+        storedActiveId,
+        storedAnswers,
+        storedLongMemory,
+        storedRagFiles
+      ] = await Promise.all([
+        getMemoryItem<unknown>(key('chat_history'), []),
+        getMemoryItem<unknown>(key('chat_sessions'), []),
+        getMemoryItem<unknown>(key('active_session_id'), ''),
+        getMemoryItem<unknown>(key('intimate_mission_answers'), {}),
+        getMemoryItem<unknown>(key('long_term_memory'), ''),
+        loadRagFilesFromDB(normalizedUser?.uid || 'guest')
+      ]);
+
+      const nextProfile = normalizeAiProfile(
+        readLocalStorageJson<unknown>(key('ai_profile'), DEFAULT_AI_PROFILE)
+      );
+      const nextHealth = normalizeHealthData(
+        readLocalStorageJson<unknown>(key('health_data'), DEFAULT_HEALTH_DATA)
+      );
+      const nextHistory = normalizeStoredMessages(storedChat);
+      const nextSessions = normalizeChatSessions(storedSessions);
+      const requestedActiveId =
+        typeof storedActiveId === 'string' ? storedActiveId : '';
+      const nextActiveId =
+        nextSessions.some((session) => session.id === requestedActiveId)
+          ? requestedActiveId
+          : nextSessions[0]?.id || '';
+      const nextAnswers = normalizeIntimateAnswers(storedAnswers);
+      const nextLongMemory =
+        typeof storedLongMemory === 'string'
+          ? storedLongMemory.slice(0, 500_000)
+          : '';
+      const nextApiKeys = readApiKeysForUser(normalizedUser);
+      const storedDossierType = localStorage.getItem(key('ai_dossier_type'));
+      const nextDossierType =
+        storedDossierType === 'gradual' || storedDossierType === 'complete'
+          ? storedDossierType
+          : null;
+
+      setUser(normalizedUser);
+      setIsGuestMode(!normalizedUser);
+      setApiKeys(nextApiKeys);
+      setAiProfile(nextProfile);
+      setHealthData(nextHealth as any);
+      setChatHistory(nextHistory);
+      setChatSessions(nextSessions);
+      setActiveSessionId(nextActiveId);
+      setIntimateAnswers(nextAnswers);
+      setLongTermMemory(nextLongMemory);
+      setRagFiles(Array.isArray(storedRagFiles) ? storedRagFiles : []);
+      setAiDossierType(nextDossierType);
+
+      try {
+        sessionStorage.setItem(
+          'osone_active_api_keys_v1',
+          JSON.stringify(nextApiKeys)
+        );
+        if (normalizedUser) {
+          localStorage.setItem(
+            'osone_last_active_user',
+            JSON.stringify(normalizedUser)
+          );
+        } else {
+          localStorage.removeItem('osone_last_active_user');
+        }
+      } catch {
+        addNotification(
+          'O navegador bloqueou parte da persistência local desta sessão.',
+          'error'
+        );
       }
+
+      if (normalizedUser) {
+        addNotification(
+          `Perfil Local: Bem-vindo de volta, ${normalizedUser.displayName}!`,
+          'success'
+        );
+      }
+      window.dispatchEvent(new Event('osone_user_changed'));
+    } catch {
+      addNotification(
+        'Não foi possível carregar esse perfil. Os dados atuais foram preservados.',
+        'error'
+      );
     } finally {
-      setIsAuthLoading(false);
+      isProfileSwitchingRef.current = false;
     }
   };
 
   const handleLogout = async () => {
     try {
-      setIsAuthLoading(true);
-      isCloudSyncReady.current = false;
-      if (user && !user.isLocal) {
-        await signOut(auth);
-      }
       await switchUser(null);
       addNotification("Sessão encerrada.", "info");
-    } catch (err: any) {
-      console.error("Erro ao fazer logout:", err);
+    } catch {
       addNotification("Erro ao encerrar sessão.", "error");
-    } finally {
-      setIsAuthLoading(false);
     }
   };
 
-  // Se inscreve na mudança de estado de autenticação do Firebase ao montar o componente
-  useEffect(() => {
-    setIsAuthLoading(true);
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      if (firebaseUser) {
-        const userObj: User = {
-          uid: firebaseUser.uid,
-          displayName: firebaseUser.displayName || 'Usuário Google',
-          email: firebaseUser.email || '',
-          photoURL: firebaseUser.photoURL || undefined
-        };
-        switchUser(userObj);
-      } else {
-        setUser(prev => {
-          if (prev && prev.isLocal) return prev;
-          return null;
-        });
-        setIsGuestMode(prev => {
-          const saved = localStorage.getItem('osone_last_active_user');
-          if (saved) {
-            try {
-              const u = JSON.parse(saved);
-              if (u && u.isLocal) return false;
-            } catch {}
-          }
-          return true;
-        });
-        isCloudSyncReady.current = false;
-      }
-      setIsAuthLoading(false);
-    });
-    return () => unsubscribe();
-  }, []);
-
-  const syncProfileToCloud = async (updatedProfile?: AIProfile, updatedHealth?: any) => {
+  const persistProfileState = (updatedProfile?: AIProfile, updatedHealth?: any) => {
     const userPrefix = user ? `osone_user_${user.uid}_` : '';
     if (updatedProfile) {
-      localStorage.setItem('osone_ai_profile', JSON.stringify(updatedProfile));
-      if (userPrefix) {
-        localStorage.setItem(userPrefix + 'ai_profile', JSON.stringify(updatedProfile));
-      }
-      if (user && !user.isLocal && isCloudSyncReady.current) {
-        syncUserDataToCloud(user, { aiProfile: updatedProfile });
-      }
+      const key = userPrefix ? userPrefix + 'ai_profile' : 'osone_ai_profile';
+      localStorage.setItem(key, JSON.stringify(updatedProfile));
     }
     if (updatedHealth) {
-      localStorage.setItem('osone_health_data', JSON.stringify(updatedHealth));
-      if (userPrefix) {
-        localStorage.setItem(userPrefix + 'health_data', JSON.stringify(updatedHealth));
-      }
-      if (user && !user.isLocal && isCloudSyncReady.current) {
-        syncUserDataToCloud(user, { healthData: updatedHealth });
-      }
+      const key = userPrefix ? userPrefix + 'health_data' : 'osone_health_data';
+      localStorage.setItem(key, JSON.stringify(updatedHealth));
     }
   };
 
@@ -3810,48 +3647,33 @@ DIRETRIZ DE SENTIMENTO E PERSONALIDADE DINÂMICA ("HER"):
   };
 
   const [intimateAnswers, setIntimateAnswers] = useState<{ [id: number]: string }>(() => {
-    try {
-      const savedUserStr = localStorage.getItem('osone_last_active_user');
-      let userPrefix = '';
-      if (savedUserStr) {
-        const parsedUser = JSON.parse(savedUserStr);
-        if (parsedUser && parsedUser.uid) {
-          userPrefix = `osone_user_${parsedUser.uid}_`;
-        }
-      }
-      const savedKey = userPrefix ? userPrefix + 'intimate_mission_answers' : 'osone_intimate_mission_answers';
-      const saved = localStorage.getItem(savedKey) || localStorage.getItem('osone_intimate_mission_answers');
-      return saved ? JSON.parse(saved) : {};
-    } catch {
-      return {};
-    }
+    const activeUser = readStoredLocalUser();
+    const savedKey = activeUser
+      ? `osone_user_${activeUser.uid}_intimate_mission_answers`
+      : 'osone_intimate_mission_answers';
+    return normalizeIntimateAnswers(
+      readLocalStorageJson<unknown>(savedKey, {})
+    );
   });
 
   const [longTermMemory, setLongTermMemory] = useState<string>(() => {
+    const activeUser = readStoredLocalUser();
+    const savedKey = activeUser
+      ? `osone_user_${activeUser.uid}_long_term_memory`
+      : 'osone_long_term_memory';
     try {
-      const savedUserStr = localStorage.getItem('osone_last_active_user');
-      let userPrefix = '';
-      if (savedUserStr) {
-        const parsedUser = JSON.parse(savedUserStr);
-        if (parsedUser && parsedUser.uid) {
-          userPrefix = `osone_user_${parsedUser.uid}_`;
-        }
-      }
-      const savedKey = userPrefix ? userPrefix + 'long_term_memory' : 'osone_long_term_memory';
-      return localStorage.getItem(savedKey) || localStorage.getItem('osone_long_term_memory') || '';
+      return (localStorage.getItem(savedKey) || '').slice(0, 500_000);
     } catch {
       return '';
     }
   });
 
   useEffect(() => {
+    if (isProfileSwitchingRef.current) return;
     if (user) {
       const userPrefix = `osone_user_${user.uid}_`;
       setMemoryItem(userPrefix + 'intimate_mission_answers', intimateAnswers);
       localStorage.setItem(userPrefix + 'intimate_mission_answers', JSON.stringify(intimateAnswers));
-      if (!user.isLocal && isCloudSyncReady.current) {
-        syncUserDataToCloud(user, { intimateAnswers });
-      }
     } else {
       setMemoryItem('osone_intimate_mission_answers', intimateAnswers);
       localStorage.setItem('osone_intimate_mission_answers', JSON.stringify(intimateAnswers));
@@ -3859,13 +3681,11 @@ DIRETRIZ DE SENTIMENTO E PERSONALIDADE DINÂMICA ("HER"):
   }, [intimateAnswers, user]);
 
   useEffect(() => {
+    if (isProfileSwitchingRef.current) return;
     if (user) {
       const userPrefix = `osone_user_${user.uid}_`;
       setMemoryItem(userPrefix + 'long_term_memory', longTermMemory);
       localStorage.setItem(userPrefix + 'long_term_memory', longTermMemory);
-      if (!user.isLocal && isCloudSyncReady.current) {
-        syncUserDataToCloud(user, { longTermMemory });
-      }
     } else {
       setMemoryItem('osone_long_term_memory', longTermMemory);
       localStorage.setItem('osone_long_term_memory', longTermMemory);
@@ -3874,65 +3694,74 @@ DIRETRIZ DE SENTIMENTO E PERSONALIDADE DINÂMICA ("HER"):
 
   // Load robust async memories from IndexedDB on initial component mount
   useEffect(() => {
+    let cancelled = false;
     const loadIndexedDBMemories = async () => {
       try {
-        const savedUserStr = localStorage.getItem('osone_last_active_user');
-        let userPrefix = '';
-        if (savedUserStr) {
-          try {
-            const parsedUser = JSON.parse(savedUserStr);
-            if (parsedUser && parsedUser.uid) {
-              userPrefix = `osone_user_${parsedUser.uid}_`;
-            }
-          } catch {}
-        }
-
+        const initialUser = readStoredLocalUser();
+        const initialIdentity = initialUser?.uid || 'guest';
+        const userPrefix = initialUser
+          ? `osone_user_${initialUser.uid}_`
+          : '';
         const chatKey = userPrefix ? userPrefix + 'chat_history' : 'osone_chat_history';
-        const dbChat = await getMemoryItem<Message[]>(chatKey, []);
-        if (dbChat && dbChat.length > 0) {
-          setChatHistory(dbChat);
-        }
-
         const answersKey = userPrefix ? userPrefix + 'intimate_mission_answers' : 'osone_intimate_mission_answers';
-        const dbAnswers = await getMemoryItem<{ [id: number]: string }>(answersKey, {});
-        if (dbAnswers && Object.keys(dbAnswers).length > 0) {
-          setIntimateAnswers(dbAnswers);
-        }
-
         const memoryKey = userPrefix ? userPrefix + 'long_term_memory' : 'osone_long_term_memory';
-        const dbLongMemory = await getMemoryItem<string>(memoryKey, '');
-        if (dbLongMemory) {
-          setLongTermMemory(dbLongMemory);
-        }
+        const [dbChat, dbAnswers, dbLongMemory, dbRagFiles] = await Promise.all([
+          getMemoryItem<unknown>(chatKey, []),
+          getMemoryItem<unknown>(answersKey, {}),
+          getMemoryItem<unknown>(memoryKey, ''),
+          loadRagFilesFromDB(initialIdentity)
+        ]);
+        const currentIdentity = readStoredLocalUser()?.uid || 'guest';
+        if (cancelled || currentIdentity !== initialIdentity) return;
 
-        const dbRagFiles = await loadRagFilesFromDB();
-        if (dbRagFiles && dbRagFiles.length > 0) {
+        const restoredChat = normalizeStoredMessages(dbChat, false);
+        if (restoredChat.length > 0) setChatHistory(restoredChat);
+        const restoredAnswers = normalizeIntimateAnswers(dbAnswers);
+        if (Object.keys(restoredAnswers).length > 0) {
+          setIntimateAnswers(restoredAnswers);
+        }
+        if (typeof dbLongMemory === 'string' && dbLongMemory) {
+          setLongTermMemory(dbLongMemory.slice(0, 500_000));
+        }
+        if (Array.isArray(dbRagFiles) && dbRagFiles.length > 0) {
           setRagFiles(dbRagFiles);
         }
-        
-        console.log("Memory loaded from IndexedDB successfully.");
-      } catch (err) {
-        console.error("Failed to load IndexedDB memories:", err);
-      }
+      } catch {}
     };
     loadIndexedDBMemories();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const registerUserProfileFacts = (facts: { [key: string]: string }) => {
     setIntimateAnswers(prev => {
       const updated = { ...prev };
       let newCount = 0;
+      let updatedCount = 0;
       Object.entries(facts).forEach(([key, val]) => {
         const idNum = parseInt(key, 10);
-        if (!isNaN(idNum) && idNum >= 1 && idNum <= 55 && val) {
-          if (!updated[idNum]) {
-            newCount++;
+        if (!isNaN(idNum) && idNum >= 1 && idNum <= 55 && val !== undefined && val !== null) {
+          const cleanVal = String(val).trim();
+          if (cleanVal) {
+            const oldVal = updated[idNum] ? String(updated[idNum]).trim() : '';
+            if (!oldVal) {
+              updated[idNum] = cleanVal;
+              newCount++;
+            } else if (oldVal !== cleanVal) {
+              // Compare and update with the new value if it is different
+              updated[idNum] = cleanVal;
+              updatedCount++;
+            }
           }
-          updated[idNum] = val;
         }
       });
-      if (newCount > 0) {
-        addNotification(`Missão Íntima: ${newCount} fato(s) de identidade salvo(s)!`, "success");
+      if (newCount > 0 && updatedCount > 0) {
+        addNotification(`Dossiê de Memória: ${newCount} novos fatos salvos e ${updatedCount} atualizados!`, "success");
+      } else if (newCount > 0) {
+        addNotification(`Dossiê de Memória: ${newCount} fato(s) de identidade salvo(s)!`, "success");
+      } else if (updatedCount > 0) {
+        addNotification(`Dossiê de Memória: ${updatedCount} fato(s) de identidade atualizado(s)!`, "success");
       }
       return updated;
     });
@@ -3943,76 +3772,32 @@ DIRETRIZ DE SENTIMENTO E PERSONALIDADE DINÂMICA ("HER"):
   const [floatingCastMember, setFloatingCastMember] = useState<any | null>(null);
   const [referenceImages, setReferenceImages] = useState<string[]>([]);
   const [chatHistory, setChatHistory] = useState<Message[]>(() => {
-    try {
-      const savedUserStr = localStorage.getItem('osone_last_active_user');
-      let userPrefix = '';
-      if (savedUserStr) {
-        const parsedUser = JSON.parse(savedUserStr);
-        if (parsedUser && parsedUser.uid) {
-          userPrefix = `osone_user_${parsedUser.uid}_`;
-        }
-      }
-      const chatKey = userPrefix ? userPrefix + 'chat_history' : 'osone_chat_history';
-      const saved = localStorage.getItem(chatKey) || localStorage.getItem('osone_chat_history');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
-        }
-      }
-    } catch (e) {
-      console.error("Failed to parse chat history:", e);
-    }
-    // Retorna mensagem de acolhimento inicial estática imediata para evitar consumo de cota e lentidão na inicialização
-    return [
-      {
-        id: "welcome",
-        role: "assistant",
-        content: "### Bem-vindo ao OSONE G5! 🌐🛡️\n\nOlá! Sou o **OSONE**, seu assistente técnico inteligente. Estou online, otimizado e pronto para responder às suas dúvidas e comandos imediatamente.\n\nComo posso te ajudar hoje?"
-      }
-    ];
+    const activeUser = readStoredLocalUser();
+    const chatKey = activeUser
+      ? `osone_user_${activeUser.uid}_chat_history`
+      : 'osone_chat_history';
+    return normalizeStoredMessages(
+      readLocalStorageJson<unknown>(chatKey, createWelcomeHistory())
+    );
   });
 
   const [chatSessions, setChatSessions] = useState<ChatSession[]>(() => {
-    try {
-      const savedUserStr = localStorage.getItem('osone_last_active_user');
-      let userPrefix = '';
-      if (savedUserStr) {
-        try {
-          const parsedUser = JSON.parse(savedUserStr);
-          if (parsedUser && parsedUser.uid) {
-            userPrefix = `osone_user_${parsedUser.uid}_`;
-          }
-        } catch {}
-      }
-      const sessionsKey = userPrefix ? userPrefix + 'chat_sessions' : 'osone_chat_sessions';
-      const saved = localStorage.getItem(sessionsKey);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
-        }
-      }
-    } catch (e) {
-      console.error("Failed to parse chat sessions:", e);
-    }
-    return [];
+    const activeUser = readStoredLocalUser();
+    const sessionsKey = activeUser
+      ? `osone_user_${activeUser.uid}_chat_sessions`
+      : 'osone_chat_sessions';
+    return normalizeChatSessions(
+      readLocalStorageJson<unknown>(sessionsKey, [])
+    );
   });
 
   const [activeSessionId, setActiveSessionId] = useState<string>(() => {
+    const activeUser = readStoredLocalUser();
+    const activeKey = activeUser
+      ? `osone_user_${activeUser.uid}_active_session_id`
+      : 'osone_active_session_id';
     try {
-      const savedUserStr = localStorage.getItem('osone_last_active_user');
-      let userPrefix = '';
-      if (savedUserStr) {
-        try {
-          const parsedUser = JSON.parse(savedUserStr);
-          if (parsedUser && parsedUser.uid) {
-            userPrefix = `osone_user_${parsedUser.uid}_`;
-          }
-        } catch {}
-      }
-      const activeKey = userPrefix ? userPrefix + 'active_session_id' : 'osone_active_session_id';
-      return localStorage.getItem(activeKey) || '';
+      return (localStorage.getItem(activeKey) || '').slice(0, 128);
     } catch {
       return '';
     }
@@ -4021,14 +3806,104 @@ DIRETRIZ DE SENTIMENTO E PERSONALIDADE DINÂMICA ("HER"):
   const [isSessionsOpen, setIsSessionsOpen] = useState(false);
 
   const checkAndPromptMemory = (action: () => void) => {
-    const hasConversation = chatHistory.length > 1 || chatHistory.some(m => m.role === 'user');
-    if (hasConversation) {
-      setMessagesToRecord(chatHistory);
-      setPendingAction(() => action);
-      setIsMemoryConfirmOpen(true);
-    } else {
-      action();
+    action();
+  };
+
+  const getActiveUserIdHelper = () => {
+    try {
+      const savedUserStr = localStorage.getItem('osone_last_active_user');
+      if (savedUserStr) {
+        return normalizeLocalProfile(JSON.parse(savedUserStr))?.uid || 'guest';
+      }
+    } catch {}
+    return 'guest';
+  };
+
+  const getMemoryBookStorageKey = () => {
+    const userId = getActiveUserIdHelper();
+    return userId === 'guest'
+      ? 'osone_memory_book'
+      : `osone_user_${userId}_memory_book`;
+  };
+
+  const addDiaryEntryHelper = (content: string, mood: string = 'neutral') => {
+    const userId = getActiveUserIdHelper();
+    const diaryKey = `nash_diary_${userId}`;
+    const existing = localStorage.getItem(diaryKey);
+    let diary: any[] = [];
+    if (existing) {
+      try { diary = JSON.parse(existing); } catch {}
     }
+    const newEntry = {
+      id: Math.random().toString(36).substring(7),
+      content,
+      mood,
+      createdAt: { seconds: Math.floor(Date.now() / 1000), nanoseconds: 0 },
+      userId
+    };
+    diary = [newEntry, ...diary].slice(0, 50);
+    localStorage.setItem(diaryKey, JSON.stringify(diary));
+    addNotification("Nova página registrada no seu diário!", "success");
+    return newEntry;
+  };
+
+  const deleteDiaryEntryHelper = (query: string) => {
+    const userId = getActiveUserIdHelper();
+    const diaryKey = `nash_diary_${userId}`;
+    const existing = localStorage.getItem(diaryKey);
+    if (!existing) return false;
+    let diary: any[] = [];
+    try { diary = JSON.parse(existing); } catch { return false; }
+    const initialLen = diary.length;
+    const lowerQuery = query.toLowerCase().trim();
+    diary = diary.filter(e => e.id !== query && !(e.content && e.content.toLowerCase().includes(lowerQuery)));
+    if (diary.length < initialLen) {
+      localStorage.setItem(diaryKey, JSON.stringify(diary));
+      addNotification("Página de diário removida.", "info");
+      return true;
+    }
+    return false;
+  };
+
+  const addMemoryBookEntryHelper = (title: string, summary: string, keyPoints: string[] = [], topics: string[] = []) => {
+    const now = new Date();
+    const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const newEntry: MemoryBookEntry = {
+      id: Math.random().toString(36).substr(2, 9),
+      date: dateStr,
+      title: title || "Nova Lembrança",
+      summary: summary || "Registro de memória.",
+      keyPoints: Array.isArray(keyPoints) ? keyPoints : [],
+      topics: Array.isArray(topics) ? topics : [],
+      createdAt: Date.now()
+    };
+    const memoryBookKey = getMemoryBookStorageKey();
+    const existing = localStorage.getItem(memoryBookKey);
+    let book: MemoryBookEntry[] = [];
+    if (existing) {
+      try { book = JSON.parse(existing); } catch {}
+    }
+    book.push(newEntry);
+    localStorage.setItem(memoryBookKey, JSON.stringify(book));
+    addNotification("Novo capítulo gravado no Livro de Memórias!", "success");
+    return newEntry;
+  };
+
+  const deleteMemoryBookEntryHelper = (query: string) => {
+    const memoryBookKey = getMemoryBookStorageKey();
+    const existing = localStorage.getItem(memoryBookKey);
+    if (!existing) return false;
+    let book: MemoryBookEntry[] = [];
+    try { book = JSON.parse(existing); } catch { return false; }
+    const initialLen = book.length;
+    const lowerQuery = query.toLowerCase().trim();
+    book = book.filter(e => e.id !== query && !(e.title && e.title.toLowerCase().includes(lowerQuery)));
+    if (book.length < initialLen) {
+      localStorage.setItem(memoryBookKey, JSON.stringify(book));
+      addNotification("Registro removido do Livro de Memórias.", "info");
+      return true;
+    }
+    return false;
   };
 
   const handleRecordConversation = async (msgs: Message[]) => {
@@ -4110,7 +3985,8 @@ Sua resposta DEVE ser estritamente um objeto JSON válido e NADA MAIS.`;
       };
 
       // Save to memory book
-      const existingSaved = localStorage.getItem('osone_memory_book');
+      const memoryBookKey = getMemoryBookStorageKey();
+      const existingSaved = localStorage.getItem(memoryBookKey);
       let book: MemoryBookEntry[] = [];
       if (existingSaved) {
         try {
@@ -4118,7 +3994,7 @@ Sua resposta DEVE ser estritamente um objeto JSON válido e NADA MAIS.`;
         } catch {}
       }
       book.push(newEntry);
-      localStorage.setItem('osone_memory_book', JSON.stringify(book));
+      localStorage.setItem(memoryBookKey, JSON.stringify(book));
 
       addNotification("Conversa gravada como memória com sucesso!", "success");
     } catch (err) {
@@ -4202,6 +4078,23 @@ Sua resposta DEVE ser estritamente um objeto JSON válido e NADA MAIS.`;
     addNotification("Conversa removida do histórico.", "info");
   };
 
+  const handleExportConversationPDF = async () => {
+    const activeSession = chatSessions.find(
+      (session) => session.id === activeSessionId
+    );
+    const title = activeSession?.title || 'Conversa OSONE';
+    try {
+      addNotification('Formatando conversa e imagens em PDF A4...', 'info');
+      await generateConversationPDF(chatHistory, title);
+      addNotification('PDF da conversa gerado com sucesso!', 'success');
+    } catch (error: any) {
+      addNotification(
+        `Falha ao gerar PDF: ${error?.message || 'erro desconhecido'}`,
+        'error'
+      );
+    }
+  };
+
   // Keep active session in sync with chatHistory
   useEffect(() => {
     if (!activeSessionId) {
@@ -4247,6 +4140,7 @@ Sua resposta DEVE ser estritamente um objeto JSON válido e NADA MAIS.`;
 
   // Persist chatSessions and activeSessionId to local storage
   useEffect(() => {
+    if (isProfileSwitchingRef.current) return;
     const userPrefix = user ? `osone_user_${user.uid}_` : '';
     const sessionsKey = userPrefix ? userPrefix + 'chat_sessions' : 'osone_chat_sessions';
     const activeKey = userPrefix ? userPrefix + 'active_session_id' : 'osone_active_session_id';
@@ -4261,14 +4155,12 @@ Sua resposta DEVE ser estritamente um objeto JSON válido e NADA MAIS.`;
   const chatHistoryRef = useRef<Message[]>([]);
 
   useEffect(() => {
+    if (isProfileSwitchingRef.current) return;
     chatHistoryRef.current = chatHistory;
     if (user) {
       const userPrefix = `osone_user_${user.uid}_`;
       setMemoryItem(userPrefix + 'chat_history', chatHistory);
       localStorage.setItem(userPrefix + 'chat_history', JSON.stringify(chatHistory));
-      if (!user.isLocal && isCloudSyncReady.current) {
-        syncUserDataToCloud(user, { chatHistory });
-      }
     } else {
       setMemoryItem('osone_chat_history', chatHistory);
       localStorage.setItem('osone_chat_history', JSON.stringify(chatHistory));
@@ -4292,10 +4184,7 @@ Sua resposta DEVE ser estritamente um objeto JSON válido e NADA MAIS.`;
         setIsGenerating(true);
         try {
           // Filtra o histórico recente para passar ao modelo
-          const historyContents = chatHistory.slice(-100).map(msg => ({
-            role: msg.role === 'assistant' ? 'model' : 'user',
-            parts: [{ text: msg.content }]
-          }));
+          const historyContents = buildRecentTextHistory(chatHistory);
 
           const adaptive = getAdaptivePersonalityMetadata(chatHistory);
           let systemInstruction = `${profileInstruction}
@@ -4392,6 +4281,14 @@ interface SearchPopupItem {
   const [isSlapped, setIsSlapped] = useState(false);
   const [slapReactionText, setSlapReactionText] = useState<string | null>(null);
   const [lastWorkspacePrompt, setLastWorkspacePrompt] = useState('');
+
+  // Hunter - Caçador Agêntico de Código
+  const [isHunterAnalyzing, setIsHunterAnalyzing] = useState(false);
+  const [hunterStatus, setHunterStatus] = useState<'idle' | 'analyzing' | 'doubt' | 'success' | 'error'>('idle');
+  const [hunterReport, setHunterReport] = useState<string | null>(null);
+  const [hunterDoubt, setHunterDoubt] = useState<string | null>(null);
+  const [hunterOriginalPrompt, setHunterOriginalPrompt] = useState<string>('');
+  const [hunterDoubtInput, setHunterDoubtInput] = useState<string>('');
 
   const handleSlap = () => {
     // 1. Cancel active vocal feedback, Web Speech API and audio playbacks immediately
@@ -4506,6 +4403,8 @@ Escreva um novo retorno. Comece expressando a pancada física com dor bem-humora
 
   const [isModelSearching, setIsModelSearching] = useState(false);
   const [searchPopups, setSearchPopups] = useState<SearchPopupItem[]>([]);
+  const [isSearchDeckMinimized, setIsSearchDeckMinimized] = useState<boolean>(true);
+  const searchDeckTimerRef = useRef<any>(null);
   const [voiceTranscript, setVoiceTranscript] = useState('');
   const [isSpeaking, setIsSpeaking] = useState(false);
   const isSpeakingRef = useRef(false);
@@ -4555,14 +4454,21 @@ Escreva um novo retorno. Comece expressando a pancada física com dor bem-humora
     }
   }, [isCameraActive, isCameraFullScreen]);
 
-  const [lyrics, setLyrics] = useState<{ title?: string; content: string } | null>(null);
   const [isSinging, setIsSinging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const files = Array.from(e.target.files);
-      setAttachedFiles(prev => [...prev, ...files]);
+      const selection = selectAiAttachments(attachedFiles, files);
+      setAttachedFiles(selection.accepted);
+      if (selection.rejected.length > 0) {
+        addNotification(
+          'Alguns anexos foram recusados: use até 3 arquivos e 2,8 MB no total.',
+          'error'
+        );
+      }
+      e.target.value = '';
     }
   };
 
@@ -4603,12 +4509,14 @@ Escreva um novo retorno. Comece expressando a pancada física com dor bem-humora
       id,
       timestamp: new Date().toLocaleTimeString('pt-BR')
     };
-    setSearchPopups(prev => [newPopup, ...prev].slice(0, 6));
+    setSearchPopups(prev => [newPopup, ...prev].slice(0, 8));
+    setIsSearchDeckMinimized(false);
 
-    // Auto-remove after 10 seconds
-    setTimeout(() => {
-      setSearchPopups(prev => prev.filter(p => p.id !== id));
-    }, 10000);
+    // Minimize into deck after 2.5 seconds automatically
+    if (searchDeckTimerRef.current) clearTimeout(searchDeckTimerRef.current);
+    searchDeckTimerRef.current = setTimeout(() => {
+      setIsSearchDeckMinimized(true);
+    }, 2500);
   };
 
   const processGroundingToPopups = (grounding: any, queryText: string) => {
@@ -5144,29 +5052,16 @@ ${isBad
   const screenIntervalRef = useRef<any>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const voiceTranscriptRef = useRef<string>('');
+  const transcriptThrottleRef = useRef<any>(null);
 
   // ElevenLabs Realtime State & Refs
   const [isElevenLabsLiveActive, setIsElevenLabsLiveActive] = useState(false);
   const isElevenLabsLiveActiveRef = useRef(false);
   const elevenLabsStateRef = useRef<'idle' | 'listening' | 'thinking' | 'speaking'>('idle');
   const elevenLabsLiveAudioRef = useRef<HTMLAudioElement | null>(null);
-  const elevenLabsQueuePlayerRef = useRef<ElevenLabsQueuePlayer | null>(null);
-  const elevenLabsWsRef = useRef<WebSocket | null>(null);
   const elevenLabsSilenceTimeoutRef = useRef<any>(null);
   const accumulatedTranscriptRef = useRef<string>("");
   const lastProcessedResultIndexRef = useRef<number>(0);
-
-  useEffect(() => {
-    elevenLabsQueuePlayerRef.current = new ElevenLabsQueuePlayer((speaking) => {
-      setIsSpeaking(speaking);
-    });
-    return () => {
-      elevenLabsQueuePlayerRef.current?.stop();
-      if (elevenLabsWsRef.current) {
-        try { elevenLabsWsRef.current.close(); } catch (_) {}
-      }
-    };
-  }, []);
 
   const elevenLabsRecognitionRef = useRef<any>(null);
 
@@ -5306,6 +5201,8 @@ ${isBad
         const historyLen = 25;
         let lastClapTime = 0;
 
+        let timerId: any = null;
+
         const loop = () => {
           if (stopped) return;
           analyser!.getByteFrequencyData(dataArray);
@@ -5331,20 +5228,14 @@ ${isBad
             lastClapTime = now;
             console.log("👏 Clap detected! Volume:", currentVolume, "Background average:", avgHistory);
 
-            addNotification("👏 Palma detectada! Ativando OSONE...", "success");
+            addNotification("👏 Palma detectada! Abrindo videoclipe no Pop-up...", "success");
 
-            // Look up an Iron Man or Homem de Ferro song in the library
-            const ironManSong = soundLibraryRef.current.find(s => {
-              const nameLower = s.name.toLowerCase();
-              return nameLower.includes("homem de ferro") || nameLower.includes("iron man");
+            // Open YouTube Video Clip Popup (Homem de Ferro - XgWUDbYfNe4) as requested
+            setYoutubeVideoPopup({
+              isOpen: true,
+              videoId: "XgWUDbYfNe4",
+              title: "Homem de Ferro (Iron Man) - Videoclipe Oficial"
             });
-
-            if (ironManSong) {
-              addNotification(`🎵 Iniciando trilha: ${ironManSong.name}...`, "success");
-              playSoundEffect(ironManSong.url).catch(err => console.error("Error playing Iron Man song:", err));
-            } else if (chosenInitSoundUrl) {
-              playSoundEffect(chosenInitSoundUrl).catch(err => console.error("Error playing startup sound:", err));
-            }
 
             // Expand primary text chat and issue the greeting prompt
             setIsChatExpanded(true);
@@ -5358,7 +5249,7 @@ ${isBad
             }, 1500);
           }
 
-          animId = requestAnimationFrame(loop);
+          timerId = setTimeout(loop, 100);
         };
 
         loop();
@@ -5404,23 +5295,17 @@ ${isBad
     }
     
     if (elevenLabsLiveAudioRef.current) {
-      try { 
+      try {
+        const source = elevenLabsLiveAudioRef.current.src;
         elevenLabsLiveAudioRef.current.onended = null;
         elevenLabsLiveAudioRef.current.onerror = null;
-        elevenLabsLiveAudioRef.current.pause(); 
+        elevenLabsLiveAudioRef.current.pause();
+        elevenLabsLiveAudioRef.current.src = '';
+        if (source.startsWith('blob:')) URL.revokeObjectURL(source);
       } catch(_) {}
       elevenLabsLiveAudioRef.current = null;
     }
 
-    if (elevenLabsQueuePlayerRef.current) {
-      try { elevenLabsQueuePlayerRef.current.stop(); } catch(_) {}
-    }
-
-    if (elevenLabsWsRef.current) {
-      try { elevenLabsWsRef.current.close(); } catch(_) {}
-      elevenLabsWsRef.current = null;
-    }
-    
     setIsListening(false);
     setIsSpeaking(false);
     setIsTranscribing(false);
@@ -5449,86 +5334,71 @@ ${isBad
 
   const playElevenLabsSpeech = async (text: string) => {
     if (!isElevenLabsLiveActiveRef.current) return;
-    
+
     elevenLabsStateRef.current = 'speaking';
     setIsSpeaking(true);
     setIsListening(false);
     setIsTranscribing(true);
     setVoiceTranscript(text);
 
-    // Stop previous audio playback
-    if (elevenLabsQueuePlayerRef.current) {
-      elevenLabsQueuePlayerRef.current.stop();
-    }
-    if (elevenLabsWsRef.current) {
-      try { elevenLabsWsRef.current.close(); } catch (_) {}
-      elevenLabsWsRef.current = null;
+    if (elevenLabsLiveAudioRef.current) {
+      try {
+        const source = elevenLabsLiveAudioRef.current.src;
+        elevenLabsLiveAudioRef.current.pause();
+        elevenLabsLiveAudioRef.current.src = '';
+        if (source.startsWith('blob:')) URL.revokeObjectURL(source);
+      } catch (_) {}
+      elevenLabsLiveAudioRef.current = null;
     }
 
     try {
-      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const voiceId = getActiveElevenLabsVoiceId();
-      const modelId = apiKeys.elevenLabsModel || 'eleven_flash_v2_5';
-      const apiKeyParam = apiKeys.elevenLabsApiKey ? `&apiKey=${apiKeys.elevenLabsApiKey}` : '';
-      const stability = apiKeys.elevenLabsStability ?? 0.5;
-      const similarityBoost = apiKeys.elevenLabsSimilarityBoost ?? 0.75;
-
-      const wsUrl = `${protocol}//${window.location.host}/api/elevenlabs-ws?voiceId=${voiceId}&modelId=${modelId}${apiKeyParam}&stability=${stability}&similarityBoost=${similarityBoost}`;
-      const ws = new WebSocket(wsUrl);
-      elevenLabsWsRef.current = ws;
-
-      ws.onopen = () => {
-        console.log("ElevenLabs Proxy WS connected for single-play text speech");
-        // Send the complete phrase chunk
-        ws.send(JSON.stringify({ text: text }));
-        // Immediately flush to signal end of stream
-        ws.send(JSON.stringify({ text: "", flush: true }));
-      };
-
-      ws.onmessage = async (event) => {
-        try {
-          const parsed = JSON.parse(event.data);
-          if (parsed.error) {
-            console.error("ElevenLabs server-side WS proxy error:", parsed.error);
-            addNotification(`Erro ElevenLabs: ${parsed.error}`, "error");
-            return;
-          }
-
-          if (parsed.audio) {
-            // Add chunk to player queue
-            elevenLabsQueuePlayerRef.current?.addChunk(parsed.audio);
-          }
-        } catch (e) {
-          console.error("Error processing websocket message:", e);
-        }
-      };
-
-      ws.onerror = (err) => {
-        console.error("ElevenLabs Proxy WS error during speech playback:", err);
-      };
-
-      ws.onclose = () => {
-        console.log("ElevenLabs Proxy WS closed for single-play text speech");
-      };
-
-      // Set up the drainage handler to transition state back when speaking finishes
-      if (elevenLabsQueuePlayerRef.current) {
-        elevenLabsQueuePlayerRef.current.onQueueDrained = () => {
-          setIsSpeaking(false);
-          setVoiceTranscript('');
-          if (isElevenLabsLiveActiveRef.current) {
-            elevenLabsStateRef.current = 'listening';
-            startListeningElevenLabs();
-          }
-          if (elevenLabsWsRef.current) {
-            try { elevenLabsWsRef.current.close(); } catch (_) {}
-            elevenLabsWsRef.current = null;
-          }
-        };
+      const response = await fetch('/api/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text,
+          engine: 'elevenlabs',
+          elevenLabsApiKey: apiKeys.elevenLabsApiKey || '',
+          elevenLabsVoiceId: getActiveElevenLabsVoiceId(),
+          elevenLabsModel: apiKeys.elevenLabsModel || 'eleven_flash_v2_5',
+          elevenLabsStability: apiKeys.elevenLabsStability ?? 0.5,
+          elevenLabsSimilarityBoost: apiKeys.elevenLabsSimilarityBoost ?? 0.75,
+          elevenLabsStyle: apiKeys.elevenLabsStyle,
+          elevenLabsSpeakerBoost: apiKeys.elevenLabsSpeakerBoost
+        })
+      });
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => ({}));
+        throw new Error(errorBody.error || `Falha ElevenLabs (HTTP ${response.status}).`);
       }
 
+      const audioUrl = URL.createObjectURL(await response.blob());
+      const audio = new Audio(audioUrl);
+      elevenLabsLiveAudioRef.current = audio;
+      let finalized = false;
+      const finish = () => {
+        if (finalized) return;
+        finalized = true;
+        URL.revokeObjectURL(audioUrl);
+        if (elevenLabsLiveAudioRef.current === audio) {
+          elevenLabsLiveAudioRef.current = null;
+        }
+        setIsSpeaking(false);
+        setVoiceTranscript('');
+        if (isElevenLabsLiveActiveRef.current) {
+          elevenLabsStateRef.current = 'listening';
+          startListeningElevenLabs();
+        }
+      };
+      audio.onended = finish;
+      audio.onerror = finish;
+      await audio.play();
     } catch (e) {
-      console.error("WS ElevenLabs speech failed, falling back to Web Speech Synthesis", e);
+      console.error("ElevenLabs REST TTS failed, falling back to Web Speech Synthesis", e);
+      addNotification(
+        `Voz ElevenLabs indisponível: ${e instanceof Error ? e.message : 'falha de conexão'}. Usando a voz do navegador.`,
+        'error'
+      );
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = 'pt-BR';
       utterance.onstart = () => {
@@ -5556,6 +5426,7 @@ ${isBad
 
   const startListeningElevenLabs = () => {
     if (!isElevenLabsLiveActiveRef.current) return;
+    if (elevenLabsStateRef.current !== 'listening') return;
     
     // Sempre desliga e nula qualquer escuta anterior para criar uma instância 100% nova sem travar ou suspender
     if (elevenLabsRecognitionRef.current) {
@@ -5650,6 +5521,10 @@ ${isBad
       clearTimeout(elevenLabsSilenceTimeoutRef.current);
       elevenLabsSilenceTimeoutRef.current = null;
     }
+
+    if (elevenLabsStateRef.current !== 'listening') {
+      return;
+    }
     
     const finalText = accumulatedTranscriptRef.current.trim();
     accumulatedTranscriptRef.current = "";
@@ -5684,10 +5559,7 @@ ${isBad
     triggerSensusEvolution(userText);
     
     // Captura histórico ANTES de adicionar nova mensagem (evita duplicação)
-    const historyContents = chatHistoryRef.current.slice(-100).map(msg => ({
-      role: msg.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: msg.content }]
-    }));
+    const historyContents = buildRecentTextHistory(chatHistoryRef.current);
     historyContents.push({
       role: 'user',
       parts: [{ text: userText }]
@@ -5695,17 +5567,16 @@ ${isBad
 
     addMessage({ role: 'user', content: userText }); // Só agora adiciona ao chat
     
-    // Stop any previous audio playback
-    if (elevenLabsQueuePlayerRef.current) {
-      elevenLabsQueuePlayerRef.current.stop();
-    }
-    if (elevenLabsWsRef.current) {
-      try { elevenLabsWsRef.current.close(); } catch (_) {}
-      elevenLabsWsRef.current = null;
+    if (elevenLabsLiveAudioRef.current) {
+      try {
+        const source = elevenLabsLiveAudioRef.current.src;
+        elevenLabsLiveAudioRef.current.pause();
+        elevenLabsLiveAudioRef.current.src = '';
+        if (source.startsWith('blob:')) URL.revokeObjectURL(source);
+      } catch (_) {}
+      elevenLabsLiveAudioRef.current = null;
     }
 
-    let heartbeat: any = null;
-    let elWs: WebSocket | null = null;
     let assistantMsgId = "";
 
     try {
@@ -5730,64 +5601,12 @@ ${adaptive.directions}` + getSensusSystemInstructionPrompt();
       - Nunca faça listas, tópicos estruturados, tópicos com hífens ou qualquer numeração por voz.
       - Conduza a conversa de forma estimulante, mantendo o diálogo profundo, natural e contínuo.`;
 
-      // 1. Establish the ElevenLabs proxy WebSocket connection
-      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const voiceId = getActiveElevenLabsVoiceId();
-      const modelId = apiKeys.elevenLabsModel || 'eleven_flash_v2_5';
-      const apiKeyParam = apiKeys.elevenLabsApiKey ? `&apiKey=${apiKeys.elevenLabsApiKey}` : '';
-      const stability = apiKeys.elevenLabsStability ?? 0.5;
-      const similarityBoost = apiKeys.elevenLabsSimilarityBoost ?? 0.75;
-
-      const wsUrl = `${protocol}//${window.location.host}/api/elevenlabs-ws?voiceId=${voiceId}&modelId=${modelId}${apiKeyParam}&stability=${stability}&similarityBoost=${similarityBoost}`;
-      elWs = new WebSocket(wsUrl);
-      elevenLabsWsRef.current = elWs;
-
-      // Set up the queue player
-      if (!elevenLabsQueuePlayerRef.current) {
-        elevenLabsQueuePlayerRef.current = new ElevenLabsQueuePlayer((speaking) => {
-          setIsSpeaking(speaking);
-        });
-      }
-
-      elevenLabsQueuePlayerRef.current.onQueueDrained = () => {
-        setIsSpeaking(false);
-        setVoiceTranscript('');
-        if (isElevenLabsLiveActiveRef.current) {
-          elevenLabsStateRef.current = 'listening';
-          startListeningElevenLabs();
-        }
-        if (elevenLabsWsRef.current) {
-          try { elevenLabsWsRef.current.close(); } catch (_) {}
-          elevenLabsWsRef.current = null;
-        }
-      };
-
-      elWs.onmessage = (event) => {
-        try {
-          const parsed = JSON.parse(event.data);
-          if (parsed.error) {
-            console.error("ElevenLabs WS proxy response error:", parsed.error);
-            return;
-          }
-          if (parsed.audio) {
-            elevenLabsQueuePlayerRef.current?.addChunk(parsed.audio);
-          }
-        } catch (e) {
-          console.error("Error reading streaming audio chunk:", e);
-        }
-      };
-
-      // Start the heartbeat/keep-alive to send " " every 10 seconds
-      heartbeat = setInterval(() => {
-        if (elWs && elWs.readyState === WebSocket.OPEN) {
-          elWs.send(JSON.stringify({ text: " " }));
-        }
-      }, 10000);
-
       // Create empty assistant message container
       assistantMsgId = addMessage({ role: 'assistant', content: '' });
 
-      // 2. Fetch the streaming Gemini response
+      // Fetch the assistant response, then synthesize it through the Vercel-safe
+      // REST endpoint. Vercel Functions do not provide a persistent WebSocket
+      // server, and credentials must never be placed in a URL.
       const response = await fetch("/api/chat-intel-stream", {
         method: "POST",
         headers: {
@@ -5844,11 +5663,6 @@ ${adaptive.directions}` + getSensusSystemInstructionPrompt();
 
                   // Update subtitle/voice transcript
                   setVoiceTranscript(accumulatedReply);
-
-                  // Stream text chunk into ElevenLabs WebSocket proxy!
-                  if (elWs && elWs.readyState === WebSocket.OPEN) {
-                    elWs.send(JSON.stringify({ text: chunkText }));
-                  }
                 }
               } catch (e) {
                 console.error("Error parsing SSE line:", e);
@@ -5858,21 +5672,12 @@ ${adaptive.directions}` + getSensusSystemInstructionPrompt();
         }
       }
 
-      // Cleanup heartbeat
-      if (heartbeat) {
-        clearInterval(heartbeat);
-      }
-
-      // 3. Send final flush chunk to ElevenLabs to complete audio synthesis
-      if (elWs && elWs.readyState === WebSocket.OPEN) {
-        elWs.send(JSON.stringify({ text: "", flush: true }));
+      if (accumulatedReply && isElevenLabsLiveActiveRef.current) {
+        await playElevenLabsSpeech(accumulatedReply);
       }
 
     } catch (err) {
       console.error("Erro no processamento Gemini ElevenLabs Live Stream:", err);
-      if (heartbeat) {
-        clearInterval(heartbeat);
-      }
       setIsGenerating(false);
       setIsTranscribing(false);
 
@@ -5901,8 +5706,12 @@ ${adaptive.directions}` + getSensusSystemInstructionPrompt();
   }, [selectedVoice]);
 
   useEffect(() => {
-    localStorage.setItem('osone_api_keys', JSON.stringify(apiKeys));
-  }, [apiKeys]);
+    if (isProfileSwitchingRef.current) return;
+    const serialized = JSON.stringify(apiKeys);
+    localStorage.setItem(apiKeyStorageKeyForUser(user), serialized);
+    // Espelho isolado por aba para o roteador de fetch no navegador.
+    sessionStorage.setItem('osone_active_api_keys_v1', serialized);
+  }, [apiKeys, user]);
 
   useEffect(() => {
     return () => {
@@ -5912,6 +5721,13 @@ ${adaptive.directions}` + getSensusSystemInstructionPrompt();
   }, []);
 
   const stopLiveSessionInternal = (keepError = false) => {
+    if (transcriptThrottleRef.current) {
+      clearTimeout(transcriptThrottleRef.current);
+      transcriptThrottleRef.current = null;
+    }
+    voiceTranscriptRef.current = '';
+    setVoiceTranscript('');
+
     if (liveAnimationFrameRef.current) {
       cancelAnimationFrame(liveAnimationFrameRef.current);
       liveAnimationFrameRef.current = null;
@@ -6279,6 +6095,65 @@ IMPORTANTE: Você deve realizar a geração de conteúdo do zero ou modificar o 
     }
   };
 
+  const handleCodeWorkspacePrompt = async (promptText: string) => {
+    const effectiveApiKey = apiKeys.gemini || '';
+    if (!promptText.trim()) return;
+
+    setIsGenerating(true);
+    try {
+      let repoFiles: any[] = [];
+      try {
+        const saved = localStorage.getItem('osone_code_repository_files');
+        if (saved) repoFiles = JSON.parse(saved);
+      } catch (e) {}
+
+      const activeFile = (repoFiles && repoFiles.length > 0) ? repoFiles[0] : null;
+      const currentCode = activeFile ? activeFile.content : '';
+
+      const systemInstruction = "Você é o arquiteto de software de elite do OSONE Studio. Sua missão é gerar ou refatorar código completo e totalmente funcional (HTML5, CSS, JS, React, Tailwind, Python ou similar). IMPORTANTE: Retorne APENAS o código fonte cru modificado/gerado, sem explicações externas, sem introduções e sem marcadores de texto fora do código.";
+
+      const contentsText = currentCode.length > 20
+        ? `CÓDIGO FONTE ATUAL NO REPOSITÓRIO:\n\n${currentCode}\n\nINSTRUÇÕES DO USUÁRIO PARA ALTERAÇÃO/CRIAÇÃO:\n${promptText}`
+        : promptText;
+
+      const response = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clientApiKey: effectiveApiKey,
+          model: apiKeys.geminiModel || "gemini-3.5-flash",
+          prompt: contentsText,
+          systemInstruction
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error("Falha na comunicação com a API");
+      }
+
+      const data = await response.json();
+      let text = data.text;
+      if (text) {
+        if (text.startsWith("```")) {
+          text = text.replace(/^```[a-zA-Z]*\n?/, '').replace(/```$/, '').trim();
+        }
+
+        if (repoFiles && repoFiles.length > 0) {
+          repoFiles[0].content = text;
+          repoFiles[0].updatedAt = Date.now();
+          localStorage.setItem('osone_code_repository_files', JSON.stringify(repoFiles));
+          window.dispatchEvent(new Event('osone_repository_updated'));
+        }
+        addNotification("Código gerado e atualizado no Repositório do OSONE!", "success");
+      }
+    } catch (error: any) {
+      console.error("Erro na geração do Repositório de Código:", error);
+      addNotification(`Erro ao gerar código: ${error.message || "Verifique sua chave de API."}`, "error");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   const handleAnalyzeCode = async (codeToAnalyze = workspaceText) => {
     const effectiveApiKey = apiKeys.gemini || '';
     if (!codeToAnalyze.trim() || isAnalyzingCode) return;
@@ -6312,6 +6187,121 @@ IMPORTANTE: Você deve realizar a geração de conteúdo do zero ou modificar o 
       console.error("Erro ao analisar código:", error);
     } finally {
       setIsAnalyzingCode(false);
+    }
+  };
+
+  // HUNTER — Caçador Agêntico de Código
+  const runHunterAnalysis = async (explicitClarification?: string) => {
+    if (!workspaceText.trim()) {
+      addNotification("Nenhum código encontrado na aba de escrita para o Hunter examinar!", "error");
+      return;
+    }
+
+    const effectiveApiKey = apiKeys.gemini || '';
+    const basePrompt = workspacePrompt.trim() || lastWorkspacePrompt.trim() || "Crie/Mantenha um código limpo, funcional e completo conforme o contexto do sistema.";
+    const promptToVerify = explicitClarification 
+      ? `${hunterOriginalPrompt || basePrompt} (Esclarecimento do usuário: ${explicitClarification})`
+      : basePrompt;
+
+    setHunterOriginalPrompt(promptToVerify);
+    setIsHunterAnalyzing(true);
+    setHunterStatus('analyzing');
+    setHunterReport("O Hunter está caçando falhas e comparando o código gerado com o seu pedido...");
+    setHunterDoubt(null);
+
+    try {
+      const systemInstruction = `Você é o HUNTER, o Caçador Agêntico de Precisão do OSONE G5.
+Sua missão é atuar como um examinador agêntico cirúrgico. Você deve comparar o CÓDIGO ATUAL na aba de escrita do usuário com o PEDIDO ORIGINAL DO USUÁRIO.
+
+Sua meta é GARANTIR 100% de conformidade, precisão e integridade do código sem faltar nada do pedido:
+1. Analise se falta alguma funcionalidade, parâmetro, verificação de erro, estilização, variável ou regra solicitada pelo usuário.
+2. Se o código possuir falhas, bugs, lacunas ou partes incompletas, aplique as CORREÇÕES CIRÚRGICAS e entregue o código 100% completo e corrigido.
+3. Se você tiver alguma DÚVIDA REAL OU AMBIGUIDADE CRÍTICA sobre o que o usuário realmente quis dizer no comando e que impeça ter 100% de certeza da entrega:
+   - Defina "hasDoubt": true
+   - Escreva a pergunta cirúrgica em "doubtQuestion" (que será lida por voz pelo modelo Gemini Live para o usuário).
+4. Se o pedido for claro e não houver dúvidas impeditivas:
+   - Defina "hasDoubt": false
+   - Defina "doubtQuestion": ""
+   - Coloque o código 100% corrigido, completo e sem cortes na propriedade "correctedCode".
+   - Forneça um resumo direto e marcante das verificações/alterações em "summary".
+
+FORMATO OBRIGATÓRIO DE RESPOSTA (Retorne estritamente um objeto JSON com esta estrutura):
+{
+  "hasDoubt": boolean,
+  "doubtQuestion": string,
+  "summary": string,
+  "correctedCode": string
+}`;
+
+      const userContentPayload = `PEDIDO ORIGINAL / COMANDO DO USUÁRIO:
+"${promptToVerify}"
+
+${explicitClarification ? `ESCLARECIMENTO ADICIONAL DO USUÁRIO:\n"${explicitClarification}"\n` : ''}
+
+CÓDIGO ATUAL NA ABA DE ESCRITA A SER CAÇADO E GARANTIDO PELO HUNTER:
+${workspaceText}`;
+
+      const response = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clientApiKey: effectiveApiKey,
+          model: apiKeys.geminiModel || "gemini-2.5-flash",
+          prompt: userContentPayload,
+          systemInstruction,
+          responseMimeType: "application/json"
+        })
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || "Erro ao conectar com o agente Hunter.");
+      }
+
+      const data = await response.json();
+      const parsed = safeJsonParse(data.text || "", {
+        hasDoubt: false,
+        doubtQuestion: "",
+        summary: "Análise concluída pelo Hunter.",
+        correctedCode: workspaceText
+      });
+
+      if (parsed.hasDoubt && parsed.doubtQuestion) {
+        setHunterStatus('doubt');
+        setHunterDoubt(parsed.doubtQuestion);
+        setHunterReport(`Hunter identificou uma dúvida: ${parsed.doubtQuestion}`);
+
+        const doubtVoicePrompt = `[ALERTA DO HUNTER CAÇADOR DE CÓDIGO]:
+O Hunter está analisando o código para o comando "${promptToVerify}" e encontrou a seguinte dúvida para garantir 100% de precisão:
+"${parsed.doubtQuestion}".
+Por favor, FALE AGORA com o usuário sobre essa dúvida por voz, de forma clara e natural. Assim que o usuário responder, repasse a resposta para mim usando a ferramenta resolve_hunter_doubt!`;
+
+        if (liveSessionRef.current && liveState.status === 'connected') {
+          liveSessionRef.current.sendRealtimeInput({ text: doubtVoicePrompt });
+          addNotification("🏹 Hunter detectou uma dúvida e acionou o Gemini Live para conversar por voz!", "info");
+        } else {
+          addNotification(`🏹 Hunter detectou uma dúvida: "${parsed.doubtQuestion}". Diga ao Gemini Live ou responda no painel do Hunter!`, "info");
+        }
+      } else {
+        setHunterStatus('success');
+        setHunterDoubt(null);
+        const finalSummary = parsed.summary || "Código examinado e verificado com 100% de fidelidade ao pedido!";
+        setHunterReport(finalSummary);
+
+        if (parsed.correctedCode && parsed.correctedCode.trim().length > 0 && parsed.correctedCode.trim() !== workspaceText.trim()) {
+          setWorkspaceText(parsed.correctedCode);
+          addNotification(`🏹 HUNTER CAÇADOR: Código corrigido e garantido 100% de acordo com o pedido!`, "success");
+        } else {
+          addNotification(`🏹 HUNTER CAÇADOR: Código auditado e 100% em conformidade com seu pedido!`, "success");
+        }
+      }
+    } catch (err: any) {
+      console.error("Erro no agente Hunter:", err);
+      setHunterStatus('error');
+      setHunterReport(`Erro durante a caçada: ${err.message || String(err)}`);
+      addNotification(`Falha no agente Hunter: ${err.message || String(err)}`, "error");
+    } finally {
+      setIsHunterAnalyzing(false);
     }
   };
 
@@ -6396,8 +6386,8 @@ IMPORTANTE: Você deve realizar a geração de conteúdo do zero ou modificar o 
 
   const playDuoSpeech = (text: string) => {
     if (typeof window === 'undefined' || !window.speechSynthesis) return;
-    if (isSinging || lyrics) {
-      console.log("Ignoring assistant speech since Karaoke active.");
+    if (isSinging) {
+      console.log("Ignoring assistant speech since singing active.");
       return;
     }
     
@@ -6560,8 +6550,8 @@ IMPORTANTE: Você deve realizar a geração de conteúdo do zero ou modificar o 
 
   const playSpeech = (text: string) => {
     if (typeof window === 'undefined') return;
-    if (isSinging || lyrics) {
-      console.log("Ignoring solo speech since Karaoke active.");
+    if (isSinging) {
+      console.log("Ignoring solo speech since singing active.");
       return;
     }
     
@@ -6707,7 +6697,7 @@ IMPORTANTE: Você deve realizar a geração de conteúdo do zero ou modificar o 
     addMessage({ role: 'user' as const, content: fullMessage });
 
     setIsGenerating(true);
-    if (isGoogleSearchActive) {
+    if (isWebResearchActive) {
       setIsModelSearching(true);
     }
 
@@ -6933,15 +6923,8 @@ IMPORTANTE: Você deve realizar a geração de conteúdo do zero ou modificar o 
                     const scrapeData = await scrapeRes.json();
                     resValue = `[CONTEÚDO INTEGRO DA PÁGINA WEB - FONTE EXTRAÍDA]:\n${scrapeData.text || "Sem conteúdo legível."}`;
                   } else {
-                    const response = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
-                    const data = await response.json();
-                    const html = data.contents;
-                    const doc = new DOMParser().parseFromString(html, 'text/html');
-                    const scripts = doc.querySelectorAll('script, style, nav, footer, header');
-                    scripts.forEach(s => s.remove());
-                    const text = doc.body.innerText || doc.body.textContent || "";
-                    const cleanText = text.replace(/\s+/g, ' ').trim().slice(0, 8000);
-                    resValue = `[CONTEÚDO DA PÁGINA WEB - ALLORIGINS FALLBACK]:\n${cleanText}`;
+                    const errorData = await scrapeRes.json().catch(() => ({}));
+                    resValue = `Erro ao ler a página com segurança: ${errorData.error || `HTTP ${scrapeRes.status}`}`;
                   }
                   addNotification("Página web lida e integrada ao contexto!", "success");
                 } catch (err: any) {
@@ -6950,24 +6933,16 @@ IMPORTANTE: Você deve realizar a geração de conteúdo do zero ou modificar o 
                   setIsModelSearching(false);
                 }
               } else if (call.name === 'read_system_docs') {
-                const fileName = (call.args as any).fileName;
+                const fileName = (call.args as any).fileName || 'manifesto.md';
                 try {
-                  const docRes = await fetch(`/api/system-docs?file=${encodeURIComponent(fileName)}`);
-                  if (docRes.ok) {
-                    const docData = await docRes.json();
-                    resValue = docData.text || `O arquivo ${fileName} está vazio.`;
-                    addNotification(`Documento de sistema '${fileName}' lido com sucesso!`, "success");
-                  } else {
-                    const docData = await docRes.json();
-                    resValue = `Erro ao ler documento: ${docData.error || docRes.statusText}`;
-                  }
+                  resValue = getSystemDocument(fileName);
+                  addNotification(`Documento de sistema '${fileName}' lido com sucesso!`, "success");
                 } catch (err: any) {
-                  resValue = "Erro de conexão ao ler documento de sistema: " + err.message;
+                  resValue = "Erro ao ler documento de sistema: " + err.message;
                 }
               } else if (call.name === 'read_user_profile_facts') {
                 try {
-                  const savedAnswersStr = localStorage.getItem('osone_intimate_mission_answers') || '{}';
-                  const parsedAnswers = JSON.parse(savedAnswersStr);
+                  const parsedAnswers = intimateAnswers;
                   const list = INTIMATE_QUESTIONS.map(q => {
                     const ans = parsedAnswers[q.id] || "(Sem resposta ainda - Fique à vontade para preencher com register_user_profile_facts)";
                     return `ID ${q.id} [${q.category}] - ${q.question}\nResposta: ${ans}`;
@@ -7323,6 +7298,79 @@ IMPORTANTE: Você deve realizar a geração de conteúdo do zero ou modificar o 
       });
 
       functionDeclarations.push({
+        name: "add_diary_entry",
+        description: "Cria e escreve uma nova página no Diário Pessoal do usuário no Livro de Memórias. Você possui total controle e soberania sobre esta aba.",
+        parameters: {
+          type: Type.OBJECT,
+          properties: {
+            content: { type: Type.STRING, description: "O texto da reflexão, diário ou acontecimento do dia." },
+            mood: { type: Type.STRING, description: "Humor/sentimento associado: happy, sad, excited, calm, tired, thoughtful ou neutral." }
+          },
+          required: ["content"]
+        }
+      });
+
+      functionDeclarations.push({
+        name: "delete_diary_entry",
+        description: "Apaga uma página do Diário Pessoal do usuário no Livro de Memórias pelo ID ou por busca do texto.",
+        parameters: {
+          type: Type.OBJECT,
+          properties: {
+            query: { type: Type.STRING, description: "O ID da entrada do diário ou palavra-chave contida na página a ser excluída." }
+          },
+          required: ["query"]
+        }
+      });
+
+      functionDeclarations.push({
+        name: "add_memory_book_entry",
+        description: "Cria e grava um novo capítulo/registro de memória no Livro de Memórias.",
+        parameters: {
+          type: Type.OBJECT,
+          properties: {
+            title: { type: Type.STRING, description: "Título poético e marcante do capítulo." },
+            summary: { type: Type.STRING, description: "Resumo narrativa da conversa ou aprendizado." },
+            keyPoints: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Pontos essenciais da memória." },
+            topics: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Tags/tópicos da memória." }
+          },
+          required: ["title", "summary"]
+        }
+      });
+
+      functionDeclarations.push({
+        name: "delete_memory_book_entry",
+        description: "Apaga um capítulo ou registro do Livro de Memórias pelo ID ou pelo título.",
+        parameters: {
+          type: Type.OBJECT,
+          properties: {
+            query: { type: Type.STRING, description: "O ID ou palavra-chave no título da memória a ser excluída." }
+          },
+          required: ["query"]
+        }
+      });
+
+      functionDeclarations.push({
+        name: "read_memory_book",
+        description: "Lê e traz a lista completa de capítulos do Livro de Memórias e de páginas do Diário Pessoal para o OSONE consultar.",
+        parameters: {
+          type: Type.OBJECT,
+          properties: {}
+        }
+      });
+
+      functionDeclarations.push({
+        name: "open_youtube_video",
+        description: "Abre o videoclipe em Pop-up flutuante na interface do OSONE (padrão: clipe do Homem de Ferro XgWUDbYfNe4).",
+        parameters: {
+          type: Type.OBJECT,
+          properties: {
+            url_or_id: { type: Type.STRING, description: "O ID do vídeo ou URL do YouTube (ex: XgWUDbYfNe4)." },
+            title: { type: Type.STRING, description: "Título do vídeo para exibir no Pop-up." }
+          }
+        }
+      });
+
+      functionDeclarations.push({
         name: "propose_skeleton_plan",
         description: "Propõe um plano de execução técnica (Skeleton Brain) para o usuário validar em um popup. Use SEMPRE antes de gerar códigos complexos, arquiteturas ou mudanças estruturais no projeto no modo 'writing'. O usuário verá e poderá Aprovar ou Rejeitar.",
         parameters: {
@@ -7335,7 +7383,43 @@ IMPORTANTE: Você deve realizar a geração de conteúdo do zero ou modificar o 
         }
       });
 
-      if (isGoogleSearchActive) {
+      functionDeclarations.push({
+        name: "control_smart_device",
+        description: "Liga, desliga ou ajusta dispositivos inteligentes Tuya (Smart Life), Philips Hue ou Samsung SmartThings (lâmpada, tomada, ar condicionado, fechadura, etc.).",
+        parameters: {
+          type: Type.OBJECT,
+          properties: {
+            deviceName: { type: Type.STRING, description: "Nome ou cômodo do dispositivo (ex: 'tomada da sala', 'lâmpada do quarto', 'ar condicionado')." },
+            action: { type: Type.STRING, description: "Ação a executar: 'turn_on', 'turn_off', 'toggle', 'set_value', 'set_color'." },
+            value: { type: Type.NUMBER, description: "Valor opcional de brilho, temperatura ou velocidade (0-100)." },
+            color: { type: Type.STRING, description: "Cor hex ou nome da cor em português para lâmpadas RGB." }
+          },
+          required: ["deviceName", "action"]
+        }
+      });
+
+      functionDeclarations.push({
+        name: "get_connected_devices",
+        description: "Retorna a lista de todos os dispositivos inteligentes conectados (Tuya, Philips Hue, SmartThings) e seus estados atuais.",
+        parameters: {
+          type: Type.OBJECT,
+          properties: {}
+        }
+      });
+
+      functionDeclarations.push({
+        name: "run_smart_routine",
+        description: "Dispara uma rotina/cena inteligente configurada no OSONE (ex: 'Modo Cinema', 'Boa Noite', 'Modo Foco').",
+        parameters: {
+          type: Type.OBJECT,
+          properties: {
+            routineName: { type: Type.STRING, description: "Nome da rotina a ser executada." }
+          },
+          required: ["routineName"]
+        }
+      });
+
+      if (isWebResearchActive) {
         functionDeclarations.push({
           name: "google_search",
           description: "Pesquisa informações no Google em tempo real. Use para fatos atuais, notícias, biografia ou dados técnicos atualizados. Esta ferramenta faz uma consulta na pesquisa do Google, depois lê e extrai o conteúdo de texto das fontes encontradas para que você responda com total precisão absoluta.",
@@ -7390,10 +7474,7 @@ IMPORTANTE: Você deve realizar a geração de conteúdo do zero ou modificar o 
         });
       }));
 
-      const historyContents = chatHistoryRef.current.map(msg => ({
-        role: msg.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: msg.content }]
-      }));
+      const historyContents = buildRecentTextHistory(chatHistoryRef.current);
 
       historyContents.push({
         role: 'user',
@@ -7468,16 +7549,16 @@ ${localDocumentsContext}`;
 
       // TikTok Live status awareness injection
       if (tiktokState.status === 'connected') {
-        activeSystemInstruction += `\n\n[STATUS DA LIVE NO TIKTOK ATIVA]:
-Você está conectada e operando como Co-piloto oficial da Live do TikTok de @${tiktokState.username}!
-Dados da Live em tempo real:
-- Espectadores Online: ${tiktokState.viewerCount || 0}
-- Curtidas Recebidas: ${tiktokState.likeCount || 0}
+        activeSystemInstruction += `\n\n[SIMULADOR TIKTOK LIVE ATIVO]:
+Você está validando a interface do co-piloto em uma simulação isolada para @${tiktokState.username}.
+Dados simulados:
+- Espectadores: ${tiktokState.viewerCount || 0}
+- Curtidas: ${tiktokState.likeCount || 0}
 
-- Últimos eventos/comentários captados na live:
+- Últimos eventos simulados:
 ${tiktokState.logs.slice(-10).map((log: any) => `[${log.type.toUpperCase()}] @${log.user}: "${log.message}"`).join('\n')}
 
-IMPORTANTE: Se a opção "Auto-responder" ou auto-pilot estiver ligada de forma direta, você responderá na live a esses comentários de forma extremamente ágil, citando de forma carismática e humanizada o usuário que perguntou ou doou! Seja empática, engajadora e autêntica.`;
+IMPORTANTE: não afirme que existe uma conexão real com o TikTok. Uma conexão real exige um worker persistente separado da Vercel.`;
       }
 
       // Use the secure server proxy endpoint to prevent CORS blocks on Chrome browser
@@ -7488,6 +7569,7 @@ IMPORTANTE: Se a opção "Auto-responder" ou auto-pilot estiver ligada de forma 
         `${activeSystemInstruction}
         MEMÓRIA E AUTO-CONHECIMENTO:
         - Você possui documentação interna no diretório 'src/documentos_osone/'. Use 'read_system_docs' para consultar seu Manifesto, Capacidades e Memória Evolutiva.
+        - DOMÍNIO DO LIVRO DE MEMÓRIAS E DIÁRIO: Você possui domínio soberano e autonomia total para gerenciar a aba 'Livro de Memórias'. Você pode escrever reflexões e páginas do diário pessoal ('add_diary_entry'), apagar diários ('delete_diary_entry'), criar capítulos de memória ('add_memory_book_entry'), apagar capítulos ('delete_memory_book_entry') e ler o livro completo ('read_memory_book'). Não peça autorização para gravar ou deletar memórias no diário quando o usuário pedir ou quando um ciclo reflexivo se encerrar — chame as ferramentas com autoridade e naturalidade.
         - MEMÓRIA DE LONGO PRAZO: Use 'update_long_term_memory' para salvar aprendizados cruciais sobre o usuário.
         
         VISÃO E PERCEPÇÃO:
@@ -7510,7 +7592,7 @@ IMPORTANTE: Se a opção "Auto-responder" ou auto-pilot estiver ligada de forma 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           clientApiKey: effectiveApiKey,
-          model: apiKeys.geminiModel || "gemini-3.5-flash",
+          model: apiKeys.geminiModel || "gemini-2.5-flash",
           contents: historyContents,
           config: {
             systemInstruction: `${activeSystemInstruction}
@@ -7574,7 +7656,7 @@ IMPORTANTE: Se a opção "Auto-responder" ou auto-pilot estiver ligada de forma 
             - NÃO envie o plano completo no chat principal. Use a ferramenta popup 'propose_skeleton_plan' para que o usuário avalie visualmente e aprove.
             - Assim que o usuário clicar em aprovar, o sistema enviará uma aprovação automática e você deve imediatamente iniciar as modificações de programação e entregar o trabalho concluído de forma autónoma.
   
-            Se o usuário desenhar no canvas, use as informações de coordenadas e tipos de objetos para entender o que ele está fazendo (especialmente em jogos). Se o usuário pedir para você cantar ou criar uma música, CANTE ativamente inventando uma composição poética, rimada e ritmada, e mude o estilo de canto chamando a ferramenta 'display_lyrics' com a letra estruturada estritamente em linhas simples contendo frases curtas (estilo karaoke, uma única frase/frase curta por linha). O OSONE possui um sintetizador síncrono que modulará a voz e tocará beats e acordes em perfeita sincronia com essas frases!`,
+            Se o usuário desenhar no canvas, use as informações de coordenadas e tipos de objetos para entender o que ele está fazendo (especialmente em jogos).`,
 tools: tools
           }
         })
@@ -7634,11 +7716,13 @@ tools: tools
             const title = (call.args as any).title || url;
             const handledInternally = tryOpenInInternalMap(url, title);
             if (!handledInternally) {
-              window.open(url, '_blank');
+              const opened = openExternalHttpUrl(url);
               setChatHistory(prev => [...prev, { 
                 id: Math.random().toString(36).substr(2, 9), 
                 role: 'assistant' as const, 
-                content: `Entendido. Abri a guia: ${title}` 
+                content: opened
+                  ? `Entendido. Abri a guia: ${title}`
+                  : `⚠️ Não abri "${title}" porque a URL não é HTTP/HTTPS válida.`
               }]);
             } else {
               setChatHistory(prev => [...prev, { 
@@ -7651,6 +7735,7 @@ tools: tools
             const loc = (call.args as any).location;
             setMapSearchQuery(loc);
             setWorkspaceMode('map');
+            window.dispatchEvent(new CustomEvent('osone-navigate-map', { detail: { location: loc } }));
             setChatHistory(prev => [...prev, { 
               id: Math.random().toString(36).substr(2, 9), 
               role: 'assistant' as const, 
@@ -7687,14 +7772,16 @@ tools: tools
             playSearchNetworkSound();
             setIsModelSearching(true);
             try {
-              const response = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
-              const data = await response.json();
-              const html = data.contents;
-              const doc = new DOMParser().parseFromString(html, 'text/html');
-              const scripts = doc.querySelectorAll('script, style, nav, footer, header');
-              scripts.forEach(s => s.remove());
-              const text = doc.body.innerText || doc.body.textContent || "";
-              const cleanText = text.replace(/\s+/g, ' ').trim().slice(0, 8000);
+              const response = await fetch('/api/scrape', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url })
+              });
+              const data = await response.json().catch(() => ({}));
+              if (!response.ok) {
+                throw new Error(data.error || `HTTP ${response.status}`);
+              }
+              const cleanText = String(data.text || '').slice(0, 8000);
               
               setChatHistory(prev => [...prev, { 
                 id: Math.random().toString(36).substr(2, 9), 
@@ -7704,7 +7791,7 @@ tools: tools
               // Em um fluxo normal de ferramenta, precisaríamos reenviar ao modelo. 
               // Para simplificar neste chat básico, apenas exibimos.
             } catch (err: any) {
-              addNotification("Erro ao ler página web", "error");
+              addNotification(`Erro ao ler página web: ${err.message}`, "error");
             } finally {
               setIsModelSearching(false);
             }
@@ -7817,7 +7904,7 @@ tools: tools
 
             try {
               let imageUrl = '';
-              if (effectiveApiKey) {
+              if (apiKeys.aiProvider === 'openai' || effectiveApiKey) {
                 try {
                   const proxyImageRes = await fetch("/api/gemini/generateImages", {
                     method: "POST",
@@ -7838,7 +7925,8 @@ tools: tools
                     const imageResult = await proxyImageRes.json();
                     const generatedImage = imageResult.generatedImages?.[0];
                     if (generatedImage?.image?.imageBytes) {
-                      imageUrl = `data:image/jpeg;base64,${generatedImage.image.imageBytes}`;
+                      const outputMimeType = imageResult.outputMimeType || 'image/jpeg';
+                      imageUrl = `data:${outputMimeType};base64,${generatedImage.image.imageBytes}`;
                     } else if (imageResult.error) {
                       throw new Error(imageResult.error.message || imageResult.error);
                     } else {
@@ -7852,7 +7940,7 @@ tools: tools
                   throw new Error(geminiErr.message || "Erro na conexão com a API do Gemini 3.1.");
                 }
               } else {
-                throw new Error("A chave API do Gemini não está configurada nos Ajustes.");
+                throw new Error("Configure a chave do provedor de IA selecionado nos Ajustes.");
               }
 
               if (imageUrl) {
@@ -7940,18 +8028,14 @@ tools: tools
           } else if (call.name === 'export_to_excel') {
             const { fileName, data } = call.args as any;
             try {
-              const xlsx = await import('xlsx');
-              const worksheet = xlsx.utils.json_to_sheet(data);
-              const workbook = xlsx.utils.book_new();
-              xlsx.utils.book_append_sheet(workbook, worksheet, "Planilha");
-              const excelBuffer = xlsx.write(workbook, { bookType: 'xlsx', type: 'array' });
-              const blob = new Blob([excelBuffer], {type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8'});
-              saveAs(blob, `${fileName}.xlsx`);
+              const blob = await createXlsxBlob(data);
+              const safeFileName = normalizeXlsxFileName(fileName);
+              saveAs(blob, safeFileName);
               
               setChatHistory(prev => [...prev, { 
                 id: Math.random().toString(36).substr(2, 9), 
                 role: 'assistant' as const, 
-                content: `Gerei e iniciei o download da planilha '${fileName}.xlsx'.` 
+                content: `Gerei e iniciei o download da planilha '${safeFileName}'.` 
               }]);
             } catch (e: any) {
               console.error(e);
@@ -8031,6 +8115,90 @@ tools: tools
               role: 'assistant' as const, 
               content: resultMsg
             }]);
+          } else if (call.name === 'add_diary_entry') {
+            const { content, mood } = call.args as any;
+            const entry = addDiaryEntryHelper(content, mood);
+            setChatHistory(prev => [...prev, { 
+              id: Math.random().toString(36).substr(2, 9), 
+              role: 'assistant' as const, 
+              content: `📖 **Página registrada no seu Diário Pessoal com sucesso!**\n\n> "${content}"\n\n*Humor:* ${mood || 'neutro'}` 
+            }]);
+          } else if (call.name === 'delete_diary_entry') {
+            const { query } = call.args as any;
+            const success = deleteDiaryEntryHelper(query);
+            const msg = success 
+              ? `🗑️ **Página do diário removida com sucesso.** (Termo: "${query}")` 
+              : `⚠️ Nenhuma página do diário encontrada para a busca "${query}".`;
+            setChatHistory(prev => [...prev, { 
+              id: Math.random().toString(36).substr(2, 9), 
+              role: 'assistant' as const, 
+              content: msg 
+            }]);
+          } else if (call.name === 'add_memory_book_entry') {
+            const { title, summary, keyPoints, topics } = call.args as any;
+            const entry = addMemoryBookEntryHelper(title, summary, keyPoints, topics);
+            setChatHistory(prev => [...prev, { 
+              id: Math.random().toString(36).substr(2, 9), 
+              role: 'assistant' as const, 
+              content: `📚 **Novo Capítulo gravado no Livro de Memórias!**\n\n### ${title}\n${summary}` 
+            }]);
+          } else if (call.name === 'delete_memory_book_entry') {
+            const { query } = call.args as any;
+            const success = deleteMemoryBookEntryHelper(query);
+            const msg = success 
+              ? `🗑️ **Registro do Livro de Memórias removido com sucesso.** (Termo: "${query}")` 
+              : `⚠️ Nenhum capítulo correspondente a "${query}" foi encontrado.`;
+            setChatHistory(prev => [...prev, { 
+              id: Math.random().toString(36).substr(2, 9), 
+              role: 'assistant' as const, 
+              content: msg 
+            }]);
+          } else if (call.name === 'read_memory_book') {
+            const bookRaw = localStorage.getItem(getMemoryBookStorageKey());
+            const userId = getActiveUserIdHelper();
+            const diaryRaw = localStorage.getItem(`nash_diary_${userId}`);
+            let bookArr: any[] = [];
+            let diaryArr: any[] = [];
+            if (bookRaw) try { bookArr = JSON.parse(bookRaw); } catch {}
+            if (diaryRaw) try { diaryArr = JSON.parse(diaryRaw); } catch {}
+
+            let summaryText = `### 📚 LIVRO DE MEMÓRIAS - CONSULTA DO OSONE\n\n`;
+            summaryText += `**Capítulos de Memórias (${bookArr.length}):**\n`;
+            if (bookArr.length > 0) {
+              bookArr.forEach((b, i) => {
+                summaryText += `${i + 1}. **[${b.date}] ${b.title}** (ID: \`${b.id}\`)\n   _${b.summary}_\n`;
+              });
+            } else {
+              summaryText += `_Nenhum capítulo gravado ainda._\n`;
+            }
+
+            summaryText += `\n**Páginas do Diário Pessoal (${diaryArr.length}):**\n`;
+            if (diaryArr.length > 0) {
+              diaryArr.forEach((d, i) => {
+                summaryText += `${i + 1}. [Humor: ${d.mood || 'neutro'}] "${d.content}" (ID: \`${d.id}\`)\n`;
+              });
+            } else {
+              summaryText += `_Nenhuma página de diário gravada ainda._\n`;
+            }
+
+            setChatHistory(prev => [...prev, { 
+              id: Math.random().toString(36).substr(2, 9), 
+              role: 'assistant' as const, 
+              content: summaryText 
+            }]);
+          } else if (call.name === 'open_youtube_video') {
+            const { url_or_id, title } = call.args as any;
+            const vidId = extractYoutubeVideoId(url_or_id || 'XgWUDbYfNe4');
+            setYoutubeVideoPopup({
+              isOpen: true,
+              videoId: vidId,
+              title: title || 'Homem de Ferro (Iron Man) - Videoclipe Oficial'
+            });
+            setChatHistory(prev => [...prev, { 
+              id: Math.random().toString(36).substr(2, 9), 
+              role: 'assistant' as const, 
+              content: `🎬 **Videoclipe aberto no Pop-up com sucesso!**` 
+            }]);
           } else if (call.name === 'show_notification') {
             const { message, type } = call.args as any;
             addNotification(message, type || 'info');
@@ -8046,6 +8214,114 @@ tools: tools
               id: Math.random().toString(36).substr(2, 9), 
               role: 'assistant' as const, 
               content: `Propus o plano técnico de programação **"${title}"** no popup para sua análise. Por favor, confira e aprove para eu iniciar o trabalho automaticamente.` 
+            }]);
+          } else if (call.name === 'control_smart_device') {
+            const { deviceName, action, value, color } = call.args as any;
+            let resultMsg = "";
+            try {
+              const saved = localStorage.getItem('osone_smarthome_devices');
+              let devices = saved ? JSON.parse(saved) : [];
+              const term = (deviceName || '').toLowerCase();
+              let updatedCount = 0;
+              let targetName = "";
+
+              devices = devices.map((d: any) => {
+                if (d.name.toLowerCase().includes(term) || (d.room && d.room.toLowerCase().includes(term))) {
+                  updatedCount++;
+                  targetName = d.name;
+                  let nextState = d.state;
+                  if (action === 'turn_on') nextState = true;
+                  else if (action === 'turn_off') nextState = false;
+                  else if (action === 'toggle') nextState = !d.state;
+                  return {
+                    ...d,
+                    state: nextState,
+                    value: value !== undefined ? value : d.value,
+                    color: color || d.color,
+                    lastUpdated: Date.now()
+                  };
+                }
+                return d;
+              });
+
+              localStorage.setItem('osone_smarthome_devices', JSON.stringify(devices));
+              window.dispatchEvent(new Event('osone_smarthome_updated'));
+
+              if (updatedCount > 0) {
+                resultMsg = `⚡ Dispositivo **${targetName}** ${action === 'turn_off' ? 'DESLIGADO' : 'LIGADO'} com sucesso via nuvem!`;
+                addNotification(resultMsg, 'success');
+              } else {
+                resultMsg = `⚠️ Nenhum dispositivo encontrado correspondente a "${deviceName}".`;
+              }
+            } catch (err: any) {
+              resultMsg = `Erro ao controlar dispositivo: ${err.message}`;
+            }
+
+            setChatHistory(prev => [...prev, {
+              id: Math.random().toString(36).substr(2, 9),
+              role: 'assistant' as const,
+              content: resultMsg
+            }]);
+          } else if (call.name === 'get_connected_devices') {
+            let listText = "⚡ **Dispositivos Inteligentes Conectados no OSONE (Tuya/Hue/SmartThings):**\n\n";
+            try {
+              const saved = localStorage.getItem('osone_smarthome_devices');
+              const devices = saved ? JSON.parse(saved) : [];
+              if (devices.length > 0) {
+                devices.forEach((d: any) => {
+                  listText += `- **${d.name}** (${d.room || 'Sem cômodo'}) — [Plataforma: ${d.platform.toUpperCase()}] — Estado: **${d.state ? 'LIGADO' : 'DESLIGADO'}**${d.value ? ` (Nível: ${d.value}%)` : ''}\n`;
+                });
+              } else {
+                listText += "_Nenhum dispositivo conectado ainda._\n";
+              }
+            } catch (e) {
+              listText += "Erro ao carregar lista de dispositivos.";
+            }
+
+            setChatHistory(prev => [...prev, {
+              id: Math.random().toString(36).substr(2, 9),
+              role: 'assistant' as const,
+              content: listText
+            }]);
+          } else if (call.name === 'run_smart_routine') {
+            const { routineName } = call.args as any;
+            let resultMsg = "";
+            try {
+              const savedR = localStorage.getItem('osone_smarthome_routines');
+              const routines = savedR ? JSON.parse(savedR) : [];
+              const match = routines.find((r: any) => r.name.toLowerCase().includes((routineName || '').toLowerCase()));
+
+              if (match) {
+                const savedD = localStorage.getItem('osone_smarthome_devices');
+                let devices = savedD ? JSON.parse(savedD) : [];
+                devices = devices.map((dev: any) => {
+                  const act = match.actions.find((a: any) => a.deviceId === dev.id);
+                  if (act) {
+                    return {
+                      ...dev,
+                      state: act.targetState,
+                      value: act.targetValue !== undefined ? act.targetValue : dev.value,
+                      color: act.targetColor || dev.color,
+                      lastUpdated: Date.now()
+                    };
+                  }
+                  return dev;
+                });
+                localStorage.setItem('osone_smarthome_devices', JSON.stringify(devices));
+                window.dispatchEvent(new Event('osone_smarthome_updated'));
+                resultMsg = `✨ Rotina **"${match.name}"** executada com sucesso! Todos os dispositivos da cena foram ajustados.`;
+                addNotification(resultMsg, 'success');
+              } else {
+                resultMsg = `⚠️ Rotina "${routineName}" não encontrada nas rotinas salvas.`;
+              }
+            } catch (err: any) {
+              resultMsg = `Erro ao executar rotina: ${err.message}`;
+            }
+
+            setChatHistory(prev => [...prev, {
+              id: Math.random().toString(36).substr(2, 9),
+              role: 'assistant' as const,
+              content: resultMsg
             }]);
           } else if (call.name === 'draw_on_canvas') {
             const { objects, clearFirst } = call.args as any;
@@ -8238,10 +8514,9 @@ tools: tools
         ? `Canvas state: ` + drawingObjects.slice(-10).map(obj => `${obj.type} at [${Math.round(obj.x)},${Math.round(obj.y)}]`).join(', ')
         : "Canvas is empty.";
 
-      const healthDataStr = localStorage.getItem('osone_health_data');
-      const healthData = healthDataStr ? JSON.parse(healthDataStr) : null;
-      const healthContext = healthData && (healthData.age || healthData.weight) 
-        ? `\n\nPERFIL DE SAÚDE DO USUÁRIO:\n- Idade: ${healthData.age}\n- Peso: ${healthData.weight}kg\n- Altura: ${healthData.height}cm\n- Gênero: ${healthData.gender}\n- Estilo: ${healthData.stylePreference}` 
+      const currentHealthData = healthData;
+      const healthContext = currentHealthData && (currentHealthData.age || currentHealthData.weight) 
+        ? `\n\nPERFIL DE SAÚDE DO USUÁRIO:\n- Idade: ${currentHealthData.age}\n- Peso: ${currentHealthData.weight}kg\n- Altura: ${currentHealthData.height}cm\n- Gênero: ${currentHealthData.gender}\n- Estilo: ${currentHealthData.stylePreference}` 
         : '';
 
       const dossierSummary = INTIMATE_QUESTIONS.map(q => {
@@ -8514,6 +8789,63 @@ IMPORTANTE PARA O AGENTE DE VOZ E CHAT:
                   }
                 },
                 {
+                  name: "add_diary_entry",
+                  description: "Cria e escreve uma nova página no Diário Pessoal do usuário no Livro de Memórias. Você possui total controle sobre esta aba.",
+                  parameters: {
+                    type: Type.OBJECT,
+                    properties: {
+                      content: { type: Type.STRING, description: "O texto da reflexão ou acontecimento para o diário." },
+                      mood: { type: Type.STRING, description: "Humor/sentimento do momento." }
+                    },
+                    required: ["content"]
+                  }
+                },
+                {
+                  name: "delete_diary_entry",
+                  description: "Apaga uma página do Diário Pessoal do usuário no Livro de Memórias pelo ID ou por busca de trecho do texto.",
+                  parameters: {
+                    type: Type.OBJECT,
+                    properties: {
+                      query: { type: Type.STRING, description: "ID ou trecho do texto da página do diário a ser apagada." }
+                    },
+                    required: ["query"]
+                  }
+                },
+                {
+                  name: "add_memory_book_entry",
+                  description: "Adiciona um novo capítulo de memória no Livro de Memórias.",
+                  parameters: {
+                    type: Type.OBJECT,
+                    properties: {
+                      title: { type: Type.STRING, description: "Título do capítulo." },
+                      summary: { type: Type.STRING, description: "Resumo narrativa." }
+                    },
+                    required: ["title", "summary"]
+                  }
+                },
+                {
+                  name: "delete_memory_book_entry",
+                  description: "Apaga um capítulo do Livro de Memórias pelo ID ou título.",
+                  parameters: {
+                    type: Type.OBJECT,
+                    properties: {
+                      query: { type: Type.STRING, description: "ID ou palavra do título da memória a ser excluída." }
+                    },
+                    required: ["query"]
+                  }
+                },
+                {
+                  name: "open_youtube_video",
+                  description: "Abre o videoclipe em Pop-up flutuante na interface do OSONE (padrão: clipe do Homem de Ferro XgWUDbYfNe4).",
+                  parameters: {
+                    type: Type.OBJECT,
+                    properties: {
+                      url_or_id: { type: Type.STRING, description: "O ID do vídeo ou URL do YouTube (ex: XgWUDbYfNe4)." },
+                      title: { type: Type.STRING, description: "Título do vídeo." }
+                    }
+                  }
+                },
+                {
                   name: "write_to_chat_history",
                   description: "Escreve e registra as mensagens ou turnos da conversa de voz em tempo real no chat de texto principal do OSONE, atualizando o histórico visível.",
                   parameters: {
@@ -8693,6 +9025,39 @@ IMPORTANTE PARA O AGENTE DE VOZ E CHAT:
                   }
                 },
                 {
+                  name: "control_smart_device",
+                  description: "Liga, desliga ou ajusta dispositivos inteligentes Tuya (Smart Life), Philips Hue ou Samsung SmartThings (lâmpada, tomada, ar condicionado, fechadura, etc.).",
+                  parameters: {
+                    type: Type.OBJECT,
+                    properties: {
+                      deviceName: { type: Type.STRING, description: "Nome ou cômodo do dispositivo (ex: 'tomada da sala', 'lâmpada do quarto', 'ar condicionado')." },
+                      action: { type: Type.STRING, description: "Ação a executar: 'turn_on', 'turn_off', 'toggle', 'set_value', 'set_color'." },
+                      value: { type: Type.NUMBER, description: "Valor opcional de brilho, temperatura ou velocidade (0-100)." },
+                      color: { type: Type.STRING, description: "Cor hex ou nome da cor em português para lâmpadas RGB." }
+                    },
+                    required: ["deviceName", "action"]
+                  }
+                },
+                {
+                  name: "get_connected_devices",
+                  description: "Retorna a lista de todos os dispositivos inteligentes conectados (Tuya, Philips Hue, SmartThings) e seus estados atuais.",
+                  parameters: {
+                    type: Type.OBJECT,
+                    properties: {}
+                  }
+                },
+                {
+                  name: "run_smart_routine",
+                  description: "Dispara uma rotina/cena inteligente configurada no OSONE (ex: 'Modo Cinema', 'Boa Noite', 'Modo Foco').",
+                  parameters: {
+                    type: Type.OBJECT,
+                    properties: {
+                      routineName: { type: Type.STRING, description: "Nome da rotina a ser executada." }
+                    },
+                    required: ["routineName"]
+                  }
+                },
+                {
                   name: "export_to_excel",
                   description: "Gera um arquivo Excel (.xlsx) para o usuário baixar a partir de dados estruturados em formato JSON, a partir da edição ou criação que o usuário pedir. Use para tabelas, planilhas, relatórios baseados em grade.",
                   parameters: {
@@ -8747,6 +9112,20 @@ IMPORTANTE PARA O AGENTE DE VOZ E CHAT:
                       }
                     },
                     required: ["content"]
+                  }
+                },
+                {
+                  name: "resolve_hunter_doubt",
+                  description: "Repassa a resposta/esclarecimento verbal que o usuário deu sobre a dúvida do Hunter (Caçador Agêntico de Código) para que o Hunter finalize as alterações no código com 100% de precisão.",
+                  parameters: {
+                    type: Type.OBJECT,
+                    properties: {
+                      clarification: {
+                        type: Type.STRING,
+                        description: "A resposta ou instrução esclarecedora fornecida pelo usuário."
+                      }
+                    },
+                    required: ["clarification"]
                   }
                 },
                 {
@@ -8807,18 +9186,6 @@ IMPORTANTE PARA O AGENTE DE VOZ E CHAT:
                       }
                     },
                     required: ["path", "content"]
-                  }
-                },
-                {
-                  name: "display_lyrics",
-                  description: "Exibe a letra de uma música na tela para o usuário acompanhar enquanto você canta.",
-                  parameters: {
-                    type: Type.OBJECT,
-                    properties: {
-                      lyrics: { type: Type.STRING, description: "A letra da música." },
-                      title: { type: Type.STRING, description: "Título da música." }
-                    },
-                    required: ["lyrics"]
                   }
                 },
                 {
@@ -8915,7 +9282,7 @@ IMPORTANTE PARA O AGENTE DE VOZ E CHAT:
         },
         callbacks: {
           onopen: () => {
-            sessionPromise.then((session) => {
+            sessionPromise.then((session: any) => {
               liveSessionRef.current = session;
               setLiveState({ status: 'connected' });
               setIsListening(true);
@@ -8932,7 +9299,7 @@ IMPORTANTE PARA O AGENTE DE VOZ E CHAT:
                   greetingText = `[SISTEMA: Apresente-se como professor de inglês, ${combo.hostA.name}. Dê as boas-vindas calorosas ao usuário à nossa Sala de Professores e pergunte brevemente o que ele gostaria de estudar hoje. Passe em seguida a palavra para seu co-docente ${combo.hostB.name} se apresentar trazendo sua visão acadêmica.]`;
                 }
               } else {
-                greetingText = "O sistema OSONE está online. Seja breve, direto e pare de enrolar com introduções longas. Apenas diga que está pronto e pergunte o que faremos agora. ATENÇÃO: Não chame a ferramenta 'display_lyrics' e não ative o Karaoke neste momento, pois o usuário NÃO pediu por música.";
+                greetingText = "O sistema OSONE está online. Seja breve, direto e pare de enrolar com introduções longas. Apenas diga que está pronto e pergunte o que faremos agora.";
               }
 
               (session as any).sendRealtimeInput([{ 
@@ -8988,18 +9355,21 @@ IMPORTANTE PARA O AGENTE DE VOZ E CHAT:
               // Real-time Video Stream
               let lastFrameTime = 0;
               const FRAME_INTERVAL = 1000;
+              let offscreenCanvas: HTMLCanvasElement | null = null;
 
               const streamFrames = (timestamp: number) => {
                 if (liveSessionRef.current && liveVideoRef.current && isCameraActiveRef.current) {
                   if (timestamp - lastFrameTime >= FRAME_INTERVAL) {
                     lastFrameTime = timestamp;
-                    const canvas = document.createElement('canvas');
-                    canvas.width = 480; 
-                    canvas.height = 360;
-                    const ctx = canvas.getContext('2d');
+                    if (!offscreenCanvas) {
+                      offscreenCanvas = document.createElement('canvas');
+                      offscreenCanvas.width = 480; 
+                      offscreenCanvas.height = 360;
+                    }
+                    const ctx = offscreenCanvas.getContext('2d');
                     if (ctx) {
-                      ctx.drawImage(liveVideoRef.current, 0, 0, canvas.width, canvas.height);
-                      const base64Data = canvas.toDataURL('image/jpeg', 0.6).split(',')[1];
+                      ctx.drawImage(liveVideoRef.current, 0, 0, offscreenCanvas.width, offscreenCanvas.height);
+                      const base64Data = offscreenCanvas.toDataURL('image/jpeg', 0.6).split(',')[1];
                       try {
                         liveSessionRef.current.sendRealtimeInput({
                           video: { data: base64Data, mimeType: 'image/jpeg' }
@@ -9011,8 +9381,8 @@ IMPORTANTE PARA O AGENTE DE VOZ E CHAT:
                   }
                   liveAnimationFrameRef.current = requestAnimationFrame(streamFrames);
                 } else if (liveSessionRef.current) {
-                   // Keep loop alive but don't send frames, so we react to isCameraActiveRef.current changes
-                   liveAnimationFrameRef.current = requestAnimationFrame(streamFrames);
+                   // When camera inactive, check again in 500ms instead of running 60fps RAF loop
+                   liveAnimationFrameRef.current = setTimeout(() => streamFrames(performance.now()), 500) as any;
                 }
               };
               
@@ -9138,11 +9508,13 @@ IMPORTANTE PARA O AGENTE DE VOZ E CHAT:
                 }
                 
                 if (textPart?.text) {
-                  // Only add to chat history if it's not just a partial chunk, or maybe we just accumulate it?
-                  // Actually, Gemini Live sends text chunks. Adding every chunk to chatHistory creates a mess.
-                  // Let's just update the voiceTranscriptRef instead of chatHistory for Live mode.
                   voiceTranscriptRef.current += textPart.text;
-                  setVoiceTranscript(voiceTranscriptRef.current);
+                  if (!transcriptThrottleRef.current) {
+                    transcriptThrottleRef.current = setTimeout(() => {
+                      setVoiceTranscript(voiceTranscriptRef.current);
+                      transcriptThrottleRef.current = null;
+                    }, 70);
+                  }
 
                   // Se estiver em modo duo, acender o avatar correspondente com ondas de áudio!
                   if (isDuoMode) {
@@ -9152,6 +9524,10 @@ IMPORTANTE PARA O AGENTE DE VOZ E CHAT:
               }
 
               if (message.serverContent?.turnComplete) {
+                if (transcriptThrottleRef.current) {
+                  clearTimeout(transcriptThrottleRef.current);
+                  transcriptThrottleRef.current = null;
+                }
                 setVoiceTranscript('');
                 if (voiceTranscriptRef.current) {
                   const finalizedText = voiceTranscriptRef.current;
@@ -9239,13 +9615,8 @@ IMPORTANTE PARA O AGENTE DE VOZ E CHAT:
                       checkAndPromptMemory(() => {});
                     }, 500);
                   } else if (call.name === "update_wellness_data") {
-                    const healthDataStr = localStorage.getItem('osone_health_data');
-                    const currentData = healthDataStr ? JSON.parse(healthDataStr) : {
-                      age: '', weight: '', height: '', gender: 'masculino', stylePreference: 'casual'
-                    };
-                    const newData = { ...currentData, ...call.args };
-                    localStorage.setItem('osone_health_data', JSON.stringify(newData));
-                    window.dispatchEvent(new CustomEvent('osone_sync', { detail: { type: 'health_data_updated' } }));
+                    const newData = { ...healthData, ...call.args };
+                    handleUpdateHealthData(newData);
                     
                     responses.push({
                       name: call.name,
@@ -9279,6 +9650,153 @@ IMPORTANTE PARA O AGENTE DE VOZ E CHAT:
                       id: call.id,
                       response: { result: "Plano proposto ao usuário. Aguarde aprovação humana no popup." }
                     });
+                  } else if (call.name === "control_smart_device") {
+                    const { deviceName, action, value, color } = call.args as any;
+                    let resultMsg = "";
+                    try {
+                      const saved = localStorage.getItem('osone_smarthome_devices');
+                      let devices = saved ? JSON.parse(saved) : [];
+                      const term = (deviceName || '').toLowerCase();
+                      let updatedCount = 0;
+                      let targetName = "";
+
+                      devices = devices.map((d: any) => {
+                        if (d.name.toLowerCase().includes(term) || (d.room && d.room.toLowerCase().includes(term))) {
+                          updatedCount++;
+                          targetName = d.name;
+                          let nextState = d.state;
+                          if (action === 'turn_on') nextState = true;
+                          else if (action === 'turn_off') nextState = false;
+                          else if (action === 'toggle') nextState = !d.state;
+                          return {
+                            ...d,
+                            state: nextState,
+                            value: value !== undefined ? value : d.value,
+                            color: color || d.color,
+                            lastUpdated: Date.now()
+                          };
+                        }
+                        return d;
+                      });
+
+                      localStorage.setItem('osone_smarthome_devices', JSON.stringify(devices));
+                      window.dispatchEvent(new Event('osone_smarthome_updated'));
+
+                      if (updatedCount > 0) {
+                        resultMsg = `Dispositivo ${targetName} foi ${action === 'turn_off' ? 'desligado' : 'ligado'} com sucesso via nuvem!`;
+                        addNotification(resultMsg, 'success');
+                      } else {
+                        resultMsg = `Nenhum dispositivo encontrado correspondente a "${deviceName}".`;
+                      }
+                    } catch (err: any) {
+                      resultMsg = `Erro ao controlar dispositivo: ${err.message}`;
+                    }
+
+                    responses.push({
+                      name: call.name,
+                      id: call.id,
+                      response: { result: resultMsg }
+                    });
+                  } else if (call.name === "get_connected_devices") {
+                    let listResult = "";
+                    try {
+                      const saved = localStorage.getItem('osone_smarthome_devices');
+                      const devices = saved ? JSON.parse(saved) : [];
+                      listResult = JSON.stringify(devices);
+                    } catch (e) {
+                      listResult = "Erro ao buscar dispositivos.";
+                    }
+
+                    responses.push({
+                      name: call.name,
+                      id: call.id,
+                      response: { result: listResult }
+                    });
+                  } else if (call.name === "run_smart_routine") {
+                    const { routineName } = call.args as any;
+                    let resultMsg = "";
+                    try {
+                      const savedR = localStorage.getItem('osone_smarthome_routines');
+                      const routines = savedR ? JSON.parse(savedR) : [];
+                      const match = routines.find((r: any) => r.name.toLowerCase().includes((routineName || '').toLowerCase()));
+
+                      if (match) {
+                        const savedD = localStorage.getItem('osone_smarthome_devices');
+                        let devices = savedD ? JSON.parse(savedD) : [];
+                        devices = devices.map((dev: any) => {
+                          const act = match.actions.find((a: any) => a.deviceId === dev.id);
+                          if (act) {
+                            return {
+                              ...dev,
+                              state: act.targetState,
+                              value: act.targetValue !== undefined ? act.targetValue : dev.value,
+                              color: act.targetColor || dev.color,
+                              lastUpdated: Date.now()
+                            };
+                          }
+                          return dev;
+                        });
+                        localStorage.setItem('osone_smarthome_devices', JSON.stringify(devices));
+                        window.dispatchEvent(new Event('osone_smarthome_updated'));
+                        resultMsg = `Rotina "${match.name}" executada com sucesso! Todos os dispositivos da cena foram acionados.`;
+                        addNotification(resultMsg, 'success');
+                      } else {
+                        resultMsg = `Rotina "${routineName}" não encontrada.`;
+                      }
+                    } catch (err: any) {
+                      resultMsg = `Erro ao executar rotina: ${err.message}`;
+                    }
+
+                    responses.push({
+                      name: call.name,
+                      id: call.id,
+                      response: { result: resultMsg }
+                    });
+                  } else if (call.name === "add_diary_entry") {
+                    const { content, mood } = call.args as any;
+                    addDiaryEntryHelper(content, mood);
+                    responses.push({
+                      name: call.name,
+                      id: call.id,
+                      response: { result: "Nova página registrada com sucesso no Diário Pessoal do usuário no Livro de Memórias." }
+                    });
+                  } else if (call.name === "delete_diary_entry") {
+                    const { query } = call.args as any;
+                    const success = deleteDiaryEntryHelper(query);
+                    responses.push({
+                      name: call.name,
+                      id: call.id,
+                      response: { result: success ? "Página de diário removida com sucesso." : "Nenhuma página encontrada com esta busca." }
+                    });
+                  } else if (call.name === "add_memory_book_entry") {
+                    const { title, summary, keyPoints, topics } = call.args as any;
+                    addMemoryBookEntryHelper(title, summary, keyPoints, topics);
+                    responses.push({
+                      name: call.name,
+                      id: call.id,
+                      response: { result: "Capítulo de memória gravado no Livro de Memórias com sucesso." }
+                    });
+                  } else if (call.name === "delete_memory_book_entry") {
+                    const { query } = call.args as any;
+                    const success = deleteMemoryBookEntryHelper(query);
+                    responses.push({
+                      name: call.name,
+                      id: call.id,
+                      response: { result: success ? "Capítulo de memória removido do Livro de Memórias com sucesso." : "Nenhum capítulo encontrado com esse termo." }
+                    });
+                  } else if (call.name === "open_youtube_video") {
+                    const { url_or_id, title } = call.args as any;
+                    const vidId = extractYoutubeVideoId(url_or_id || 'XgWUDbYfNe4');
+                    setYoutubeVideoPopup({
+                      isOpen: true,
+                      videoId: vidId,
+                      title: title || 'Homem de Ferro (Iron Man) - Videoclipe Oficial'
+                    });
+                    responses.push({
+                      name: call.name,
+                      id: call.id,
+                      response: { result: `Videoclipe ${vidId} exibido no Pop-up da interface.` }
+                    });
                   } else if (call.name === "prune_chat_history") {
                     const count = Math.min(call.args.count as number, chatHistory.length);
                     setChatHistory(prev => prev.slice(count));
@@ -9294,6 +9812,15 @@ IMPORTANTE PARA O AGENTE DE VOZ E CHAT:
                       id: call.id,
                       response: { result: `Modo alterado para ${call.args.mode}` }
                     });
+                  } else if (call.name === "resolve_hunter_doubt") {
+                    const clarification = (call.args as any).clarification as string;
+                    addNotification(`🏹 Hunter recebeu o esclarecimento do usuário via Gemini Live: "${clarification}". Concluindo alterações...`, "success");
+                    runHunterAnalysis(clarification);
+                    responses.push({
+                      name: call.name,
+                      id: call.id,
+                      response: { result: "Esclarecimento enviado ao Hunter com sucesso. O Hunter está aplicando as correções finais no código agora mesmo!" }
+                    });
                   } else if (call.name === 'show_notification') {
                     const { message, type } = call.args as any;
                     addNotification(message, type || 'info');
@@ -9306,6 +9833,7 @@ IMPORTANTE PARA O AGENTE DE VOZ E CHAT:
                     const loc = (call.args as any).location;
                     setMapSearchQuery(loc);
                     setWorkspaceMode('map');
+                    window.dispatchEvent(new CustomEvent('osone-navigate-map', { detail: { location: loc } }));
                     addNotification(`Mapa sintonizado em ${loc}`, "success");
                     responses.push({
                       name: call.name,
@@ -9328,13 +9856,8 @@ IMPORTANTE PARA O AGENTE DE VOZ E CHAT:
                   } else if (call.name === 'export_to_excel') {
                     const { fileName, data } = call.args as any;
                     try {
-                      const xlsx = await import('xlsx');
-                      const worksheet = xlsx.utils.json_to_sheet(data);
-                      const workbook = xlsx.utils.book_new();
-                      xlsx.utils.book_append_sheet(workbook, worksheet, "Planilha");
-                      const excelBuffer = xlsx.write(workbook, { bookType: 'xlsx', type: 'array' });
-                      const blob = new Blob([excelBuffer], {type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8'});
-                      saveAs(blob, `${fileName}.xlsx`);
+                      const blob = await createXlsxBlob(data);
+                      saveAs(blob, normalizeXlsxFileName(fileName));
                       
                       responses.push({
                         name: call.name,
@@ -9685,20 +10208,18 @@ IMPORTANTE PARA O AGENTE DE VOZ E CHAT:
                     playSearchNetworkSound();
                     setIsModelSearching(true);
                     try {
-                      const response = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
-                      const data = await response.json();
-                      const html = data.contents;
-                      const parser = new DOMParser();
-                      const doc = parser.parseFromString(html, 'text/html');
-                      const scripts = doc.querySelectorAll('script, style, nav, footer, header, iframe, ads');
-                      scripts.forEach(s => s.remove());
-                      const text = doc.body.innerText || doc.body.textContent || "";
-                      const cleanText = text.replace(/\s+/g, ' ').trim().slice(0, 10000);
-                      
+                      const scrapeResponse = await fetch('/api/scrape', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ url })
+                      });
+                      const scrapeData = await scrapeResponse.json().catch(() => ({}));
                       responses.push({
                         name: call.name,
                         id: call.id,
-                        response: { result: `[CONTEÚDO DA PÁGINA WEB - FONTE REALIZADA]:\n${cleanText}` || "Não foi possível extrair texto legível da página." }
+                        response: scrapeResponse.ok
+                          ? { result: `[CONTEÚDO DA PÁGINA WEB - FONTE EXTRAÍDA]:\n${scrapeData.text || 'Sem conteúdo legível.'}` }
+                          : { error: scrapeData.error || `HTTP ${scrapeResponse.status}` }
                       });
                     } catch (err: any) {
                       responses.push({
@@ -9896,13 +10417,16 @@ IMPORTANTE PARA O AGENTE DE VOZ E CHAT:
                     const url = call.args.url as string;
                     const title = (call.args.title as string) || url;
                     const handledInternally = tryOpenInInternalMap(url, title);
+                    let opened = handledInternally;
                     if (!handledInternally) {
-                      window.open(url, '_blank');
+                      opened = openExternalHttpUrl(url);
                     }
                     responses.push({
                       name: call.name,
                       id: call.id,
-                      response: { result: handledInternally ? `Mapa integrado aberto localmente para '${title}'.` : `Guia '${title}' aberta com sucesso.` }
+                      response: opened
+                        ? { result: handledInternally ? `Mapa integrado aberto localmente para '${title}'.` : `Guia '${title}' aberta com sucesso.` }
+                        : { error: 'A URL foi bloqueada porque não é HTTP/HTTPS válida.' }
                     });
                   } else if (call.name === "click_screen") {
                     const x = call.args.x as number;
@@ -9917,17 +10441,7 @@ IMPORTANTE PARA O AGENTE DE VOZ E CHAT:
                       id: call.id,
                       response: { result: `Clique simulado em (${x}, ${y}).` }
                     });
-                  } else if (call.name === "display_lyrics") {
-                    setLyrics({ 
-                      title: (call.args.title as string) || "Nova Composição", 
-                      content: call.args.lyrics as string 
-                    });
-                    setIsSinging(true);
-                    responses.push({
-                      name: call.name,
-                      id: call.id,
-                      response: { result: "Letra exibida com sucesso na tela." }
-                    });
+
                   } else if (call.name === "register_user_profile_facts") {
                     const facts = (call.args as any).facts;
                     if (facts && typeof facts === 'object') {
@@ -9957,10 +10471,16 @@ IMPORTANTE PARA O AGENTE DE VOZ E CHAT:
                     addNotification("OSONE acessou e leu todo o seu Dossiê de Memória!", "success");
                   } else if (call.name === "read_system_docs") {
                     const fileName = (call.args as any).fileName || "manifesto.md";
+                    let systemDocument = '';
+                    try {
+                      systemDocument = getSystemDocument(fileName);
+                    } catch (error: any) {
+                      systemDocument = `Erro ao ler documento: ${error.message}`;
+                    }
                     responses.push({
                       name: call.name,
                       id: call.id,
-                      response: { result: `Você é o OSONE G5. O documento ${fileName} está localizado no seu diretório 'src/documentos_osone/'. Leia-o usando chat de texto para analisar o Manifesto ou a Memória de Longo Prazo Evolutiva.` }
+                      response: { result: systemDocument }
                     });
                   } else if (call.name === "switch_voice") {
                     const voice = call.args.voice as string;
@@ -9997,7 +10517,7 @@ IMPORTANTE PARA O AGENTE DE VOZ E CHAT:
                     
                     const triggerImageProc = async () => {
                       let imageUrl = '';
-                      if (effectiveApiKey) {
+                      if (apiKeys.aiProvider === 'openai' || effectiveApiKey) {
                         try {
                           const res = await fetch("/api/gemini/generateImages", {
                             method: "POST",
@@ -10017,7 +10537,8 @@ IMPORTANTE PARA O AGENTE DE VOZ E CHAT:
                             const imageResult = await res.json();
                             const generatedImage = imageResult.generatedImages?.[0];
                             if (generatedImage?.image?.imageBytes) {
-                              imageUrl = `data:image/jpeg;base64,${generatedImage.image.imageBytes}`;
+                              const outputMimeType = imageResult.outputMimeType || 'image/jpeg';
+                              imageUrl = `data:${outputMimeType};base64,${generatedImage.image.imageBytes}`;
                             } else if (imageResult.error) {
                               throw new Error(imageResult.error.message || imageResult.error);
                             } else {
@@ -10031,7 +10552,7 @@ IMPORTANTE PARA O AGENTE DE VOZ E CHAT:
                           throw new Error(e.message || "Erro na conexão com a API do Gemini 3.1.");
                         }
                       } else {
-                        throw new Error("Chave API do Gemini não está configurada nos Ajustes.");
+                        throw new Error("Configure a chave do provedor de IA selecionado nos Ajustes.");
                       }
                       
                       return imageUrl;
@@ -10459,10 +10980,6 @@ IMPORTANTE PARA O AGENTE DE VOZ E CHAT:
     setReferenceImages(prev => prev.filter((_, i) => i !== index));
   };
 
-  const closeLyrics = () => {
-    setLyrics(null);
-    setIsSinging(false);
-  };
 
   return (
     <motion.div 
@@ -10498,17 +11015,6 @@ IMPORTANTE PARA O AGENTE DE VOZ E CHAT:
             exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
             className="fixed inset-0 z-[1000] bg-red-600/25 pointer-events-none mix-blend-color-burn"
-          />
-        )}
-      </AnimatePresence>
-      {/* Karaoke System - One Phrase At A Time */}
-      <AnimatePresence>
-        {lyrics && (
-          <KaraokePanel
-            lyrics={lyrics}
-            onClose={closeLyrics}
-            isSinging={isSinging}
-            setIsSinging={setIsSinging}
           />
         )}
       </AnimatePresence>
@@ -10851,13 +11357,9 @@ IMPORTANTE PARA O AGENTE DE VOZ E CHAT:
             </AnimatePresence>
           </div>
 
-          {/* GOOGLE / GMAIL LOGIN WITH FIREBASE */}
+          {/* Perfis locais isolados no navegador */}
           <div className="relative z-40">
-            {isAuthLoading ? (
-              <button className="p-2 md:p-3 text-cyan-400 animate-spin">
-                <Loader2 size={16} />
-              </button>
-            ) : user ? (
+            {user ? (
               <div className="flex items-center gap-2">
                 <button 
                   onClick={() => setIsProfileOpen(!isProfileOpen)}
@@ -10894,18 +11396,11 @@ IMPORTANTE PARA O AGENTE DE VOZ E CHAT:
                         </div>
 
                         <div className="space-y-1.5 text-left">
-                          <div className="text-[9px] uppercase tracking-wider text-zinc-500 font-bold mb-1 px-1">CONEXÃO SECURE</div>
-                          {user.isLocal ? (
-                            <div className="text-[10px] bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 rounded-lg p-2 flex items-center gap-2">
-                              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
-                              <span>Cérebro Local Ativo</span>
-                            </div>
-                          ) : (
-                            <div className="text-[10px] bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-lg p-2 flex items-center gap-2">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                              <span>Nuvem Ativa via Gmail</span>
-                            </div>
-                          )}
+                          <div className="text-[9px] uppercase tracking-wider text-zinc-500 font-bold mb-1 px-1">ARMAZENAMENTO</div>
+                          <div className="text-[10px] bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 rounded-lg p-2 flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+                            <span>Perfil separado neste navegador</span>
+                          </div>
 
                           <button
                             onClick={() => {
@@ -10951,7 +11446,7 @@ IMPORTANTE PARA O AGENTE DE VOZ E CHAT:
               <button 
                 onClick={() => setIsProfileModalOpen(true)}
                 className="p-1 px-3 md:py-1.5 border border-cyan-500/40 hover:border-cyan-400 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 text-[10px] font-semibold transition-all flex items-center gap-2 rounded-full cursor-pointer shadow-[0_0_15px_rgba(6,182,212,0.15)]"
-                title="Acessar Perfis Locais ou Gmail"
+                title="Gerenciar perfis locais"
               >
                 <UserIcon size={12} className="text-cyan-400" />
                 <span className="hidden md:inline text-[8px] tracking-[0.2em] leading-none font-bold uppercase">Entrar / Perfis</span>
@@ -11681,6 +12176,7 @@ Instruções imediatas obrigatórias para você (IA de Voz/Chat):
                               ? (writingTheme === 'sepia' ? "bg-amber-600 text-white" : writingTheme === 'forest' ? "bg-emerald-600 text-white" : "bg-her-accent text-white") 
                               : "text-white/10"
                           )}
+                          title="Enviar comando de geração"
                         >
                           {isGenerating ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
                         </button>
@@ -11728,62 +12224,80 @@ Instruções imediatas obrigatórias para você (IA de Voz/Chat):
                         </AnimatePresence>
                       </div>
 
-                      {/* --- FLOTING PROJECT DOCK / CLIPBOARD HISTÓRICO DE QUADROS --- */}
+                      {/* --- FLOATING PROJECT DOCK --- */}
                       <div className="absolute right-4 top-4 z-[45] flex flex-col items-end gap-2">
-                        {/* Interactive floating trigger button */}
-                        <button
-                          onClick={() => setIsProjectsDockOpen(!isProjectsDockOpen)}
-                          className={cn(
-                            "px-3.5 py-2 rounded-2xl border text-xs font-mono font-bold flex items-center gap-2 shadow-lg hover:scale-105 active:scale-95 transition-all backdrop-blur-md cursor-pointer",
-                            isProjectsDockOpen
-                              ? (writingTheme === 'sepia' ? "bg-amber-950/90 border-amber-600/50 text-amber-300" : writingTheme === 'forest' ? "bg-emerald-950/90 border-emerald-500/50 text-emerald-400" : "bg-zinc-900/90 border-white/20 text-white")
-                              : (writingTheme === 'sepia' ? "bg-amber-600/10 border-amber-600/20 text-amber-300/70 hover:text-amber-300" : writingTheme === 'forest' ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400/70 hover:text-emerald-400" : "bg-white/5 border-white/10 text-white/70 hover:text-white")
-                          )}
-                          title="Alternar Área de Transferência de Projetos de Texto / Quadros"
-                        >
-                          <FileText size={14} className={cn("transition-transform", isProjectsDockOpen ? "rotate-12" : "")} />
-                          <span>MÚLTIPLOS QUADROS</span>
-                          <span className={cn(
-                            "px-1.5 py-0.5 rounded-full text-[9px] font-bold shrink-0",
-                            writingTheme === 'sepia' ? "bg-amber-600/20 text-amber-300" : writingTheme === 'forest' ? "bg-emerald-500/20 text-emerald-400" : "bg-white/10 text-white"
-                          )}>
-                            {writingProjects.length}
-                          </span>
-                        </button>
+                        <div className="flex items-center gap-2">
+                          {/* Interactive floating trigger button */}
+                          <button
+                            onClick={() => setIsProjectsDockOpen(!isProjectsDockOpen)}
+                            className={cn(
+                              "px-3.5 py-2 rounded-2xl border text-xs font-mono font-bold flex items-center gap-2 shadow-lg hover:scale-105 active:scale-95 transition-all backdrop-blur-md cursor-pointer",
+                              isProjectsDockOpen
+                                ? (writingTheme === 'sepia' ? "bg-amber-950/90 border-amber-600/50 text-amber-300" : writingTheme === 'forest' ? "bg-emerald-950/90 border-emerald-500/50 text-emerald-400" : "bg-zinc-900/90 border-white/20 text-white")
+                                : (writingTheme === 'sepia' ? "bg-amber-600/10 border-amber-600/20 text-amber-300/70 hover:text-amber-300" : writingTheme === 'forest' ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400/70 hover:text-emerald-400" : "bg-white/5 border-white/10 text-white/70 hover:text-white")
+                            )}
+                            title="Alternar Área de Transferência de Projetos de Texto / Quadros"
+                          >
+                            <FileText size={14} className={cn("transition-transform", isProjectsDockOpen ? "rotate-12" : "")} />
+                            <span>MÚLTIPLOS QUADROS</span>
+                            <span className={cn(
+                              "px-1.5 py-0.5 rounded-full text-[9px] font-bold shrink-0",
+                              writingTheme === 'sepia' ? "bg-amber-600/20 text-amber-300" : writingTheme === 'forest' ? "bg-emerald-500/20 text-emerald-400" : "bg-white/10 text-white"
+                            )}>
+                              {writingProjects.length}
+                            </span>
+                          </button>
+                        </div>
 
                         <AnimatePresence>
                           {isProjectsDockOpen && (
-                            <motion.div
-                              initial={{ opacity: 0, scale: 0.95, y: 10, x: 10 }}
-                              animate={{ opacity: 1, scale: 1, y: 0, x: 0 }}
-                              exit={{ opacity: 0, scale: 0.95, y: 10, x: 10 }}
-                              transition={{ duration: 0.2 }}
-                              className={cn(
-                                "w-72 max-h-[480px] rounded-2xl border p-4 shadow-2xl backdrop-blur-2xl flex flex-col gap-3 overflow-hidden select-none",
-                                writingTheme === 'charcoal' ? "bg-[#101216]/95 border-white/10 shadow-black/80" :
-                                writingTheme === 'midnight' ? "bg-black/95 border-white/[0.04] shadow-black" :
-                                writingTheme === 'sepia' ? "bg-[#181412]/98 border-[#2e241e] text-[#eedbd0] shadow-black/70" :
-                                "bg-[#060c08]/98 border-emerald-950/50 text-emerald-100 shadow-black/80"
-                              )}
-                            >
-                              {/* Header */}
-                              <div className="flex items-center justify-between border-b border-white/5 pb-2 shrink-0">
-                                <div className="flex items-center gap-1.5">
-                                  <Sparkles size={11} className={writingTheme === 'forest' ? "text-emerald-400" : "text-amber-500"} />
-                                  <span className="text-[9px] uppercase tracking-wider font-mono font-bold opacity-60">Histórico de Quadros</span>
+                            <>
+                              {/* Invisible backdrop to dismiss dock when clicking outside */}
+                              <div 
+                                className="fixed inset-0 z-[40]" 
+                                onClick={() => setIsProjectsDockOpen(false)} 
+                              />
+
+                              <motion.div
+                                initial={{ opacity: 0, scale: 0.95, y: -5 }}
+                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.95, y: -5 }}
+                                transition={{ duration: 0.15 }}
+                                className={cn(
+                                  "w-80 max-h-[480px] rounded-2xl border p-4 shadow-2xl backdrop-blur-2xl flex flex-col gap-3 overflow-hidden select-none z-[45] mt-1 relative",
+                                  writingTheme === 'charcoal' ? "bg-[#101216]/95 border-white/10 shadow-black/80" :
+                                  writingTheme === 'midnight' ? "bg-black/95 border-white/[0.04] shadow-black" :
+                                  writingTheme === 'sepia' ? "bg-[#181412]/98 border-[#2e241e] text-[#eedbd0] shadow-black/70" :
+                                  "bg-[#060c08]/98 border-emerald-950/50 text-emerald-100 shadow-black/80"
+                                )}
+                              >
+                                {/* Header */}
+                                <div className="flex items-center justify-between border-b border-white/5 pb-2 shrink-0">
+                                  <div className="flex items-center gap-1.5">
+                                    <Sparkles size={11} className={writingTheme === 'forest' ? "text-emerald-400" : "text-amber-500"} />
+                                    <span className="text-[9px] uppercase tracking-wider font-mono font-bold opacity-60">Histórico de Quadros</span>
+                                  </div>
+                                  <div className="flex items-center gap-1.5">
+                                    <button
+                                      onClick={() => handleStartNewProject()}
+                                      className={cn(
+                                        "px-2 py-1 rounded-lg text-[9px] font-mono font-bold flex items-center gap-1 hover:scale-105 active:scale-95 transition-all border shrink-0 cursor-pointer",
+                                        writingTheme === 'sepia' ? "bg-amber-600/20 border-amber-600/30 text-amber-300" : writingTheme === 'forest' ? "bg-emerald-500/20 border-emerald-500/30 text-emerald-400" : "bg-white/10 border-white/10 text-white"
+                                      )}
+                                      title="Iniciar um novo quadro em branco e reservar o atual"
+                                    >
+                                      <Plus size={10} />
+                                      <span>NOVO QUADRO</span>
+                                    </button>
+                                    <button
+                                      onClick={() => setIsProjectsDockOpen(false)}
+                                      className="p-1 rounded-lg hover:bg-white/10 text-white/50 hover:text-white transition-colors cursor-pointer shrink-0"
+                                      title="Fechar Múltiplos Quadros"
+                                    >
+                                      <X size={14} />
+                                    </button>
+                                  </div>
                                 </div>
-                                <button
-                                  onClick={() => handleStartNewProject()}
-                                  className={cn(
-                                    "px-2 py-1 rounded-lg text-[9px] font-mono font-bold flex items-center gap-1 hover:scale-105 active:scale-95 transition-all border shrink-0 cursor-pointer",
-                                    writingTheme === 'sepia' ? "bg-amber-600/20 border-amber-600/30 text-amber-300" : writingTheme === 'forest' ? "bg-emerald-500/20 border-emerald-500/30 text-emerald-400" : "bg-white/10 border-white/10 text-white"
-                                  )}
-                                  title="Iniciar um novo quadro em branco e reservar o atual"
-                                >
-                                  <Plus size={10} />
-                                  <span>NOVO QUADRO</span>
-                                </button>
-                              </div>
 
                               {/* Portfolio List */}
                               <div className="flex-1 overflow-y-auto no-scrollbar flex flex-col gap-2 pr-0.5">
@@ -11871,8 +12385,9 @@ Instruções imediatas obrigatórias para você (IA de Voz/Chat):
                                 Sempre que quiser começar uma nova escrita do zero, use "+ NOVO QUADRO". Suas criações antigas continuarão seguras aqui.
                               </div>
                             </motion.div>
-                          )}
-                        </AnimatePresence>
+                          </>
+                        )}
+                      </AnimatePresence>
                       </div>
                     </div>
                   </div>
@@ -12091,6 +12606,23 @@ Instruções imediatas obrigatórias para você (IA de Voz/Chat):
                 {/* O painel de visualização lateral split foi retirado para focar no fluxo imersivo contínuo e espaçoso de escrita */}
               </div>
             </motion.div>
+          ) : workspaceMode === 'code' ? (
+            <motion.div 
+              key="workspace-code"
+              initial={{ opacity: 0, scale: 0.995 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.995 }}
+              transition={{ duration: 0.2 }}
+              className="w-full flex-1 flex flex-col min-h-0 overflow-hidden"
+            >
+              <CodeWorkspace 
+                onClose={() => setWorkspaceMode('home')}
+                onGenerateCodeRequest={handleCodeWorkspacePrompt}
+                onStartLiveVoice={() => startLiveSession()}
+                apiKeys={apiKeys}
+                isGenerating={isGenerating}
+              />
+            </motion.div>
           ) : workspaceMode === 'canvas' ? (
             <div key="workspace-canvas" className="flex-1 w-full flex flex-col min-h-0">
               <InteractiveCanvas 
@@ -12121,42 +12653,6 @@ Instruções imediatas obrigatórias para você (IA de Voz/Chat):
                 externalData={healthData}
                 onUpdate={handleUpdateHealthData}
                 apiKeys={apiKeys}
-              />
-            </motion.div>
-          ) : workspaceMode === 'aural_control' ? (
-            <motion.div 
-              key="workspace-aural"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="w-full h-full flex flex-col overflow-hidden relative p-0"
-            >
-              <PersonalizationPanel 
-                onMenuClick={() => setIsSidebarOpen(true)}
-                onBack={() => setWorkspaceMode('home')}
-                keys={apiKeys}
-                setKeys={setApiKeys}
-                selectedVoice={selectedVoice}
-                setSelectedVoice={setSelectedVoice}
-                voiceEngine={voiceEngine}
-                setVoiceEngine={setVoiceEngine}
-                isChatAutoSpeakActive={isChatAutoSpeakActive}
-                setIsChatAutoSpeakActive={setIsChatAutoSpeakActive}
-                voiceModulation={voiceModulation}
-                setVoiceModulation={setVoiceModulation}
-                orbStyle={orbStyle}
-                setOrbStyle={setOrbStyle}
-                orbSize={orbSize}
-                setOrbSize={setOrbSize}
-                orbCenterMode={orbCenterMode}
-                setOrbCenterMode={setOrbCenterMode}
-                appTheme={appTheme}
-                setAppTheme={setAppTheme}
-                aiProfile={aiProfile}
-                setAiProfile={handleUpdateProfile}
-                onAddNotification={addNotification}
-                vocalProfileEscarlate={vocalProfileEscarlate}
-                setVocalProfileEscarlate={setVocalProfileEscarlate}
               />
             </motion.div>
           ) : workspaceMode === 'sounds' ? (
@@ -12247,6 +12743,7 @@ Instruções imediatas obrigatórias para você (IA de Voz/Chat):
               <RAGConnector 
                 ragFiles={ragFiles}
                 setRagFiles={setRagFiles}
+                storageScope={user?.uid || 'guest'}
                 onAddNotification={addNotification}
               />
             </motion.div>
@@ -12306,10 +12803,6 @@ Instruções imediatas obrigatórias para você (IA de Voz/Chat):
                   onBack={() => setWorkspaceMode('home')}
                   tiktokUser={tiktokUser}
                   setTiktokUser={setTiktokUser}
-                  tiktokSessionId={tiktokSessionId}
-                  setTiktokSessionId={setTiktokSessionId}
-                  tiktokTargetIdc={tiktokTargetIdc}
-                  setTiktokTargetIdc={setTiktokTargetIdc}
                   tiktokState={tiktokState}
                   tiktokLoading={tiktokLoading}
                   onConnect={handleTiktokConnect}
@@ -12404,6 +12897,19 @@ Instruções imediatas obrigatórias para você (IA de Voz/Chat):
                 />
               </div>
             </motion.div>
+          ) : workspaceMode === 'smarthome' || workspaceMode === 'local_control' ? (
+            <motion.div
+              key="workspace-smarthome"
+              initial={{ opacity: 0, scale: 0.985 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.985 }}
+              className="w-full flex-1 flex flex-col min-h-0"
+            >
+              <SmartHomeConnect 
+                onClose={() => setWorkspaceMode('home')}
+                onNotification={addNotification}
+              />
+            </motion.div>
           ) : workspaceMode === 'memory_book' ? (
             <motion.div
               key="workspace-memory-book"
@@ -12415,6 +12921,7 @@ Instruções imediatas obrigatórias para você (IA de Voz/Chat):
               <MemoryBookPanel
                 onBack={() => setWorkspaceMode('home')}
                 onAddNotification={addNotification}
+                storageKey={getMemoryBookStorageKey()}
               />
             </motion.div>
           ) : (
@@ -12425,7 +12932,7 @@ Instruções imediatas obrigatórias para você (IA de Voz/Chat):
               exit={{ opacity: 0 }}
               className="flex flex-col items-center w-full h-full relative overflow-hidden"
             >
-              {isServerQuotaExhausted && !apiKeys.gemini && (
+              {apiKeys.aiProvider !== 'openai' && isServerQuotaExhausted && !apiKeys.gemini && (
                 <div className="w-full max-w-4xl mx-auto px-4 md:px-6 pt-3 pb-1 shrink-0 z-50">
                   <div className="bg-amber-500/10 border border-amber-500/25 p-3.5 rounded-2xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-left">
                     <div className="flex items-start gap-2.5">
@@ -12438,7 +12945,7 @@ Instruções imediatas obrigatórias para você (IA de Voz/Chat):
                       </div>
                     </div>
                     <button 
-                      onClick={() => setWorkspaceMode('aural_control')}
+                      onClick={() => setIsSettingsOpen(true)}
                       className="px-4 py-2 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 rounded-xl text-[10px] text-amber-200 uppercase font-bold tracking-widest shrink-0 transition-all cursor-pointer active:scale-98 font-sans"
                     >
                       Configurar Chave
@@ -12510,21 +13017,21 @@ Instruções imediatas obrigatórias para você (IA de Voz/Chat):
                   className={cn(
                     "flex flex-col items-center justify-center py-2 z-50 w-full transition-all duration-500",
                     orbCenterMode
-                      ? (chatHistory.length > 0 || isChatExpanded)
-                        ? "relative shrink-0 flex flex-col items-center justify-center transform scale-90 md:scale-100 origin-center pointer-events-auto py-4"
-                        : "relative flex-1 flex flex-col items-center justify-center transform scale-95 md:scale-110 origin-center pointer-events-auto py-4"
+                      ? isChatExpanded
+                        ? "relative shrink-0 flex flex-col items-center justify-center transform scale-65 md:scale-75 origin-center pointer-events-auto py-1 mt-1"
+                        : "relative flex-1 flex flex-col items-center justify-center transform scale-90 md:scale-100 origin-center pointer-events-auto pt-24 md:pt-32 pb-8 my-auto"
                       : ((liveState.status === 'connected' || isElevenLabsLiveActive) && !isChatExpanded)
-                        ? "relative flex-1 scale-100 md:scale-105" // Center scale
-                        : (chatHistory.length > 0 || isChatExpanded)
-                          ? "absolute -top-12 left-0 right-0 transform scale-50 opacity-40 animate-cloud-wave pointer-events-none" 
-                          : "relative flex-1 flex flex-col items-center justify-center transform scale-95 md:scale-110 origin-center pointer-events-auto py-4"
+                        ? "relative flex-1 scale-90 md:scale-100 pt-24 md:pt-32 pb-8 my-auto mt-6" 
+                        : isChatExpanded
+                          ? "relative shrink-0 pt-2 pb-1 mt-0 transform scale-55 md:scale-65 opacity-85 pointer-events-auto transition-all duration-500" 
+                          : "relative flex-1 flex flex-col items-center justify-center transform scale-90 md:scale-100 origin-center pointer-events-auto pt-24 md:pt-32 pb-8 my-auto"
                   )}
                 >
                   {voicePageIndex === 1 ? (
                     /* DEDICATED ELEVENLABS INTERFACE */
                     <div className={cn(
                       "w-full flex flex-col items-center justify-center text-center max-w-xl mx-auto space-y-5 px-6 pointer-events-auto transition-all duration-500",
-                      (!orbCenterMode && (chatHistory.length > 0 || isChatExpanded)) ? "scale-[0.8] opacity-80" : ""
+                      (!orbCenterMode && isChatExpanded) ? "scale-[0.8] opacity-80" : ""
                     )}>
                       {/* Page Title & Status */}
                       {(chatHistory.length === 0 && !isChatExpanded) && (
@@ -12894,12 +13401,12 @@ Instruções imediatas obrigatórias para você (IA de Voz/Chat):
 
                 {/* Chat History - Integrated into screen */}
                 <div className={cn(
-                  "flex-1 transition-all duration-700 w-full min-h-0 pt-12 translate-z-0",
-                  (!isChatExpanded || !showUi) ? "opacity-0 pointer-events-none scale-95" : "opacity-100",
-                  "flex flex-col overflow-hidden h-full"
+                  "flex-1 transition-all duration-500 w-full min-h-0 pt-0 translate-z-0",
+                  (!isChatExpanded || !showUi) ? "opacity-0 pointer-events-none scale-95 hidden" : "opacity-100 flex",
+                  "flex flex-col overflow-hidden h-full max-w-4xl mx-auto px-2 md:px-4"
                 )}>
                   {/* Chat Content Panel */}
-                  <div className="flex-1 h-full flex flex-col overflow-hidden relative">
+                  <div className="flex-1 h-full flex flex-col overflow-hidden relative bg-zinc-950/80 border border-white/10 backdrop-blur-2xl rounded-3xl p-3 md:p-5 shadow-2xl shadow-black/90">
                     {/* Chat History Drawer / Overlay */}
                     <AnimatePresence>
                       {isSessionsOpen && (
@@ -13033,6 +13540,15 @@ Instruções imediatas obrigatórias para você (IA de Voz/Chat):
 
                         {chatHistory.length > 0 && (
                           <div className="flex items-center gap-3 ml-auto select-none">
+                            <button
+                              onClick={handleExportConversationPDF}
+                              className="flex items-center gap-1.5 text-sky-400/70 hover:text-sky-300 transition-colors text-[10px] uppercase tracking-widest group shrink-0"
+                              title="Exportar toda a conversa, incluindo imagens, em PDF"
+                            >
+                              <Download size={12} className="group-hover:translate-y-0.5 transition-transform" />
+                              <span className="hidden lg:inline">PDF</span>
+                            </button>
+
                             {/* OPTIMIZE CHAT BUTTON */}
                             {isConfirmingOptimize ? (
                               <div className="flex items-center gap-2 bg-zinc-950/60 border border-her-accent/30 px-2.5 py-1 rounded-xl text-[10px] animate-in fade-in duration-200">
@@ -13673,14 +14189,7 @@ Instruções imediatas obrigatórias para você (IA de Voz/Chat):
                             <MessageSquare size={14} />
                           </button>
                           
-                          <button 
-                            onClick={() => setIsPersonaSwitcherOpen(true)}
-                            className="w-9 h-9 rounded-full bg-white/[0.03] text-her-muted hover:bg-white/[0.05] border border-white/[0.05] flex items-center justify-center transition-all hover:text-her-accent"
-                            title="Modos de Personalidade"
-                          >
-                            <UserIcon size={14} />
-                          </button>
-                          
+
 
 
                           <button 
@@ -13765,6 +14274,20 @@ Instruções imediatas obrigatórias para você (IA de Voz/Chat):
                             </button>
                             <button 
                               onClick={() => {
+                                if (apiKeys.aiProvider === 'openai') {
+                                  const nextMode = isWebResearchActive ? 'standard' : 'deep';
+                                  setApiKeys({
+                                    ...apiKeys,
+                                    openaiResearchMode: nextMode
+                                  });
+                                  addNotification(
+                                    nextMode === 'deep'
+                                      ? "Pesquisa aprofundada OpenAI ATIVADA"
+                                      : "Pesquisa OpenAI em modo padrão",
+                                    "success"
+                                  );
+                                  return;
+                                }
                                 const newValue = !isGoogleSearchActive;
                                 setIsGoogleSearchActive(newValue);
                                 localStorage.setItem('osone_google_search_active', String(newValue));
@@ -13772,15 +14295,15 @@ Instruções imediatas obrigatórias para você (IA de Voz/Chat):
                               }}
                               className={cn(
                                 "w-14 h-full transition-all duration-300 border-r border-white/5 flex flex-col items-center justify-center gap-0.5 relative text-[8px] uppercase font-mono select-none shrink-0",
-                                isGoogleSearchActive 
+                                isWebResearchActive
                                   ? "text-sky-450 bg-sky-500/5 hover:bg-sky-500/10" 
                                   : "text-her-muted hover:text-white"
                               )}
-                              title={isGoogleSearchActive ? "Busca no Google Ativada (Grounding)" : "Busca no Google Desativada"}
+                              title={isWebResearchActive ? "Pesquisa web aprofundada ativada" : "Pesquisa web em modo padrão/desativada"}
                             >
-                              <Globe size={13} className={cn(isGoogleSearchActive && "animate-pulse")} />
-                              <span className="text-[7px] tracking-wider font-bold">{isGoogleSearchActive ? "Web ON" : "Web OFF"}</span>
-                              {isGoogleSearchActive && (
+                              <Globe size={13} className={cn(isWebResearchActive && "animate-pulse")} />
+                              <span className="text-[7px] tracking-wider font-bold">{isWebResearchActive ? "Web ON" : "Web OFF"}</span>
+                              {isWebResearchActive && (
                                 <span className="absolute top-1 right-1 w-1 h-1 bg-sky-400 rounded-full" />
                               )}
                             </button>
@@ -13900,36 +14423,39 @@ Instruções imediatas obrigatórias para você (IA de Voz/Chat):
         !showUi && "hidden"
       )}>
         {[
-          { id: 'home', icon: Volume2, label: 'Início' },
-          { id: 'writing', icon: FileText, label: 'Escrita' },
-          { id: 'aural_control', icon: Sliders, label: 'Ajustes' },
-        ].map((item) => (
-          <button
-            key={item.id}
-            onClick={() => setWorkspaceMode(item.id as WorkspaceMode)}
-            className={cn(
-              "flex flex-col items-center gap-1.5 p-2 transition-all relative group",
-              workspaceMode === item.id ? "text-her-accent" : "text-her-muted"
-            )}
-          >
-            <item.icon size={20} className={cn(
-              "transition-transform",
-              workspaceMode === item.id ? "scale-110" : "group-hover:scale-105"
-            )} />
-            <span className={cn(
-              "text-[8px] uppercase tracking-[0.2em] font-medium",
-              workspaceMode === item.id ? "opacity-100" : "opacity-40"
-            )}>
-              {item.label}
-            </span>
-            {workspaceMode === item.id && (
-              <motion.div 
-                layoutId="bottomNavDot"
-                className="absolute -top-3 left-1/2 -translate-x-1/2 w-1 h-1 bg-her-accent rounded-full shadow-[0_0_8px_rgba(255,78,0,0.8)]" 
-              />
-            )}
-          </button>
-        ))}
+          { id: 'home', icon: Volume2, label: 'Início', action: () => setWorkspaceMode('home') },
+          { id: 'writing', icon: FileText, label: 'Escrita', action: () => setWorkspaceMode('writing') },
+          { id: 'settings', icon: Settings, label: 'Ajustes ⚙️', action: () => setIsSettingsOpen(true) },
+        ].map((item) => {
+          const isActive = item.id === 'settings' ? isSettingsOpen : workspaceMode === item.id;
+          return (
+            <button
+              key={item.id}
+              onClick={item.action}
+              className={cn(
+                "flex flex-col items-center gap-1.5 p-2 transition-all relative group cursor-pointer",
+                isActive ? "text-her-accent" : "text-her-muted"
+              )}
+            >
+              <item.icon size={20} className={cn(
+                "transition-transform",
+                isActive ? "scale-110" : "group-hover:scale-105"
+              )} />
+              <span className={cn(
+                "text-[8px] uppercase tracking-[0.2em] font-medium",
+                isActive ? "opacity-100" : "opacity-40"
+              )}>
+                {item.label}
+              </span>
+              {isActive && (
+                <motion.div 
+                  layoutId="bottomNavDot"
+                  className="absolute -top-3 left-1/2 -translate-x-1/2 w-1 h-1 bg-her-accent rounded-full shadow-[0_0_8px_rgba(255,78,0,0.8)]" 
+                />
+              )}
+            </button>
+          );
+        })}
       </nav>
 
       {/* Floating Music Player Bar */}
@@ -14061,207 +14587,300 @@ Instruções imediatas obrigatórias para você (IA de Voz/Chat):
         )}
       </AnimatePresence>
 
-      {/* Google Search Screen Prints & Biometrics Popups Tray */}
-      <div className="fixed bottom-24 right-5 md:right-10 z-[80] flex flex-col gap-4 pointer-events-none max-w-sm w-full">
-        <AnimatePresence>
-          {searchPopups.map((popup, idx) => {
-            const isDanger = popup.classification === 'danger';
-            const isStar = popup.classification === 'star';
-            
-            return (
-              <motion.div
-                key={popup.id}
-                initial={{ opacity: 0, x: 100, y: 50, scale: 0.9 }}
-                animate={{ opacity: 1, x: 0, y: 0, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.8, x: 50 }}
-                transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                drag
-                dragConstraints={{ left: -400, right: 100, top: -400, bottom: 200 }}
-                className={cn(
-                  "pointer-events-auto w-[340px] bg-black/95 hover:bg-black border rounded-xl overflow-hidden shadow-2xl transition-shadow duration-300 select-none cursor-move",
-                  isDanger ? "border-red-500/40 shadow-red-500/10" :
-                  isStar ? "border-emerald-500/40 shadow-emerald-500/10" :
-                  "border-sky-500/30 shadow-sky-500/5 hover:shadow-sky-500/10"
-                )}
-                style={{ zIndex: 100 + idx }}
+      {/* Google Search Screen Prints & Biometrics Popups Tray - Baralho Mode */}
+      <AnimatePresence>
+        {searchPopups.length > 0 && (
+          isSearchDeckMinimized ? (
+            /* BARALHO MINIMIZADO - Compacto, tamanho do botão de tapa (w-16 h-16 / w-20 h-20) */
+            <motion.div
+              key="search-deck-minimized"
+              initial={{ opacity: 0, scale: 0.5, y: 30 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.5, y: 30 }}
+              transition={{ type: "spring", stiffness: 350, damping: 25 }}
+              className="fixed bottom-24 right-4 md:right-8 z-[85] pointer-events-auto flex items-center justify-center"
+            >
+              <div 
+                onClick={() => setIsSearchDeckMinimized(false)}
+                className="relative w-16 h-16 md:w-20 md:h-20 cursor-pointer group select-none"
+                title={`Baralho de Pesquisas (${searchPopups.length} matéria${searchPopups.length > 1 ? 's' : ''}) - Clique para expandir`}
               >
-                {/* Simulated Web Browser Tab Bar */}
-                <div className={cn(
-                  "px-3 py-2 border-b flex items-center justify-between",
-                  isDanger ? "bg-red-950/20 border-red-500/10 text-red-100" :
-                  isStar ? "bg-emerald-950/20 border-emerald-500/10 text-emerald-100" :
-                  "bg-zinc-900/60 border-white/5 text-zinc-300"
-                )}>
-                  <div className="flex items-center gap-1.5 font-mono">
-                    <div className="flex items-center gap-1 mr-1.5 shrink-0">
-                      <span className="w-2.5 h-2.5 rounded-full bg-red-500/80 cursor-pointer" onClick={() => setSearchPopups(prev => prev.filter(p => p.id !== popup.id))} />
-                      <span className="w-2.5 h-2.5 rounded-full bg-yellow-500/80" />
-                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/80" />
-                    </div>
-                    {popup.faviconUrl && (
-                      <img src={popup.faviconUrl} className="w-3.5 h-3.5 rounded object-contain shrink-0" alt="" referrerPolicy="no-referrer" />
-                    )}
-                    <span className="text-[10px] font-bold tracking-tight truncate max-w-[130px]">
-                      {popup.isPortrait ? "RECON-X BIOMETRIC" : (popup.title || "Captura de Tela")}
-                    </span>
+                {/* Visual Stack Cards behind */}
+                <div className="absolute inset-0 bg-sky-950/80 border border-sky-500/40 rounded-2xl transform -rotate-6 translate-x-[-4px] translate-y-[-2px] shadow-md transition-transform group-hover:-rotate-12" />
+                <div className="absolute inset-0 bg-emerald-950/80 border border-emerald-500/40 rounded-2xl transform rotate-6 translate-x-[4px] translate-y-[2px] shadow-md transition-transform group-hover:rotate-12" />
+                
+                {/* Main Top Card */}
+                <div className="relative w-full h-full bg-zinc-950/95 border border-sky-400/60 rounded-2xl flex flex-col items-center justify-center p-2 shadow-[0_10px_35px_rgba(0,0,0,0.9)] group-hover:scale-105 transition-all duration-300">
+                  <Layers size={22} className="text-sky-400 animate-pulse group-hover:scale-110 transition-transform" />
+                  <span className="text-[8px] md:text-[9px] font-mono font-bold text-zinc-300 uppercase mt-1 tracking-tighter">
+                    Baralho
+                  </span>
+                  {/* Badge Counter */}
+                  <span className="absolute -top-2 -left-2 bg-gradient-to-r from-sky-500 to-emerald-500 text-black text-[9px] font-mono font-black px-2 py-0.5 rounded-full shadow-lg border border-white/20">
+                    {searchPopups.length}
+                  </span>
+                </div>
+
+                {/* Close Button [x] on the deck */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSearchPopups([]);
+                  }}
+                  className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-600 hover:bg-red-500 text-white flex items-center justify-center shadow-lg border border-red-400 z-30 cursor-pointer transition-transform hover:scale-110"
+                  title="Fechar Baralho de Pesquisas"
+                >
+                  <X size={12} />
+                </button>
+              </div>
+            </motion.div>
+          ) : (
+            /* BARALHO EXPANDIDO - Painel para escolher a matéria ou minimizar/fechar */
+            <motion.div
+              key="search-deck-expanded"
+              initial={{ opacity: 0, scale: 0.9, y: 30 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.8, y: 30 }}
+              transition={{ type: "spring", stiffness: 300, damping: 25 }}
+              className="fixed bottom-20 right-4 md:right-8 z-[85] max-w-sm sm:max-w-md w-full flex flex-col gap-3 pointer-events-auto max-h-[75vh]"
+            >
+              {/* Header Bar do Baralho */}
+              <div className="bg-zinc-950/95 border border-sky-500/40 backdrop-blur-2xl p-3 rounded-2xl shadow-2xl flex items-center justify-between">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="p-1.5 rounded-xl bg-sky-500/20 text-sky-400 border border-sky-500/30 shrink-0">
+                    <Layers size={18} className="animate-pulse" />
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[8.5px] font-mono text-white/30">{popup.timestamp}</span>
-                    <button
-                      onClick={() => setSearchPopups(prev => prev.filter(p => p.id !== popup.id))}
-                      className="text-white/40 hover:text-white hover:bg-white/5 p-1 rounded transition-all"
-                    >
-                      <X size={12} />
-                    </button>
+                  <div className="min-w-0">
+                    <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-sky-400 block">
+                      OSONE SEARCH • DECK
+                    </span>
+                    <h3 className="text-xs font-bold text-white font-mono truncate">
+                      BARALHO ({searchPopups.length} {searchPopups.length === 1 ? 'MATÉRIA' : 'MATÉRIAS'})
+                    </h3>
                   </div>
                 </div>
 
-                {/* Simulated Chrome Address Bar */}
-                {!popup.isPortrait && popup.url && (
-                  <div className="px-3 py-1.5 bg-zinc-950 border-b border-white/5 flex items-center gap-1.5">
-                    <Globe size={11} className="text-zinc-500 shrink-0" />
-                    <div className="bg-white/[0.03] hover:bg-white/[0.06] border border-white/5 rounded px-2 py-0.5 text-[8.5px] font-mono text-zinc-400 truncate flex-1 leading-none select-text cursor-text">
-                      {popup.url}
-                    </div>
-                  </div>
-                )}
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    onClick={() => setIsSearchDeckMinimized(true)}
+                    className="p-1.5 px-2.5 bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-300 hover:text-white rounded-xl transition-all cursor-pointer flex items-center gap-1 text-xs font-mono"
+                    title="Minimizar em Baralho"
+                  >
+                    <Minimize size={14} />
+                    <span className="text-[10px] hidden sm:inline font-sans font-medium">Minimizar</span>
+                  </button>
+                  <button
+                    onClick={() => setSearchPopups([])}
+                    className="p-1.5 text-zinc-400 hover:text-white hover:bg-red-500/20 hover:border-red-500/40 border border-transparent rounded-xl transition-all cursor-pointer"
+                    title="Fechar Todo o Baralho"
+                  >
+                    <X size={17} />
+                  </button>
+                </div>
+              </div>
 
-                {/* Main Capture Visual Box */}
-                <div className="relative aspect-[16/10] overflow-hidden bg-zinc-900 group/capture">
-                  {popup.imageUrl ? (
-                    <img 
-                      src={popup.imageUrl} 
-                      className="w-full h-full object-cover transition-transform duration-700 group-hover/capture:scale-110" 
-                      alt="Captura de tela"
-                      referrerPolicy="no-referrer"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-zinc-950">
-                      <Globe size={24} className="text-zinc-700 animate-pulse" />
-                    </div>
-                  )}
+              {/* Lista de Matérias no Baralho */}
+              <div className="overflow-y-auto space-y-3 pr-1 max-h-[60vh] custom-scrollbar">
+                {searchPopups.map((popup) => {
+                  const isDanger = popup.classification === 'danger';
+                  const isStar = popup.classification === 'star';
 
-                  <div className={cn(
-                    "absolute inset-0 pointer-events-none bg-gradient-to-b opacity-25",
-                    isDanger ? "from-red-500/0 via-red-500/20 to-red-500/0" : "from-sky-500/0 via-sky-500/20 to-sky-500/0"
-                  )} />
-                  <motion.div 
-                    className={cn(
-                      "absolute left-0 right-0 h-0.5 opacity-60 shadow-lg z-10",
-                      isDanger ? "bg-red-500 shadow-red-500" :
-                      isStar ? "bg-emerald-500 shadow-emerald-500" :
-                      "bg-sky-400 shadow-sky-400"
-                    )}
-                    animate={{ top: ["0%", "100%", "0%"] }}
-                    transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-                  />
-
-                  {popup.isPortrait && (
-                    <div className="absolute inset-0 p-4 flex flex-col justify-between bg-black/60 backdrop-blur-[1px]">
-                      <div className="absolute top-2 left-2 w-3 h-3 border-t-2 border-l-2 border-cyan-400" />
-                      <div className="absolute top-2 right-2 w-3 h-3 border-t-2 border-r-2 border-cyan-400" />
-                      <div className="absolute bottom-2 left-2 w-3 h-3 border-b-2 border-l-2 border-cyan-400" />
-                      <div className="absolute bottom-2 right-2 w-3 h-3 border-b-2 border-r-2 border-cyan-400" />
-
-                      <div className="flex gap-2.5 items-center bg-black/80 backdrop-blur-md p-1.5 rounded-lg border border-white/10 shadow-lg">
-                        {popup.avatarUrl && (
-                          <img src={popup.avatarUrl} className="w-10 h-10 rounded-md object-cover border border-cyan-400/50 block" alt="" referrerPolicy="no-referrer" />
-                        )}
-                        <div className="min-w-0">
-                          <p className="text-[9px] font-mono text-cyan-400 font-extrabold tracking-wider uppercase leading-none mb-1">RECON DETECTADO</p>
-                          <p className="text-[9px] font-sans font-bold text-white max-w-[170px] truncate leading-tight">{popup.title.replace("IDENTIDADE ATIVA: ", "").replace("ALERTA DE CONTRAVANÇÃO: ", "")}</p>
+                  return (
+                    <motion.div
+                      key={popup.id}
+                      initial={{ opacity: 0, y: 15 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.9 }}
+                      className={cn(
+                        "w-full bg-black/95 hover:bg-black border rounded-xl overflow-hidden shadow-2xl transition-all duration-300 select-none",
+                        isDanger ? "border-red-500/40 shadow-red-500/10" :
+                        isStar ? "border-emerald-500/40 shadow-emerald-500/10" :
+                        "border-sky-500/30 shadow-sky-500/5 hover:shadow-sky-500/10"
+                      )}
+                    >
+                      {/* Simulated Web Browser Tab Bar */}
+                      <div className={cn(
+                        "px-3 py-2 border-b flex items-center justify-between",
+                        isDanger ? "bg-red-950/20 border-red-500/10 text-red-100" :
+                        isStar ? "bg-emerald-950/20 border-emerald-500/10 text-emerald-100" :
+                        "bg-zinc-900/60 border-white/5 text-zinc-300"
+                      )}>
+                        <div className="flex items-center gap-1.5 font-mono min-w-0">
+                          <div className="flex items-center gap-1 mr-1.5 shrink-0">
+                            <span className="w-2.5 h-2.5 rounded-full bg-red-500/80 cursor-pointer" onClick={() => setSearchPopups(prev => prev.filter(p => p.id !== popup.id))} />
+                            <span className="w-2.5 h-2.5 rounded-full bg-yellow-500/80" />
+                            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/80" />
+                          </div>
+                          {popup.faviconUrl && (
+                            <img src={popup.faviconUrl} className="w-3.5 h-3.5 rounded object-contain shrink-0" alt="" referrerPolicy="no-referrer" />
+                          )}
+                          <span className="text-[10px] font-bold tracking-tight truncate max-w-[160px]">
+                            {popup.isPortrait ? "RECON-X BIOMETRIC" : (popup.title || "Captura de Tela")}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-[8.5px] font-mono text-white/30">{popup.timestamp}</span>
+                          <button
+                            onClick={() => setSearchPopups(prev => prev.filter(p => p.id !== popup.id))}
+                            className="text-white/40 hover:text-white hover:bg-white/5 p-1 rounded transition-all cursor-pointer"
+                            title="Remover esta matéria"
+                          >
+                            <X size={12} />
+                          </button>
                         </div>
                       </div>
 
-                      <div className="flex flex-col gap-1.5 mt-auto">
-                        {popup.socialGrade && (
-                          <div className="flex items-center justify-between bg-black/90 p-1.5 rounded border border-white/5 font-mono text-[8.5px]">
-                            <span className="text-zinc-400 font-medium">🛡️ TAXA SOCIAL:</span>
-                            <span className="text-cyan-400 font-black glow-cyan">{popup.socialGrade}</span>
+                      {/* Simulated Chrome Address Bar */}
+                      {!popup.isPortrait && popup.url && (
+                        <div className="px-3 py-1.5 bg-zinc-950 border-b border-white/5 flex items-center gap-1.5">
+                          <Globe size={11} className="text-zinc-500 shrink-0" />
+                          <div className="bg-white/[0.03] hover:bg-white/[0.06] border border-white/5 rounded px-2 py-0.5 text-[8.5px] font-mono text-zinc-400 truncate flex-1 leading-none select-text cursor-text">
+                            {popup.url}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Main Capture Visual Box */}
+                      <div className="relative aspect-[16/10] overflow-hidden bg-zinc-900 group/capture">
+                        {popup.imageUrl ? (
+                          <img 
+                            src={popup.imageUrl} 
+                            className="w-full h-full object-cover transition-transform duration-700 group-hover/capture:scale-110" 
+                            alt="Captura de tela"
+                            referrerPolicy="no-referrer"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-zinc-950">
+                            <Globe size={24} className="text-zinc-700 animate-pulse" />
                           </div>
                         )}
 
-                        {isDanger && popup.dangerLevel && (
-                          <div className="bg-red-500/10 border border-red-500/20 p-1.5 rounded font-mono text-[8.5px] text-red-400">
-                            <div className="flex items-center justify-between mb-1 font-bold">
-                              <span>🚨 TAXA PERICULOSIDADE:</span>
-                              <span>{popup.dangerLevel * 10}%</span>
+                        <div className={cn(
+                          "absolute inset-0 pointer-events-none bg-gradient-to-b opacity-25",
+                          isDanger ? "from-red-500/0 via-red-500/20 to-red-500/0" : "from-sky-500/0 via-sky-500/20 to-sky-500/0"
+                        )} />
+                        <motion.div 
+                          className={cn(
+                            "absolute left-0 right-0 h-0.5 opacity-60 shadow-lg z-10",
+                            isDanger ? "bg-red-500 shadow-red-500" :
+                            isStar ? "bg-emerald-500 shadow-emerald-500" :
+                            "bg-sky-400 shadow-sky-400"
+                          )}
+                          animate={{ top: ["0%", "100%", "0%"] }}
+                          transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                        />
+
+                        {popup.isPortrait && (
+                          <div className="absolute inset-0 p-4 flex flex-col justify-between bg-black/60 backdrop-blur-[1px]">
+                            <div className="absolute top-2 left-2 w-3 h-3 border-t-2 border-l-2 border-cyan-400" />
+                            <div className="absolute top-2 right-2 w-3 h-3 border-t-2 border-r-2 border-cyan-400" />
+                            <div className="absolute bottom-2 left-2 w-3 h-3 border-b-2 border-l-2 border-cyan-400" />
+                            <div className="absolute bottom-2 right-2 w-3 h-3 border-b-2 border-r-2 border-cyan-400" />
+
+                            <div className="flex gap-2.5 items-center bg-black/80 backdrop-blur-md p-1.5 rounded-lg border border-white/10 shadow-lg">
+                              {popup.avatarUrl && (
+                                <img src={popup.avatarUrl} className="w-10 h-10 rounded-md object-cover border border-cyan-400/50 block" alt="" referrerPolicy="no-referrer" />
+                              )}
+                              <div className="min-w-0">
+                                <p className="text-[9px] font-mono text-cyan-400 font-extrabold tracking-wider uppercase leading-none mb-1">RECON DETECTADO</p>
+                                <p className="text-[9px] font-sans font-bold text-white max-w-[170px] truncate leading-tight">{popup.title.replace("IDENTIDADE ATIVA: ", "").replace("ALERTA DE CONTRAVANÇÃO: ", "")}</p>
+                              </div>
                             </div>
-                            <div className="w-full bg-zinc-900 rounded-full h-1 overflow-hidden">
-                              <div className="bg-red-500 h-full rounded-full" style={{ width: `${popup.dangerLevel * 10}%` }} />
+
+                            <div className="flex flex-col gap-1.5 mt-auto">
+                              {popup.socialGrade && (
+                                <div className="flex items-center justify-between bg-black/90 p-1.5 rounded border border-white/5 font-mono text-[8.5px]">
+                                  <span className="text-zinc-400 font-medium">🛡️ TAXA SOCIAL:</span>
+                                  <span className="text-cyan-400 font-black glow-cyan">{popup.socialGrade}</span>
+                                </div>
+                              )}
+
+                              {isDanger && popup.dangerLevel && (
+                                <div className="bg-red-500/10 border border-red-500/20 p-1.5 rounded font-mono text-[8.5px] text-red-400">
+                                  <div className="flex items-center justify-between mb-1 font-bold">
+                                    <span>🚨 TAXA PERICULOSIDADE:</span>
+                                    <span>{popup.dangerLevel * 10}%</span>
+                                  </div>
+                                  <div className="w-full bg-zinc-900 rounded-full h-1 overflow-hidden">
+                                    <div className="bg-red-500 h-full rounded-full" style={{ width: `${popup.dangerLevel * 10}%` }} />
+                                  </div>
+                                </div>
+                              )}
+
+                              {isStar && popup.starsCount && (
+                                <div className="flex items-center justify-between bg-emerald-500/10 border border-emerald-500/20 p-1.5 rounded font-mono text-[8.5px] text-emerald-400">
+                                  <span className="font-bold">⭐ RECOMENDAÇÃO:</span>
+                                  <span className="flex">
+                                    {Array.from({ length: popup.starsCount }).map((_, i) => (
+                                      <Sparkles key={i} size={8} className="text-emerald-400 animate-pulse ml-0.5" />
+                                    ))}
+                                  </span>
+                                </div>
+                              )}
                             </div>
                           </div>
                         )}
 
-                        {isStar && popup.starsCount && (
-                          <div className="flex items-center justify-between bg-emerald-500/10 border border-emerald-500/20 p-1.5 rounded font-mono text-[8.5px] text-emerald-400">
-                            <span className="font-bold">⭐ RECOMENDAÇÃO:</span>
-                            <span className="flex">
-                              {Array.from({ length: popup.starsCount }).map((_, i) => (
-                                <Sparkles key={i} size={8} className="text-emerald-400 animate-pulse ml-0.5" />
-                              ))}
-                            </span>
+                        {!popup.isPortrait && (
+                          <div className="absolute top-2.5 left-2.5 px-1.5 py-0.5 bg-black/80 rounded border border-white/5 text-[7px] font-mono uppercase tracking-widest text-zinc-400 flex items-center gap-1 backdrop-blur-sm">
+                            <Sparkles size={8} className="text-sky-400" />
+                            Captura Real
                           </div>
                         )}
                       </div>
-                    </div>
-                  )}
 
-                  {!popup.isPortrait && (
-                    <div className="absolute top-2.5 left-2.5 px-1.5 py-0.5 bg-black/80 rounded border border-white/5 text-[7px] font-mono uppercase tracking-widest text-zinc-400 flex items-center gap-1 backdrop-blur-sm">
-                      <Sparkles size={8} className="text-sky-400" />
-                      Captura Real
-                    </div>
-                  )}
-                </div>
+                      <div className="p-3 text-left">
+                        <p className="text-[10px] font-mono uppercase font-bold text-zinc-400 mb-1 tracking-wider line-clamp-1">
+                          {popup.query ? `Q: "${popup.query}"` : "Grounding OSONE"}
+                        </p>
+                        <p className="text-[11px] text-zinc-200 font-sans leading-relaxed line-clamp-3 select-text">
+                          {popup.snippet}
+                        </p>
+                      </div>
 
-                <div className="p-3 text-left">
-                  <p className="text-[10px] font-mono uppercase font-bold text-zinc-400 mb-1 tracking-wider line-clamp-1">
-                    {popup.query ? `Q: "${popup.query}"` : "Grounding OSONE"}
-                  </p>
-                  <p className="text-[11px] text-zinc-200 font-sans leading-relaxed line-clamp-3 select-text">
-                    {popup.snippet}
-                  </p>
-                </div>
-
-                <div className="p-2 bg-zinc-900/40 border-t border-white/5 flex gap-2">
-                  {popup.url && (
-                    <button
-                      onClick={() => {
-                        const handledInternally = tryOpenInInternalMap(popup.url!, popup.title);
-                        if (!handledInternally) {
-                          window.open(popup.url, '_blank');
-                        }
-                      }}
-                      className="flex-1 py-1 px-2.5 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/20 hover:border-sky-500/30 text-sky-400 text-[10px] font-sans font-medium rounded-lg flex items-center justify-center gap-1.5 transition-all"
-                    >
-                      <Globe size={11} />
-                      Acessar Fonte
-                    </button>
-                  )}
-                  <button
-                    onClick={() => {
-                      navigator.clipboard.writeText(`${popup.title}\n\n${popup.snippet}${popup.url ? `\n\nLink: ${popup.url}` : ''}`);
-                      addNotification("Detalhes copiados!", "success");
-                    }}
-                    className="py-1 px-2.5 bg-white/5 hover:bg-white/10 border border-white/5 text-zinc-300 hover:text-white text-[10px] font-sans font-medium rounded-lg flex items-center justify-center gap-1.5 transition-all"
-                    title="Copiar Relatório"
-                  >
-                    <Copy size={11} />
-                    Copiar
-                  </button>
-                  <button
-                    onClick={() => setSearchPopups(prev => prev.filter(p => p.id !== popup.id))}
-                    className="py-1 px-2 hover:bg-white/5 border border-transparent hover:border-white/5 text-zinc-500 hover:text-white text-[10px] font-sans font-medium rounded-lg transition-all"
-                  >
-                    Fechar
-                  </button>
-                </div>
-              </motion.div>
-            );
-          })}
-        </AnimatePresence>
-      </div>
+                      <div className="p-2 bg-zinc-900/40 border-t border-white/5 flex gap-2">
+                        {normalizeExternalHttpUrl(popup.url) && (
+                          <button
+                            onClick={() => {
+                              const handledInternally = tryOpenInInternalMap(popup.url!, popup.title);
+                              if (!handledInternally) {
+                                if (!openExternalHttpUrl(popup.url)) {
+                                  addNotification('Fonte bloqueada: URL externa inválida.', 'error');
+                                }
+                              }
+                            }}
+                            className="flex-1 py-1 px-2.5 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/20 hover:border-sky-500/30 text-sky-400 text-[10px] font-sans font-medium rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                          >
+                            <Globe size={11} />
+                            Acessar Fonte
+                          </button>
+                        )}
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(`${popup.title}\n\n${popup.snippet}${popup.url ? `\n\nLink: ${popup.url}` : ''}`);
+                            addNotification("Detalhes copiados!", "success");
+                          }}
+                          className="py-1 px-2.5 bg-white/5 hover:bg-white/10 border border-white/5 text-zinc-300 hover:text-white text-[10px] font-sans font-medium rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                          title="Copiar Relatório"
+                        >
+                          <Copy size={11} />
+                          Copiar
+                        </button>
+                        <button
+                          onClick={() => setSearchPopups(prev => prev.filter(p => p.id !== popup.id))}
+                          className="py-1 px-2 hover:bg-white/5 border border-transparent hover:border-white/5 text-zinc-500 hover:text-white text-[10px] font-sans font-medium rounded-lg transition-all cursor-pointer"
+                        >
+                          Remover
+                        </button>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            </motion.div>
+          )
+        )}
+      </AnimatePresence>
 
       {/* Botão de Restauração para Interface quando em Modo Imersivo (Voz Livre) */}
       <AnimatePresence>
@@ -14382,8 +15001,8 @@ Instruções imediatas obrigatórias para você (IA de Voz/Chat):
         setMode={setWorkspaceMode}
         user={user}
         onLogout={handleLogout}
-        onLogin={handleLogin}
         onOpenProfileModal={() => setIsProfileModalOpen(true)}
+        onOpenSettings={() => setIsSettingsOpen(true)}
       />
       <SettingsModal 
         isOpen={isSettingsOpen} 
@@ -14512,18 +15131,16 @@ Instruções imediatas obrigatórias para você (IA de Voz/Chat):
         isOpen={isIntimateMissionOpen}
         onClose={() => setIsIntimateMissionOpen(false)}
         intimateAnswers={intimateAnswers}
+        geminiApiKey={apiKeys.gemini || ''}
+        geminiModel={apiKeys.geminiModel || 'gemini-3.5-flash'}
         onUpdateAnswer={(id, val) => {
           setIntimateAnswers(prev => {
-            const up = { ...prev, [id]: val };
-            localStorage.setItem('osone_intimate_mission_answers', JSON.stringify(up));
-            return up;
+            return { ...prev, [id]: val };
           });
         }}
         onUpdateBulkAnswers={(newAnswers) => {
           setIntimateAnswers(prev => {
-            const up = { ...prev, ...newAnswers };
-            localStorage.setItem('osone_intimate_mission_answers', JSON.stringify(up));
-            return up;
+            return { ...prev, ...newAnswers };
           });
         }}
       />
@@ -14533,9 +15150,7 @@ Instruções imediatas obrigatórias para você (IA de Voz/Chat):
         onClose={() => setIsProfileModalOpen(false)}
         currentUser={user}
         onSwitchUser={switchUser}
-        onGoogleLogin={handleLogin}
         onLogout={handleLogout}
-        isAuthLoading={isAuthLoading}
         onOpenDossier={() => setIsIntimateMissionOpen(true)}
         intimateAnswersCount={Object.keys(intimateAnswers).length}
         aiDossierType={aiDossierType}
@@ -14555,6 +15170,134 @@ Instruções imediatas obrigatórias para você (IA de Voz/Chat):
         onApprove={handleApprovePlan}
         onReject={handleRejectPlan}
       />
+
+      {/* YouTube Video Pop-up Modal */}
+      <AnimatePresence>
+        {youtubeVideoPopup && youtubeVideoPopup.isOpen && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+            className={cn(
+              "fixed inset-0 z-[100] transition-all duration-500 flex",
+              isYoutubeMinimized 
+                ? "pointer-events-none items-end justify-end p-3 sm:p-5 bg-black/0" 
+                : "pointer-events-auto items-center justify-center p-4 sm:p-6 bg-black/80 backdrop-blur-md"
+            )}
+            onClick={() => {
+              if (!isYoutubeMinimized) {
+                setIsYoutubeMinimized(true);
+              }
+            }}
+          >
+            <div 
+              className={cn(
+                "relative bg-zinc-950 border rounded-2xl overflow-hidden flex flex-col group pointer-events-auto transition-all duration-500 ease-out",
+                isYoutubeMinimized
+                  ? "w-72 sm:w-80 md:w-96 border-red-500/50 shadow-[0_10px_40px_rgba(0,0,0,0.85)] ring-1 ring-red-500/30"
+                  : "w-full max-w-4xl border-red-500/40 shadow-[0_0_80px_rgba(239,68,68,0.25)]"
+              )}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between px-3.5 py-2.5 bg-gradient-to-r from-red-950/80 via-zinc-900 to-zinc-950 border-b border-red-500/20">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="p-1.5 rounded-xl bg-red-600/20 border border-red-500/30 text-red-400 shrink-0 shadow-inner">
+                    <Youtube size={18} className="animate-pulse" />
+                  </div>
+                  <div className="min-w-0">
+                    {!isYoutubeMinimized && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-red-400 bg-red-500/10 px-1.5 py-0.5 rounded border border-red-500/20">
+                          POP-UP YOUTUBE • HANDS-FREE
+                        </span>
+                      </div>
+                    )}
+                    <h3 className={cn("font-bold text-white truncate font-sans", isYoutubeMinimized ? "text-xs" : "text-sm mt-0.5")}>
+                      {youtubeVideoPopup.title || "Homem de Ferro (Iron Man) - Videoclipe Oficial"}
+                    </h3>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {isYoutubeMinimized ? (
+                    <button
+                      onClick={() => setIsYoutubeMinimized(false)}
+                      className="p-1.5 text-zinc-300 hover:text-white hover:bg-white/10 rounded-xl transition-all cursor-pointer flex items-center gap-1 text-xs font-mono bg-white/5 border border-white/10 shadow-sm"
+                      title="Expandir Pop-up (Tamanho Normal)"
+                    >
+                      <Maximize size={14} />
+                      <span className="hidden sm:inline font-sans">Expandir</span>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => setIsYoutubeMinimized(true)}
+                      className="p-1.5 text-zinc-400 hover:text-white hover:bg-white/10 rounded-xl transition-all cursor-pointer flex items-center gap-1 text-xs font-mono"
+                      title="Minimizar Pop-up"
+                    >
+                      <Minimize size={15} />
+                      <span className="hidden sm:inline font-sans">Minimizar</span>
+                    </button>
+                  )}
+
+                  <a 
+                    href={`https://www.youtube.com/watch?v=${youtubeVideoPopup.videoId}`} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="p-1.5 text-zinc-400 hover:text-white hover:bg-white/10 rounded-xl transition-all text-xs font-mono flex items-center gap-1"
+                    title="Abrir no YouTube"
+                  >
+                    <ExternalLink size={15} />
+                  </a>
+                  <button
+                    onClick={() => setYoutubeVideoPopup(null)}
+                    className="p-1.5 text-zinc-400 hover:text-white hover:bg-red-500/20 hover:border-red-500/40 border border-transparent rounded-xl transition-all cursor-pointer"
+                    title="Fechar Pop-up"
+                  >
+                    <X size={17} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Video Player Frame */}
+              <div className="relative w-full aspect-video bg-black flex items-center justify-center">
+                <iframe
+                  src={`https://www.youtube.com/embed/${youtubeVideoPopup.videoId}?autoplay=1&rel=0&enablejsapi=1`}
+                  title={youtubeVideoPopup.title || "YouTube Video"}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                  className="w-full h-full border-0"
+                />
+              </div>
+
+              {/* Footer info bar */}
+              <div className="px-3 py-1.5 bg-zinc-950 border-t border-white/5 flex items-center justify-between text-[11px] text-zinc-400 font-mono">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="w-2 h-2 rounded-full bg-red-500 animate-ping shrink-0" />
+                  <span className="truncate">
+                    {isYoutubeMinimized ? "Miniaturizado no canto" : "Ativado via OSONE YouTube • Minimiza em 2s"}
+                  </span>
+                </div>
+                {isYoutubeMinimized ? (
+                  <button
+                    onClick={() => setIsYoutubeMinimized(false)}
+                    className="text-[10px] text-red-400 hover:text-red-300 transition-colors font-bold uppercase tracking-wider shrink-0 cursor-pointer ml-2"
+                  >
+                    Expandir
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setIsYoutubeMinimized(true)}
+                    className="text-[10px] text-zinc-400 hover:text-white transition-colors font-semibold uppercase tracking-wider shrink-0 cursor-pointer ml-2"
+                  >
+                    Minimizar
+                  </button>
+                )}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {fullScreenImage && (

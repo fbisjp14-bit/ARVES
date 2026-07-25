@@ -1,17 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, User, Plus, Trash2, Check, Loader2, Cloud, Database, Fingerprint, Heart, Cpu, Sparkles } from 'lucide-react';
+import { X, User, Plus, Trash2, Check, Loader2, Database, Fingerprint, Cpu, Sparkles } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { User as UserClass } from '../types';
+import { deleteMemoryItemsByPrefix } from '../lib/indexedDbMemory';
+import {
+  LOCAL_PROFILE_UID_PATTERN,
+  normalizeLocalProfile,
+  normalizeLocalProfiles
+} from '../lib/localProfiles';
+import { clearRagDB } from '../lib/ragStorage';
 
 interface ProfileModalProps {
   isOpen: boolean;
   onClose: () => void;
   currentUser: UserClass | null;
   onSwitchUser: (user: UserClass | null) => Promise<void>;
-  onGoogleLogin: () => Promise<void>;
   onLogout: () => Promise<void>;
-  isAuthLoading: boolean;
   onOpenDossier?: () => void;
   intimateAnswersCount?: number;
   aiDossierType: 'gradual' | 'complete' | null;
@@ -24,9 +29,7 @@ export const ProfileModal = ({
   onClose,
   currentUser,
   onSwitchUser,
-  onGoogleLogin,
   onLogout,
-  isAuthLoading,
   onOpenDossier,
   intimateAnswersCount,
   aiDossierType,
@@ -46,7 +49,9 @@ export const ProfileModal = ({
       try {
         const saved = localStorage.getItem('osone_local_profiles');
         if (saved) {
-          setLocalProfiles(JSON.parse(saved));
+          const profiles = normalizeLocalProfiles(JSON.parse(saved));
+          setLocalProfiles(profiles);
+          localStorage.setItem('osone_local_profiles', JSON.stringify(profiles));
         } else {
           setLocalProfiles([]);
         }
@@ -57,8 +62,9 @@ export const ProfileModal = ({
   }, [isOpen]);
 
   const saveLocalProfiles = (profiles: UserClass[]) => {
-    setLocalProfiles(profiles);
-    localStorage.setItem('osone_local_profiles', JSON.stringify(profiles));
+    const normalized = normalizeLocalProfiles(profiles);
+    setLocalProfiles(normalized);
+    localStorage.setItem('osone_local_profiles', JSON.stringify(normalized));
   };
 
   const handleCreateLocalProfile = async (e: React.FormEvent) => {
@@ -85,13 +91,21 @@ export const ProfileModal = ({
       return;
     }
 
-    const newUid = `local_${Math.random().toString(36).substring(2, 11)}`;
-    const newProfile: UserClass = {
+    const randomBytes = new Uint8Array(12);
+    crypto.getRandomValues(randomBytes);
+    const newUid = `local_${Array.from(
+      randomBytes,
+      (value) => value.toString(16).padStart(2, '0')
+    ).join('')}`;
+    const newProfile = normalizeLocalProfile({
       uid: newUid,
       displayName: trimmedName,
-      email: `${trimmedName.toLowerCase().replace(/\s+/g, '')}@osone.local`,
       isLocal: true
-    };
+    });
+    if (!newProfile) {
+      setErrorMessage('Não foi possível criar um identificador seguro para o perfil.');
+      return;
+    }
 
     const updated = [...localProfiles, newProfile];
     saveLocalProfiles(updated);
@@ -101,23 +115,36 @@ export const ProfileModal = ({
     await onSwitchUser(newProfile);
   };
 
-  const handleDeleteLocalProfile = (uidToDelete: string, e: React.MouseEvent) => {
+  const handleDeleteLocalProfile = async (uidToDelete: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    if (!LOCAL_PROFILE_UID_PATTERN.test(uidToDelete)) {
+      setErrorMessage('Este perfil possui um identificador inválido.');
+      return;
+    }
+    const profileName =
+      localProfiles.find((profile) => profile.uid === uidToDelete)?.displayName ||
+      'este perfil';
+    if (!window.confirm(`Excluir ${profileName} e todos os dados locais desse perfil?`)) {
+      return;
+    }
+
     const updated = localProfiles.filter(p => p.uid !== uidToDelete);
     saveLocalProfiles(updated);
 
     // If active user was deleted, switch to null (Guest)
     if (currentUser?.uid === uidToDelete) {
-      onSwitchUser(null);
+      await onSwitchUser(null);
     }
 
-    // Clean up local data for deleted user
     try {
-      localStorage.removeItem(`osone_user_${uidToDelete}_ai_profile`);
-      localStorage.removeItem(`osone_user_${uidToDelete}_health_data`);
-      localStorage.removeItem(`osone_user_${uidToDelete}_chat_history`);
+      await Promise.all([
+        deleteMemoryItemsByPrefix(`osone_user_${uidToDelete}_`),
+        clearRagDB(uidToDelete)
+      ]);
+      localStorage.removeItem(`osone_rag_directory_name_${uidToDelete}`);
     } catch (err) {
       console.error(err);
+      setErrorMessage('O perfil foi removido, mas alguns dados locais não puderam ser apagados.');
     }
   };
 
@@ -182,13 +209,9 @@ export const ProfileModal = ({
                     <div>
                       <p className="text-xs font-bold text-white leading-tight flex items-center gap-1.5">
                         {currentUser.displayName}
-                        {currentUser.isLocal ? (
-                          <span className="text-[8px] bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 px-1 py-0.2 rounded-full uppercase font-mono tracking-wider">LOCAL</span>
-                        ) : (
-                          <span className="text-[8px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1 py-0.2 rounded-full uppercase font-mono tracking-wider flex items-center gap-0.5">
-                            <Cloud size={8} /> CLOUD
-                          </span>
-                        )}
+                        <span className="text-[8px] bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 px-1 py-0.2 rounded-full uppercase font-mono tracking-wider flex items-center gap-0.5">
+                          <Database size={8} /> NAVEGADOR
+                        </span>
                       </p>
                       <p className="text-[9px] text-zinc-500 font-mono mt-0.5 truncate max-w-[200px]">
                         {currentUser.email || 'offline-only@osone.local'}
@@ -385,7 +408,7 @@ export const ProfileModal = ({
                               {isActive && <Check size={11} className="text-cyan-400" />}
                             </p>
                             <p className="text-[8.5px] text-zinc-500 font-mono mt-0.5 uppercase tracking-tighter">
-                              Cérebro Local Sincronizado
+                              Dados separados neste navegador
                             </p>
                           </div>
                         </div>
@@ -464,7 +487,7 @@ export const ProfileModal = ({
             <div className="border-t border-white/5 pt-5 space-y-3">
               <span className="text-[9px] font-mono uppercase tracking-widest text-zinc-500">Privacidade OSONE</span>
               <p className="text-[10px] text-zinc-400 bg-cyan-950/20 border border-cyan-500/15 p-3 rounded-2xl leading-relaxed">
-                🚀 **Modo 100% Offline Ativo:** Seus perfis, históricos teatrais, memórias e logs do OSONE são gravados e processados exclusivamente nas engrenagens locais do seu navegador, garantindo privacidade absoluta e velocidade instantânea no ecossistema sem nuvem.
+                Seus perfis, históricos e memórias ficam neste navegador e são separados por perfil. Ao usar IA, pesquisa ou voz, somente a solicitação necessária é enviada ao provedor selecionado. Em aparelho compartilhado, cada pessoa deve usar seu próprio perfil e chave.
               </p>
             </div>
           </div>

@@ -19,6 +19,12 @@ export interface User {
 
 export interface ApiKeys {
   gemini: string;
+  openaiApiKey?: string;
+  aiProvider?: 'gemini' | 'openai';
+  openaiModel?: 'gpt-5.4-mini' | 'gpt-5.4-nano' | 'gpt-5.4';
+  openaiImageModel?: 'gpt-image-2';
+  openaiImageQuality?: 'medium' | 'high';
+  openaiResearchMode?: 'standard' | 'deep';
   googleHomeId?: string;
   googleHomeToken?: string;
   elevenLabsApiKey?: string;
@@ -31,7 +37,7 @@ export interface ApiKeys {
   elevenLabsStyle?: number;
   elevenLabsSpeakerBoost?: boolean;
   elevenLabsModel?: string;
-  geminiModel?: 'gemini-3.5-flash' | 'gemini-2.5-flash' | 'gemini-3.1-flash-lite';
+  geminiModel?: 'gemini-3.6-flash' | 'gemini-3.5-flash-lite' | 'gemini-3.1-flash-lite' | 'gemini-2.5-flash' | 'gemini-3.5-flash';
   googleCustomSearchApiKey?: string;
   googleCustomSearchCx?: string;
   tavilyApiKey?: string;
@@ -40,7 +46,63 @@ export interface ApiKeys {
 export type OrbStyle = 'classic' | 'superintelligence' | 'neural' | 'shadow' | 'wave' | 'jarvis' | 'smoke';
 export type AppTheme = 'her' | 'cyberpunk' | 'monochrome' | 'nature';
 
-export type WorkspaceMode = 'home' | 'writing' | 'sounds' | 'canvas' | 'wellness' | 'aural_control' | 'local_control' | 'whatsapp' | 'map' | 'rag' | 'creator' | 'tiktok' | 'sentinel' | 'sensus_evolution' | 'memory_book';
+export type WorkspaceMode = 'home' | 'writing' | 'code' | 'sounds' | 'canvas' | 'wellness' | 'local_control' | 'whatsapp' | 'map' | 'rag' | 'creator' | 'tiktok' | 'sentinel' | 'sensus_evolution' | 'memory_book' | 'smarthome';
+
+export interface SmartDevice {
+  id: string;
+  name: string;
+  category: 'light' | 'plug' | 'switch' | 'thermostat' | 'lock' | 'sensor' | 'tv' | 'fan';
+  platform: 'tuya' | 'hue' | 'smartthings' | 'custom';
+  state: boolean;
+  value?: number; // brightness, temp, level
+  color?: string;
+  room?: string;
+  online: boolean;
+  lastUpdated: number;
+}
+
+export interface SmartHomeConfig {
+  tuya: {
+    enabled: boolean;
+    clientId: string;
+    clientSecret: string;
+    region: 'us' | 'eu' | 'cn' | 'in';
+    userToken?: string;
+    linkedAccountEmail?: string;
+  };
+  hue: {
+    enabled: boolean;
+    bridgeIp?: string;
+    accessToken?: string;
+    username?: string;
+  };
+  smartthings: {
+    enabled: boolean;
+    personalAccessToken?: string;
+    locationId?: string;
+  };
+}
+
+export interface SmartRoutine {
+  id: string;
+  name: string;
+  icon: string;
+  actions: {
+    deviceId: string;
+    targetState: boolean;
+    targetValue?: number;
+    targetColor?: string;
+  }[];
+}
+
+export interface CodeRepositoryFile {
+  id: string;
+  name: string;
+  language: string;
+  content: string;
+  updatedAt: number;
+  isMain?: boolean;
+}
 
 export interface MemoryBookEntry {
   id: string;
@@ -167,6 +229,5 @@ export interface ChatSession {
   createdAt: number;
   messages: Message[];
 }
-
 
 

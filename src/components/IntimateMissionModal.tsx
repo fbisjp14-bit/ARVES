@@ -9,9 +9,19 @@ interface IntimateMissionModalProps {
   intimateAnswers: { [id: number]: string };
   onUpdateAnswer: (id: number, val: string) => void;
   onUpdateBulkAnswers?: (answers: { [id: number]: string }) => void;
+  geminiApiKey?: string;
+  geminiModel?: string;
 }
 
-export function IntimateMissionModal({ isOpen, onClose, intimateAnswers, onUpdateAnswer, onUpdateBulkAnswers }: IntimateMissionModalProps) {
+export function IntimateMissionModal({
+  isOpen,
+  onClose,
+  intimateAnswers,
+  onUpdateAnswer,
+  onUpdateBulkAnswers,
+  geminiApiKey = '',
+  geminiModel = 'gemini-3.5-flash'
+}: IntimateMissionModalProps) {
   const [selectedCategory, setSelectedCategory] = useState<string | null>("Informações Básicas e Identidade");
   const [filterType, setFilterType] = useState<'all' | 'answered' | 'pending'>('all');
   
@@ -27,6 +37,81 @@ export function IntimateMissionModal({ isOpen, onClose, intimateAnswers, onUpdat
   const [referenceText, setReferenceText] = useState("");
   const [dictatingQuestionId, setDictatingQuestionId] = useState<number | null>(null);
   const recognitionInstanceRef = useRef<any>(null);
+
+  const analyzeDossierDocument = async (
+    fileData: string,
+    mimeType: string
+  ): Promise<{ status: string; answers: Record<string, string> }> => {
+    const questionList = INTIMATE_QUESTIONS.map((question) => (
+      `${question.id}. [${question.category}] ${question.question}`
+    )).join('\n');
+    const currentAnswerList = Object.entries(intimateAnswers)
+      .filter(([, answer]) => String(answer || '').trim())
+      .map(([id, answer]) => `${id}: ${String(answer).trim()}`)
+      .join('\n');
+    const instruction = `Analise a referência fornecida e preencha somente respostas explicitamente sustentadas pelo conteúdo.
+Não invente, não faça diagnóstico e não deduza dados sensíveis sem evidência direta.
+Responda apenas com JSON válido no formato {"answers":{"1":"resposta"}}.
+Omita IDs sem evidência. Perguntas:
+${questionList}
+
+Respostas atuais, que só devem ser alteradas se a referência trouxer informação mais clara:
+${currentAnswerList || '(nenhuma)'}`;
+
+    const parts: any[] = [{ text: instruction }];
+    if (mimeType.startsWith('text/')) {
+      const binary = window.atob(fileData);
+      const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+      parts.push({
+        text: `\n\nREFERÊNCIA:\n${new TextDecoder().decode(bytes).slice(0, 120_000)}`
+      });
+    } else {
+      parts.push({
+        inlineData: {
+          mimeType,
+          data: fileData
+        }
+      });
+    }
+
+    const response = await fetch('/api/gemini/generateContent', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        clientApiKey: geminiApiKey,
+        model: geminiModel,
+        contents: [{ role: 'user', parts }],
+        config: {
+          responseMimeType: 'application/json',
+          maxOutputTokens: 4_000,
+          temperature: 0.1
+        }
+      })
+    });
+
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(payload.error || 'Falha na análise automatizada do dossiê.');
+    }
+
+    const rawText = String(
+      payload.text ||
+      payload.candidates?.[0]?.content?.parts?.[0]?.text ||
+      ''
+    )
+      .trim()
+      .replace(/^```json\s*/i, '')
+      .replace(/\s*```$/, '');
+    const parsed = JSON.parse(rawText || '{}');
+    const answers = parsed?.answers && typeof parsed.answers === 'object'
+      ? parsed.answers
+      : parsed;
+    if (!answers || typeof answers !== 'object' || Array.isArray(answers)) {
+      throw new Error('A IA retornou um formato inválido para o dossiê.');
+    }
+
+    return { status: 'success', answers };
+  };
 
   const startVoiceDictation = (qId: number) => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -109,43 +194,33 @@ export function IntimateMissionModal({ isOpen, onClose, intimateAnswers, onUpdat
       
       setAnalysisStatus("Mapeando respostas com o Cérebro OSONE...");
       
-      const response = await fetch('/api/dossier/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          fileData: base64,
-          mimeType: "text/plain",
-          questions: INTIMATE_QUESTIONS,
-          currentAnswers: intimateAnswers
-        })
-      });
-      
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.error || "Falha na análise automatizada do dossiê.");
-      }
-      
       setAnalysisStatus("Inserindo sinapses...");
-      const data = await response.json();
+      const data = await analyzeDossierDocument(base64, 'text/plain');
       
       if (data.status === "success" && data.answers) {
         const returnedAnswers = data.answers;
         const formattedNewAnswers: { [id: number]: string } = {};
         let filledCount = 0;
+        let updatedCount = 0;
         
         Object.entries(returnedAnswers).forEach(([key, val]) => {
           const id = Number(key);
           const valStr = String(val).trim();
           
           if (!isNaN(id) && id >= 1 && id <= 55 && valStr) {
-            if (!intimateAnswers[id] || intimateAnswers[id].trim() === "") {
+            const oldVal = intimateAnswers[id] ? String(intimateAnswers[id]).trim() : "";
+            if (!oldVal) {
               formattedNewAnswers[id] = valStr;
               filledCount++;
+            } else if (oldVal !== valStr) {
+              formattedNewAnswers[id] = valStr;
+              updatedCount++;
             }
           }
         });
         
-        if (filledCount > 0) {
+        const totalChanges = filledCount + updatedCount;
+        if (totalChanges > 0) {
           if (onUpdateBulkAnswers) {
             onUpdateBulkAnswers(formattedNewAnswers);
           } else {
@@ -153,11 +228,14 @@ export function IntimateMissionModal({ isOpen, onClose, intimateAnswers, onUpdat
               onUpdateAnswer(Number(id), val);
             });
           }
-          alert(`🧬 Mapeamento com sucesso! ${filledCount} novas respostas preenchidas a partir do texto!`);
+          let msg = `🧬 Mapeamento com sucesso!`;
+          if (filledCount > 0) msg += ` ${filledCount} novas respostas preenchidas.`;
+          if (updatedCount > 0) msg += ` ${updatedCount} respostas atualizadas com novos dados de comparação.`;
+          alert(msg);
           setShowTextInputArea(false);
           setReferenceText("");
         } else {
-          alert(`📄 Texto analisado! Todas as informações extraídas já estavam preenchidas no seu Dossiê.`);
+          alert(`📄 Texto analisado! Nenhuma informação nova ou diferente foi encontrada para atualizar seu Dossiê.`);
         }
       } else {
         throw new Error("Formato inválido de resposta do servidor neural.");
@@ -185,6 +263,9 @@ export function IntimateMissionModal({ isOpen, onClose, intimateAnswers, onUpdat
     setAnalysisStatus("Decodificando arquivo biográfico...");
     
     try {
+      if (file.size > 2_500_000) {
+        throw new Error('O arquivo deve ter no máximo 2,5 MB para análise segura.');
+      }
       const reader = new FileReader();
       
       const filePromise = new Promise<{ base64: string; mimeType: string }>((resolve, reject) => {
@@ -217,45 +298,34 @@ export function IntimateMissionModal({ isOpen, onClose, intimateAnswers, onUpdat
       
       setAnalysisStatus("Sincronizando com as engrenagens neurais...");
       
-      const response = await fetch('/api/dossier/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          fileData: base64,
-          mimeType,
-          questions: INTIMATE_QUESTIONS,
-          currentAnswers: intimateAnswers
-        })
-      });
-      
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.error || "Falha na análise automatizada do dossiê.");
-      }
-      
       setAnalysisStatus("Mapeando sinapses novas no OSONE local...");
-      const data = await response.json();
+      const data = await analyzeDossierDocument(base64, mimeType);
       
       if (data.status === "success" && data.answers) {
         const returnedAnswers = data.answers;
         
         const formattedNewAnswers: { [id: number]: string } = {};
         let filledCount = 0;
+        let updatedCount = 0;
         
         Object.entries(returnedAnswers).forEach(([key, val]) => {
           const id = Number(key);
           const valStr = String(val).trim();
           
           if (!isNaN(id) && id >= 1 && id <= 55 && valStr) {
-            // Fill empty fields only (as requested: "preencher caso falte, ou preencher automaticamente se dossiê limpo")
-            if (!intimateAnswers[id] || intimateAnswers[id].trim() === "") {
+            const oldVal = intimateAnswers[id] ? String(intimateAnswers[id]).trim() : "";
+            if (!oldVal) {
               formattedNewAnswers[id] = valStr;
               filledCount++;
+            } else if (oldVal !== valStr) {
+              formattedNewAnswers[id] = valStr;
+              updatedCount++;
             }
           }
         });
         
-        if (filledCount > 0) {
+        const totalChanges = filledCount + updatedCount;
+        if (totalChanges > 0) {
           if (onUpdateBulkAnswers) {
             onUpdateBulkAnswers(formattedNewAnswers);
           } else {
@@ -263,9 +333,12 @@ export function IntimateMissionModal({ isOpen, onClose, intimateAnswers, onUpdat
               onUpdateAnswer(Number(id), val);
             });
           }
-          alert(`🧬 Mapeamento com sucesso! ${filledCount} novas respostas integradas às lacunas do seu Dossiê!`);
+          let msg = `🧬 Mapeamento com sucesso!`;
+          if (filledCount > 0) msg += ` ${filledCount} novas respostas integradas.`;
+          if (updatedCount > 0) msg += ` ${updatedCount} respostas existentes atualizadas com novos dados.`;
+          alert(msg);
         } else {
-          alert(`📄 Documento analisado! Todas as informações extraídas já estavam preenchidas no seu Dossiê.`);
+          alert(`📄 Documento analisado! Nenhuma informação nova ou diferente foi encontrada para atualizar seu Dossiê.`);
         }
       } else {
         throw new Error("Formato inválido de resposta do servidor neural.");

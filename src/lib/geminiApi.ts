@@ -1,3 +1,5 @@
+import { redactSecrets } from './redaction.ts';
+
 const GEMINI_API_ROOT = 'https://generativelanguage.googleapis.com/v1beta';
 
 export type GeminiFetch = (
@@ -12,10 +14,14 @@ export const normalizeGeminiApiKey = (value: unknown): string => {
 const readErrorMessage = async (response: Response): Promise<string> => {
   try {
     const body = await response.clone().json();
-    return body?.error?.message || body?.message || `HTTP ${response.status}`;
+    return redactSecrets(
+      body?.error?.message || body?.message || `HTTP ${response.status}`
+    );
   } catch {
     try {
-      return (await response.clone().text()) || `HTTP ${response.status}`;
+      return redactSecrets(
+        (await response.clone().text()) || `HTTP ${response.status}`
+      );
     } catch {
       return `HTTP ${response.status}`;
     }
@@ -70,7 +76,10 @@ export const verifyGeminiApiKey = async (
     );
 
     if (!response.ok) {
-      const message = await readErrorMessage(response);
+      const message = redactSecrets(
+        await readErrorMessage(response),
+        [apiKey]
+      );
       return {
         success: false,
         message: `Falha no Handshake: ${message}`
@@ -84,7 +93,9 @@ export const verifyGeminiApiKey = async (
   } catch (error: any) {
     return {
       success: false,
-      message: error?.message || 'Não foi possível alcançar a API do Gemini.'
+      message:
+        redactSecrets(error?.message, [apiKey]) ||
+        'Não foi possível alcançar a API do Gemini.'
     };
   }
 };
@@ -105,4 +116,3 @@ export const enrichGeminiResponse = (response: any): any => {
     ...(functionCalls.length > 0 ? { functionCalls } : {})
   };
 };
-

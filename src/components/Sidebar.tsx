@@ -1,18 +1,18 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Volume2, FileText, Folder, Music, Gamepad2, Zap, Activity, LogOut, User, Cpu, Puzzle, MessageSquare, Sliders, Compass, Database, Video, Radio, Eye, Heart, BookOpen } from 'lucide-react';
+import { X, Volume2, FileText, Code2, Folder, Music, Gamepad2, Zap, Activity, LogOut, User, Cpu, Puzzle, MessageSquare, Sliders, Compass, Database, Video, Radio, Eye, Heart, BookOpen, Settings } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { WorkspaceMode } from '../types';
 
-export const Sidebar = ({ isOpen, onClose, mode, setMode, user, onLogout, onLogin, onOpenProfileModal }: { 
+export const Sidebar = ({ isOpen, onClose, mode, setMode, user, onLogout, onOpenProfileModal, onOpenSettings }: { 
   isOpen: boolean; 
   onClose: () => void;
   mode: WorkspaceMode;
   setMode: (mode: WorkspaceMode) => void;
   user?: any;
   onLogout?: () => void;
-  onLogin?: () => void;
   onOpenProfileModal?: () => void;
+  onOpenSettings?: () => void;
 }) => (
   <AnimatePresence>
     {isOpen && (
@@ -80,6 +80,17 @@ export const Sidebar = ({ isOpen, onClose, mode, setMode, user, onLogout, onLogi
                 </button>
 
                 <button 
+                  onClick={() => { setMode('code'); onClose(); }}
+                  className={cn(
+                    "w-full flex items-center gap-4 px-5 py-4 rounded-2xl transition-all font-light text-sm",
+                    mode === 'code' ? "bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 shadow-[0_0_15px_rgba(6,182,212,0.12)]" : "hover:bg-white/[0.02] text-her-ink/60"
+                  )}
+                >
+                  <Code2 size={18} className="text-cyan-400" />
+                  <span>OSONE CODE</span>
+                </button>
+
+                <button 
                   onClick={() => { setMode('wellness'); onClose(); }}
                   className={cn(
                     "w-full flex items-center gap-4 px-5 py-4 rounded-2xl transition-all font-light text-sm",
@@ -110,14 +121,22 @@ export const Sidebar = ({ isOpen, onClose, mode, setMode, user, onLogout, onLogi
                   <span>Mapa OS</span>
                 </button>
                 <button 
-                  onClick={() => { setMode('aural_control'); onClose(); }}
+                  onClick={() => { if (onOpenSettings) onOpenSettings(); onClose(); }}
+                  className="w-full flex items-center gap-4 px-5 py-4 rounded-2xl transition-all font-light text-sm hover:bg-white/[0.02] text-her-ink/60 cursor-pointer"
+                >
+                  <Settings size={18} className="text-her-accent" />
+                  <span>Configurações ⚙️</span>
+                </button>
+
+                <button 
+                  onClick={() => { setMode('smarthome'); onClose(); }}
                   className={cn(
                     "w-full flex items-center gap-4 px-5 py-4 rounded-2xl transition-all font-light text-sm",
-                    mode === 'aural_control' ? "bg-her-accent/10 text-her-accent border border-her-accent/20" : "hover:bg-white/[0.02] text-her-ink/60"
+                    mode === 'smarthome' || mode === 'local_control' ? "bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 shadow-[0_0_15px_rgba(6,182,212,0.15)]" : "hover:bg-white/[0.02] text-her-ink/60"
                   )}
                 >
-                  <Sliders size={18} />
-                  <span>Ajustes & Perfil</span>
+                  <Zap size={18} className="text-cyan-400 animate-pulse" />
+                  <span>Automação & Smart Home</span>
                 </button>
 
                 <button 
@@ -206,11 +225,7 @@ export const Sidebar = ({ isOpen, onClose, mode, setMode, user, onLogout, onLogi
                   <div className="min-w-0">
                     <p className="text-[11px] font-bold text-her-ink/80 truncate leading-tight">{user.displayName}</p>
                     <p className="text-[8px] text-zinc-400 truncate mt-0.5">{user.email}</p>
-                    {user.isLocal ? (
-                      <p className="text-[7px] text-cyan-400 mt-1 uppercase tracking-wider font-semibold">Cérebro Local</p>
-                    ) : (
-                      <p className="text-[7px] text-emerald-400 mt-1 uppercase tracking-wider font-semibold">Firebase Secure</p>
-                    )}
+                    <p className="text-[7px] text-cyan-400 mt-1 uppercase tracking-wider font-semibold">Dados locais separados</p>
                   </div>
                 </div>
                 {onLogout && (

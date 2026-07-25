@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Timestamp } from '../firebase';
+import { normalizeLocalProfile } from '../lib/localProfiles';
+import { LocalTimestamp } from '../lib/localTimestamp';
 
 export interface ImportantDate {
   label: string;
@@ -17,7 +18,7 @@ export interface SemanticFact {
 export interface ConversationSummary {
   summary: string;
   topics: string[];
-  createdAt: Timestamp;
+  createdAt: LocalTimestamp;
   embedding?: number[];
 }
 
@@ -25,7 +26,7 @@ export interface DiaryEntry {
   id?: string;
   content: string;
   mood: string;
-  createdAt: Timestamp;
+  createdAt: LocalTimestamp;
   userId: string;
 }
 
@@ -47,11 +48,11 @@ function deserializeMemory(data: any): UserMemory {
     importantDates: data.importantDates || [],
     semanticMemory: data.semanticMemory || [],
     summaries: (data.summaries || []).map((s: any) => {
-      let ts = Timestamp.now();
+      let ts = LocalTimestamp.now();
       if (s.createdAt) {
         const sec = typeof s.createdAt.seconds === 'number' ? s.createdAt.seconds : (s.createdAt._seconds || 0);
         const nano = typeof s.createdAt.nanoseconds === 'number' ? s.createdAt.nanoseconds : (s.createdAt._nanoseconds || 0);
-        ts = new Timestamp(sec, nano);
+        ts = new LocalTimestamp(sec, nano);
       }
       return {
         ...s,
@@ -64,11 +65,11 @@ function deserializeMemory(data: any): UserMemory {
 function deserializeDiary(entries: any[]): DiaryEntry[] {
   if (!entries) return [];
   return entries.map((e: any) => {
-    let ts = Timestamp.now();
+    let ts = LocalTimestamp.now();
     if (e.createdAt) {
       const sec = typeof e.createdAt.seconds === 'number' ? e.createdAt.seconds : (e.createdAt._seconds || 0);
       const nano = typeof e.createdAt.nanoseconds === 'number' ? e.createdAt.nanoseconds : (e.createdAt._nanoseconds || 0);
-      ts = new Timestamp(sec, nano);
+      ts = new LocalTimestamp(sec, nano);
     }
     return {
       ...e,
@@ -82,8 +83,7 @@ export function useUserMemory() {
     try {
       const savedUserStr = localStorage.getItem('osone_last_active_user');
       if (savedUserStr) {
-        const parsed = JSON.parse(savedUserStr);
-        return parsed?.uid || 'guest';
+        return normalizeLocalProfile(JSON.parse(savedUserStr))?.uid || 'guest';
       }
     } catch {}
     return 'guest';
@@ -105,8 +105,8 @@ export function useUserMemory() {
       try {
         const savedUserStr = localStorage.getItem('osone_last_active_user');
         if (savedUserStr) {
-          const parsed = JSON.parse(savedUserStr);
-          const currentUid = parsed?.uid || 'guest';
+          const currentUid =
+            normalizeLocalProfile(JSON.parse(savedUserStr))?.uid || 'guest';
           if (currentUid !== userId) {
             setUserId(currentUid);
           }
@@ -215,7 +215,7 @@ export function useUserMemory() {
       id: Math.random().toString(36).substring(7),
       content,
       mood: mood || 'neutral',
-      createdAt: Timestamp.now(),
+      createdAt: LocalTimestamp.now(),
       userId
     };
 
@@ -294,12 +294,78 @@ export function useUserMemory() {
     const memoryKey = `nash_memory_${userId}`;
 
     setMemory(prev => {
-      const newSummary: any = { summary, topics, createdAt: Timestamp.now() };
+      const newSummary: any = { summary, topics, createdAt: LocalTimestamp.now() };
       if (embedding) newSummary.embedding = embedding;
       const updated = {
         ...prev,
         summaries: [...(prev.summaries || []), newSummary]
       };
+      localStorage.setItem(memoryKey, JSON.stringify(updated));
+      return updated;
+    });
+  }, [userId]);
+
+  // Remove uma entrada do diário pelo id ou índice
+  const deleteDiaryEntry = useCallback(async (entryId: string) => {
+    if (!userId) return;
+    const diaryKey = `nash_diary_${userId}`;
+
+    setDiary(prev => {
+      const updated = prev.filter(e => e.id !== entryId);
+      localStorage.setItem(diaryKey, JSON.stringify(updated));
+      return updated;
+    });
+  }, [userId]);
+
+  // Remove um fato simples pelo índice ou pelo texto exatamente
+  const deleteFact = useCallback(async (factIndexOrText: number | string) => {
+    if (!userId) return;
+    const memoryKey = `nash_memory_${userId}`;
+
+    setMemory(prev => {
+      let updatedFacts: string[];
+      if (typeof factIndexOrText === 'number') {
+        updatedFacts = prev.facts.filter((_, idx) => idx !== factIndexOrText);
+      } else {
+        updatedFacts = prev.facts.filter(f => f.toLowerCase().trim() !== factIndexOrText.toLowerCase().trim());
+      }
+      const updated = { ...prev, facts: updatedFacts };
+      localStorage.setItem(memoryKey, JSON.stringify(updated));
+      return updated;
+    });
+  }, [userId]);
+
+  // Remove uma data importante pelo índice ou descrição
+  const deleteImportantDate = useCallback(async (dateIndexOrLabel: number | string) => {
+    if (!userId) return;
+    const memoryKey = `nash_memory_${userId}`;
+
+    setMemory(prev => {
+      let updatedDates: ImportantDate[];
+      if (typeof dateIndexOrLabel === 'number') {
+        updatedDates = prev.importantDates.filter((_, idx) => idx !== dateIndexOrLabel);
+      } else {
+        updatedDates = prev.importantDates.filter(d => d.label.toLowerCase().trim() !== dateIndexOrLabel.toLowerCase().trim());
+      }
+      const updated = { ...prev, importantDates: updatedDates };
+      localStorage.setItem(memoryKey, JSON.stringify(updated));
+      return updated;
+    });
+  }, [userId]);
+
+  // Remove um conceito da memória semântica
+  const deleteSemanticFact = useCallback(async (conceptIndexOrName: number | string) => {
+    if (!userId) return;
+    const memoryKey = `nash_memory_${userId}`;
+
+    setMemory(prev => {
+      let updatedSemantic: SemanticFact[];
+      if (typeof conceptIndexOrName === 'number') {
+        updatedSemantic = prev.semanticMemory.filter((_, idx) => idx !== conceptIndexOrName);
+      } else {
+        updatedSemantic = prev.semanticMemory.filter(s => s.concept.toLowerCase().trim() !== conceptIndexOrName.toLowerCase().trim());
+      }
+      const updated = { ...prev, semanticMemory: updatedSemantic };
       localStorage.setItem(memoryKey, JSON.stringify(updated));
       return updated;
     });
@@ -311,12 +377,16 @@ export function useUserMemory() {
     diary,
     saveMemory,
     addFact,
+    deleteFact,
     addImportantDate,
+    deleteImportantDate,
     addDiaryEntry,
+    deleteDiaryEntry,
     getUpcomingDates,
     updateWorkspace,
     clearWorkspace,
     addSemanticFact,
+    deleteSemanticFact,
     addSummary
   };
 }

@@ -8,7 +8,11 @@ export const restoreVercelApiPath = (req: any): void => {
   const pathValue = Array.isArray(rewrittenPath)
     ? rewrittenPath.join('/')
     : String(rewrittenPath);
-  const safePath = pathValue.replace(/^\/+/, '').replace(/\.\.(?:\/|\\)/g, '');
+  const safePath = pathValue.replace(/^\/+|\/+$/g, '');
+  if (!/^[A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*$/.test(safePath)) {
+    req.url = '/api/__invalid__';
+    return;
+  }
   currentUrl.searchParams.delete('__osone_path');
   req.url = `/api/${safePath}${currentUrl.search}`;
 };

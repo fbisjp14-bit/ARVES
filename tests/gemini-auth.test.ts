@@ -109,6 +109,16 @@ test('restaura a rota usando a própria URL quando req.query não existe', () =>
   assert.equal(req.url, '/api/gemini/verify');
 });
 
+test('rejeita caminho reescrito com travessia ou caracteres inesperados', () => {
+  for (const rewrittenPath of ['../gemini/verify', 'gemini\\\\verify', 'gemini/verify?admin=1']) {
+    const req = {
+      url: `/api?__osone_path=${encodeURIComponent(rewrittenPath)}`
+    };
+    restoreVercelApiPath(req);
+    assert.equal(req.url, '/api/__invalid__');
+  }
+});
+
 test('ativa fallback quando a Function da Vercel cai com HTTP 500', () => {
   const failedFunctionResponse = new Response(
     'FUNCTION_INVOCATION_FAILED',
