@@ -12,6 +12,8 @@ Este arquivo armazena aprendizados contínuos sobre o usuário e a evolução do
 - O sistema de escuta automática foi simplificado para evitar bloqueios ou suspensões durante a fala da IA, garantindo que o OSONE esteja sempre atento ao que o usuário diz.
 - Implementado o modo **Hands-Free (Fone de Ouvido)** no topo: Fica ligado por padrão, transcrevendo "Ei, Osone" para o chat e ativando o modo voz automaticamente ao detectar a frase.
 - O PWA foi reforçado com tags de experiência nativa e cor de fundo escura (#050505) para uma identidade visual única fora do navegador.
-- A OpenAI usa GPT-5.4 mini e pesquisa padrão como perfil econômico inicial; modelos mais caros só são usados após escolha explícita.
+- A OpenAI usa exclusivamente GPT‑5.6 Sol; as opções antigas foram removidas.
+- A pesquisa web do provedor Gemini usa Google Search Grounding com a própria chave Gemini e devolve fontes.
+- A modulação de distorção foi desativada e configurações antigas de ruído são zeradas ao iniciar.
 - As configurações de WhatsApp e TikTok são isoladas por sessão, e a Evolution API é o caminho compatível com a Vercel para WhatsApp.
 - [Aguardando novos aprendizados baseados em interações futuras...]

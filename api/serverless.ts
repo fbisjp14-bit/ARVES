@@ -6,6 +6,7 @@ import {
   verifyGeminiApiKey
 } from '../src/lib/geminiApi.js';
 import { createOpenAIRouter } from '../src/server/openaiRouter.js';
+import ttsHttpHandler from '../src/server/ttsHttp.js';
 import {
   fetchExternalWithRedirectGuard,
   getClientId,
@@ -640,111 +641,7 @@ app.post('/api/elevenlabs/verify', async (req, res) => {
   }
 });
 
-const pcmToWav = (pcm: Buffer, sampleRate = 24_000): Buffer => {
-  const header = Buffer.alloc(44);
-  header.write('RIFF', 0);
-  header.writeUInt32LE(36 + pcm.length, 4);
-  header.write('WAVE', 8);
-  header.write('fmt ', 12);
-  header.writeUInt32LE(16, 16);
-  header.writeUInt16LE(1, 20);
-  header.writeUInt16LE(1, 22);
-  header.writeUInt32LE(sampleRate, 24);
-  header.writeUInt32LE(sampleRate * 2, 28);
-  header.writeUInt16LE(2, 32);
-  header.writeUInt16LE(16, 34);
-  header.write('data', 36);
-  header.writeUInt32LE(pcm.length, 40);
-  return Buffer.concat([header, pcm]);
-};
-
-app.post('/api/tts', async (req, res) => {
-  try {
-    const text = String(req.body?.text || '').trim();
-    if (!text) return res.status(400).json({ error: 'O texto é obrigatório.' });
-
-    if (req.body?.engine === 'elevenlabs') {
-      const apiKey = normalizeGeminiApiKey(
-        req.body?.elevenLabsApiKey || process.env.ELEVENLABS_API_KEY
-      );
-      const voiceId = String(
-        req.body?.elevenLabsVoiceId ||
-        process.env.ELEVENLABS_VOICE_ID ||
-        '21m00Tcm4TlvDq8ikWAM'
-      );
-      if (!apiKey) return res.status(400).json({ error: 'Chave ElevenLabs não configurada.' });
-
-      const response = await fetch(
-        `https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voiceId)}`,
-        {
-          method: 'POST',
-          headers: {
-            'xi-api-key': apiKey,
-            'Content-Type': 'application/json',
-            Accept: 'audio/mpeg'
-          },
-          body: JSON.stringify({
-            text: text.slice(0, 5_000),
-            model_id: req.body?.elevenLabsModel || 'eleven_turbo_v2_5',
-            voice_settings: {
-              stability: req.body?.elevenLabsStability ?? 0.5,
-              similarity_boost: req.body?.elevenLabsSimilarityBoost ?? 0.75,
-              style: req.body?.elevenLabsStyle ?? 0,
-              use_speaker_boost: req.body?.elevenLabsSpeakerBoost ?? true
-            }
-          })
-        }
-      );
-
-      if (!response.ok) {
-        return res.status(response.status).json({
-          error: `A ElevenLabs recusou a síntese (HTTP ${response.status}).`
-        });
-      }
-
-      res.setHeader('Content-Type', 'audio/mpeg');
-      res.setHeader('X-TTS-Mode', 'elevenlabs');
-      return res.send(Buffer.from(await response.arrayBuffer()));
-    }
-
-    const apiKey = getGeminiKey(req.body);
-    if (!apiKey) return res.status(400).json({ error: 'Chave Gemini não configurada.' });
-
-    const response = await generateGeminiContent(
-      apiKey,
-      'gemini-3.1-flash-tts-preview',
-      `Leia com clareza, naturalidade e emoção:\n\n${text.slice(0, 4_000)}`,
-      {
-        responseModalities: ['AUDIO'],
-        speechConfig: {
-          voiceConfig: {
-            prebuiltVoiceConfig: {
-              voiceName: req.body?.voice || 'Kore'
-            }
-          }
-        }
-      }
-    );
-    const audioPart = response?.candidates?.[0]?.content?.parts?.find(
-      (part: any) => part?.inlineData?.data
-    );
-    if (!audioPart) throw new GeminiRequestError(502, 'O Gemini não retornou áudio.');
-
-    const audio = Buffer.from(audioPart.inlineData.data, 'base64');
-    const mimeType = String(audioPart.inlineData.mimeType || '').toLowerCase();
-    if (mimeType.includes('pcm') || mimeType.includes('l16')) {
-      res.setHeader('Content-Type', 'audio/wav');
-      res.setHeader('X-TTS-Mode', 'gemini');
-      return res.send(pcmToWav(audio));
-    }
-
-    res.setHeader('Content-Type', audioPart.inlineData.mimeType || 'audio/mpeg');
-    res.setHeader('X-TTS-Mode', 'gemini');
-    return res.send(audio);
-  } catch (error) {
-    return sendError(res, error);
-  }
-});
+app.post('/api/tts', ttsHttpHandler as any);
 
 type WhatsAppConnectionState =
   | 'DISCONNECTED'

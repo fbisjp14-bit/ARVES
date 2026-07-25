@@ -1,4 +1,4 @@
-# OSONE AI 3.1 — OpenAI e voz neural no Vercel
+# OSONE AI 3.2 — GPT‑5.6 Sol, pesquisa Gemini e voz limpa
 
 Esta entrega atualiza o OSONE Copilot para a interface atual, preserva a
 integração de API que funcionava na versão antiga e acrescenta OpenAI,
@@ -13,9 +13,10 @@ pesquisa web, geração de imagens e exportação de documentos.
   Express legada não derrube a validação da chave.
 - Voz simples do navegador removida; a leitura usa apenas Gemini TTS ou
   ElevenLabs.
-- `gpt-5.4-mini` como modelo OpenAI padrão econômico.
-- Opções manuais `gpt-5.4-nano`, `gpt-5.4-mini` e `gpt-5.4`.
-- Nenhum uso automático do GPT-5.6.
+- GPT‑5.6 Sol como único modelo de texto da OpenAI.
+- Google Search Grounding nativo com a própria chave Gemini e fontes.
+- Saída de voz sem distorção artificial, com filtragem, proteção contra
+  clipping e retorno do microfone silenciado.
 - GPT Image 2 para imagens pela OpenAI.
 - Gemini 3.1 Flash Image para imagens pelo Gemini.
 - Exportação da conversa para PDF com texto e imagens.
@@ -58,15 +59,17 @@ global na Vercel será usada como fallback e o consumo dela será compartilhado
 por todos os visitantes. A assinatura do ChatGPT e os créditos da API OpenAI
 são produtos separados; é necessária uma chave da plataforma da API.
 
-## Economia de créditos
+## Consumo de API
 
-- O padrão da OpenAI é `gpt-5.4-mini`.
+- Toda solicitação OpenAI usa `gpt-5.6-sol`, conforme solicitado. Esse modelo
+  pode custar mais que as versões Mini/Nano removidas.
 - O modo de pesquisa aprofundada é opcional; o modo padrão não ativa pesquisa
   web em todas as mensagens.
-- Para tarefas simples, `gpt-5.4-nano` pode ser selecionado manualmente.
+- No Gemini, o botão **Web ON** ativa o Grounding com Google Search usando
+  somente a chave Gemini.
 - Geração de imagem só é executada quando solicitada.
-- O servidor valida a chave consultando os modelos disponíveis, sem gastar uma
-  geração apenas para realizar o handshake.
+- O servidor valida diretamente se a chave OpenAI tem acesso ao GPT‑5.6 Sol,
+  sem gastar uma geração apenas para realizar o handshake.
 
 ## Privacidade e multiusuário
 

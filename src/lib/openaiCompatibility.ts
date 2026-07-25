@@ -1,10 +1,6 @@
 import { normalizeExternalHttpUrl } from './externalUrl.js';
 
-const OPENAI_MODEL_IDS = [
-  'gpt-5.4-mini',
-  'gpt-5.4-nano',
-  'gpt-5.4'
-] as const;
+const OPENAI_MODEL_IDS = ['gpt-5.6-sol'] as const;
 
 export type OpenAIModelId = typeof OPENAI_MODEL_IDS[number];
 export type OpenAIResearchMode = 'standard' | 'deep';
@@ -26,7 +22,7 @@ export const normalizeOpenAIKey = (value: unknown): string => {
 export const normalizeOpenAIModel = (value: unknown): OpenAIModelId => {
   return OPENAI_MODEL_IDS.includes(value as OpenAIModelId)
     ? value as OpenAIModelId
-    : 'gpt-5.4-mini';
+    : 'gpt-5.6-sol';
 };
 
 export const normalizeResearchMode = (value: unknown): OpenAIResearchMode => {

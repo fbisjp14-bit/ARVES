@@ -1,4 +1,4 @@
-# Auditoria técnica — OSONE AI 3.0
+# Auditoria técnica — OSONE AI 3.2
 
 Data da validação: 25 de julho de 2026.
 
@@ -13,7 +13,7 @@ conhecidas nas dependências.
 | Validação | Resultado |
 | --- | --- |
 | TypeScript (`tsc --noEmit`) | Aprovado |
-| Suíte automatizada | 40 testes aprovados |
+| Suíte automatizada | 49 testes aprovados |
 | Build Vite | Aprovado |
 | Bundle do servidor Node | Aprovado |
 | Bundle da função Vercel | Aprovado |
@@ -34,12 +34,24 @@ isolamento e formato das requisições sem consumir créditos reais.
 ## Cenários cobertos
 
 - Quarenta usuários usando Gemini, OpenAI, WhatsApp e TikTok em paralelo.
+- Quarenta usuários simultâneos usando diretamente a nova função OpenAI
+  isolada, sem cruzamento de chaves ou pesquisas.
 - Ausência de cruzamento de chaves, nomes de usuário e configuração entre
   sessões.
 - Sessão abusiva recebendo limite sem impedir a requisição de outro usuário.
-- Migração automática de configuração GPT-5.6 antiga para `gpt-5.4-mini`.
-- Handshake Gemini e OpenAI sem chamada de geração cobrada.
+- Migração automática de todas as seleções OpenAI antigas para
+  `gpt-5.6-sol`.
+- Handshake Gemini e validação direta de acesso ao GPT‑5.6 Sol sem chamada de
+  geração cobrada.
+- Google Search Grounding encaminhado com `googleSearch` e somente a chave
+  Gemini.
 - Pesquisa OpenAI com `web_search`, fontes e citações normalizadas.
+- Pesquisa aprofundada força `web_search` mesmo sem a ferramenta Google
+  legada no pedido.
+- Funções Vercel isoladas para health, OpenAI, imagens, streaming e TTS.
+- Ausência de `SpeechSynthesisUtterance` e `speechSynthesis` no frontend.
+- Conversão PCM/WAV respeitando taxa e canais informados pelo Gemini, inclusive
+  descarte seguro de amostra incompleta.
 - Geração de imagem OpenAI com GPT Image 2.
 - Correção automática de pedido de imagem enviado a um modelo Gemini textual.
 - PDF de conversa com texto e imagens, incluindo bloqueio de conteúdo ativo.
@@ -57,6 +69,17 @@ isolamento e formato das requisições sem consumir créditos reais.
 - Removida a injeção de chaves no bundle do navegador.
 - Autenticação Gemini alterada para o cabeçalho oficial.
 - Integração ElevenLabs passou a usar endpoints REST válidos.
+- A voz Google simples do navegador foi removida; falhas de TTS agora são
+  informadas sem ativar uma voz auxiliar.
+- O modulador deixou de aplicar WaveShaper/distorção; configurações antigas de
+  ruído são zeradas, o retorno do microfone fica mudo e a reprodução Live usa
+  filtragem e proteção contra clipping.
+- A pesquisa principal do Gemini usa Grounding nativo, sem exigir Google
+  Custom Search, CX ou Tavily.
+- As opções GPT‑5.4 foram removidas e o servidor normaliza qualquer valor
+  antigo para GPT‑5.6 Sol.
+- A validação OpenAI foi desacoplada da função Express que falhava na
+  inicialização do deploy.
 - Estado efêmero do servidor ganhou escopo de sessão, TTL e limite de tamanho.
 - Chaves e dados do aplicativo passaram a ser separados por perfil.
 - Identificadores previsíveis foram substituídos por aleatoriedade criptográfica.

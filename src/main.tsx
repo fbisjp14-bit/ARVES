@@ -17,24 +17,26 @@ if (typeof window !== 'undefined') {
   }
 }
 
-// Migração única: quem recebeu o 5.6 Sol como padrão na edição anterior passa
-// ao modelo econômico. Depois disso, uma escolha manual do usuário é preservada.
+// Migração única: remove seleções OpenAI antigas e fixa o modelo solicitado.
 try {
-  const migrationKey = 'osone_openai_economy_v1';
+  const migrationKey = 'osone_openai_sol_v1';
   if (!localStorage.getItem(migrationKey)) {
-    const savedKeys = localStorage.getItem('osone_api_keys');
-    if (savedKeys) {
+    for (let index = 0; index < localStorage.length; index++) {
+      const storageKey = localStorage.key(index);
+      if (
+        !storageKey ||
+        (storageKey !== 'osone_api_keys' &&
+          storageKey !== 'osone_guest_api_keys' &&
+          !/^osone_user_.+_api_keys$/.test(storageKey))
+      ) {
+        continue;
+      }
+      const savedKeys = localStorage.getItem(storageKey);
+      if (!savedKeys) continue;
       const parsedKeys = JSON.parse(savedKeys);
-      localStorage.setItem('osone_api_keys', JSON.stringify({
+      localStorage.setItem(storageKey, JSON.stringify({
         ...parsedKeys,
-        openaiModel:
-          !parsedKeys.openaiModel || String(parsedKeys.openaiModel).startsWith('gpt-5.6')
-            ? 'gpt-5.4-mini'
-            : parsedKeys.openaiModel,
-        openaiResearchMode:
-          !parsedKeys.openaiResearchMode || parsedKeys.openaiResearchMode === 'deep'
-            ? 'standard'
-            : parsedKeys.openaiResearchMode
+        openaiModel: 'gpt-5.6-sol'
       }));
     }
     localStorage.setItem(migrationKey, '1');
@@ -146,7 +148,7 @@ const customFetch = async function (input: RequestInfo | URL, init?: RequestInit
         body: JSON.stringify({
           ...parsedRequestBody,
           openaiApiKey: storedApiKeys.openaiApiKey || "",
-          openaiModel: storedApiKeys.openaiModel || "gpt-5.4-mini",
+          openaiModel: "gpt-5.6-sol",
           openaiResearchMode: storedApiKeys.openaiResearchMode || "standard",
           openaiImageQuality: storedApiKeys.openaiImageQuality || "high"
         })

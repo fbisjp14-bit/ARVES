@@ -102,7 +102,7 @@ export const createOpenAIRouter = (): express.Router => {
     if (!apiKey) return;
 
     try {
-      const response = await openAIFetch('/models', apiKey, {
+      const response = await openAIFetch('/models/gpt-5.6-sol', apiKey, {
         method: 'GET'
       });
       if (!response.ok) {
@@ -113,7 +113,7 @@ export const createOpenAIRouter = (): express.Router => {
       }
       return res.json({
         success: true,
-        message: 'Conexão com a OpenAI validada. Chat, pesquisa e imagens estão disponíveis.'
+        message: 'Conexão validada: esta chave possui acesso ao GPT‑5.6 Sol.'
       });
     } catch (error: any) {
       return res.status(error?.name === 'AbortError' ? 504 : 502).json({

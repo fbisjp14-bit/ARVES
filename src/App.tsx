@@ -866,7 +866,7 @@ const createDefaultApiKeys = (): ApiKeys => ({
   geminiModel: 'gemini-3.6-flash',
   aiProvider: 'gemini',
   openaiApiKey: '',
-  openaiModel: 'gpt-5.4-mini',
+  openaiModel: 'gpt-5.6-sol',
   openaiImageModel: 'gpt-image-2',
   openaiImageQuality: 'high',
   openaiResearchMode: 'standard'
@@ -901,10 +901,7 @@ const readApiKeysForUser = (activeUser: User | null): ApiKeys => {
     return {
       ...defaults,
       ...parsed,
-      openaiModel:
-        !parsed.openaiModel || String(parsed.openaiModel).startsWith('gpt-5.6')
-          ? 'gpt-5.4-mini'
-          : parsed.openaiModel
+      openaiModel: 'gpt-5.6-sol'
     };
   } catch {
     return defaults;
@@ -1292,7 +1289,7 @@ export default function App() {
   });
 
   const [voiceModulation, setVoiceModulation] = useState<VoiceModulation>(() => {
-    return readLocalStorageJson<VoiceModulation>(
+    const stored = readLocalStorageJson<VoiceModulation>(
       'osone_voice_modulation',
       { pitch: 1.0, rate: 1.0, distortion: 0 },
       (value): value is VoiceModulation => {
@@ -1305,6 +1302,11 @@ export default function App() {
         );
       }
     );
+    return {
+      pitch: Math.max(0.75, Math.min(1.35, stored.pitch)),
+      rate: Math.max(0.75, Math.min(1.35, stored.rate)),
+      distortion: 0
+    };
   });
 
   const [currentAuralData, setCurrentAuralData] = useState<{ frequency: number; vibration: string; intensity: number } | null>(null);
@@ -4596,6 +4598,58 @@ Escreva um novo retorno. Comece expressando a pancada física com dor bem-humora
     });
   };
 
+  const runNativeGeminiSearch = async (
+    query: string,
+    geminiApiKey: string
+  ): Promise<string> => {
+    if (!geminiApiKey.trim()) {
+      throw new Error('Configure a chave Gemini para pesquisar na web.');
+    }
+
+    const response = await fetch('/api/gemini/generateContent', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        clientApiKey: geminiApiKey,
+        model: 'gemini-3.6-flash',
+        contents: [{ role: 'user', parts: [{ text: query }] }],
+        config: {
+          tools: [{ googleSearch: {} }]
+        }
+      })
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(
+        errorData.error ||
+        `A pesquisa nativa do Gemini falhou (HTTP ${response.status}).`
+      );
+    }
+
+    const result = await response.json();
+    const text =
+      result.text ||
+      result.candidates?.[0]?.content?.parts?.find(
+        (part: any) => typeof part?.text === 'string'
+      )?.text ||
+      'A pesquisa foi concluída sem texto de resposta.';
+    const grounding = result.candidates?.[0]?.groundingMetadata;
+    processGroundingToPopups(grounding, query);
+    const sources = (grounding?.groundingChunks || [])
+      .filter((chunk: any) => chunk?.web?.uri)
+      .map(
+        (chunk: any) =>
+          `- [${chunk.web.title || chunk.web.uri}](${chunk.web.uri})`
+      )
+      .filter((value: string, index: number, all: string[]) =>
+        all.indexOf(value) === index
+      );
+
+    return sources.length > 0
+      ? `${text}\n\nFontes do Google Search Grounding:\n${sources.join('\n')}`
+      : text;
+  };
+
   const handleBiometricAnalysis = (userMessage: string, responseText: string, hasImages: boolean) => {
     const loweredMsg = userMessage.toLowerCase();
     const loweredResp = responseText.toLowerCase();
@@ -6505,7 +6559,10 @@ Por favor, FALE AGORA com o usuário sobre essa dúvida por voz, de forma clara 
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             clientApiKey: effectiveApiKey,
-            model: apiKeys.geminiModel || "gemini-3.5-flash",
+            model:
+              isWebResearchActive && apiKeys.aiProvider !== 'openai'
+                ? "gemini-3.6-flash"
+                : apiKeys.geminiModel || "gemini-3.5-flash",
             contents: queryContents,
             config: {
               systemInstruction: activeInstruction,
@@ -6552,6 +6609,24 @@ Por favor, FALE AGORA com o usuário sobre essa dúvida por voz, de forma clara 
               let resValue: any = "Executado internamente.";
 
               if (call.name === 'google_search') {
+                const query = String(call.args?.query || '').trim();
+                playSearchNetworkSound();
+                setIsModelSearching(true);
+                try {
+                  resValue = await runNativeGeminiSearch(
+                    query,
+                    effectiveApiKey
+                  );
+                  addNotification(
+                    'Pesquisa Google concluída pela API Gemini.',
+                    'success'
+                  );
+                } catch (error: any) {
+                  resValue = `Erro na pesquisa Gemini: ${error.message}`;
+                } finally {
+                  setIsModelSearching(false);
+                }
+              } else if (false && call.name === 'google_search') {
                 const query = call.args.query as string;
                 playSearchNetworkSound();
                 setIsModelSearching(true);
@@ -6813,13 +6888,12 @@ Por favor, FALE AGORA com o usuário sobre essa dúvida por voz, de forma clara 
         },
         {
           name: "update_voice_modulation",
-          description: "Ajusta a tonalidade, velocidade e distorção da sua própria voz em tempo real.",
+          description: "Ajusta a tonalidade e a velocidade da sua própria voz em tempo real, mantendo a saída limpa.",
           parameters: {
             type: Type.OBJECT,
             properties: {
-              pitch: { type: Type.NUMBER, description: "Tonalidade da voz (0.5 a 2.0). Default 1.0." },
-              rate: { type: Type.NUMBER, description: "Velocidade da fala (0.5 a 2.0). Default 1.0." },
-              distortion: { type: Type.NUMBER, description: "Nível de distorção (0.0 a 1.0). Default 0.0." }
+              pitch: { type: Type.NUMBER, description: "Tonalidade da voz (0.75 a 1.35). Default 1.0." },
+              rate: { type: Type.NUMBER, description: "Velocidade da fala (0.75 a 1.35). Default 1.0." }
             }
           }
         },
@@ -7204,17 +7278,9 @@ Por favor, FALE AGORA com o usuário sobre essa dúvida por voz, de forma clara 
       });
 
       if (isWebResearchActive) {
-        functionDeclarations.push({
-          name: "google_search",
-          description: "Pesquisa informações no Google em tempo real. Use para fatos atuais, notícias, biografia ou dados técnicos atualizados. Esta ferramenta faz uma consulta na pesquisa do Google, depois lê e extrai o conteúdo de texto das fontes encontradas para que você responda com total precisão absoluta.",
-          parameters: {
-            type: Type.OBJECT,
-            properties: {
-              query: { type: Type.STRING, description: "A consulta de pesquisa." }
-            },
-            required: ["query"]
-          }
-        });
+        // Grounding nativo: o próprio Gemini pesquisa, sintetiza e devolve
+        // groundingMetadata com as fontes, usando somente a chave Gemini.
+        tools.push({ googleSearch: {} });
         functionDeclarations.push({
           name: "read_web_page",
           description: "Lê o conteúdo de texto íntegro de uma página web a partir de uma URL. Use para extrair dados detalhados de um site específico ou link sugerido.",
@@ -7745,11 +7811,15 @@ tools: tools
               }]);
             }
           } else if (call.name === "update_voice_modulation") {
-            const { pitch, rate, distortion } = call.args as any;
+            const { pitch, rate } = call.args as any;
             setVoiceModulation(prev => ({
-              pitch: pitch !== undefined ? pitch : prev.pitch,
-              rate: rate !== undefined ? rate : prev.rate,
-              distortion: distortion !== undefined ? distortion : prev.distortion
+              pitch: pitch !== undefined
+                ? Math.max(0.75, Math.min(1.35, Number(pitch) || 1))
+                : prev.pitch,
+              rate: rate !== undefined
+                ? Math.max(0.75, Math.min(1.35, Number(rate) || 1))
+                : prev.rate,
+              distortion: 0
             }));
             addNotification("Frequência Neural Ajustada pela IA", "info");
           } else if (call.name === "play_sound_effect") {
@@ -8184,7 +8254,7 @@ tools: tools
       }
       addMessage({ 
         role: 'assistant' as const, 
-        content: `⚠️ **Erro de Conexão Neural (Gemini API)**\n\nNão foi possível processar a resposta do assistente.\n\n**Detalhe do Erro:**\n> ${errorMsg}\n\n*Caso o erro seja de cota excedida (Limite 429), você pode continuar utilizando o OSONE configurando sua própria chave de API nas Configurações (ícone de engrenagem no cabeçalho superior).*` 
+        content: `⚠️ **Erro de Conexão Neural (${apiKeys.aiProvider === 'openai' ? 'OpenAI API' : 'Gemini API'})**\n\nNão foi possível processar a resposta do assistente.\n\n**Detalhe do Erro:**\n> ${errorMsg}\n\n*Caso o erro seja de cota excedida (Limite 429), confira o faturamento e os limites da chave do provedor ativo nas Configurações.*` 
       });
     } finally {
       setIsGenerating(false);
@@ -8665,13 +8735,12 @@ IMPORTANTE PARA O AGENTE DE VOZ E CHAT:
                 },
                 {
                   name: "update_voice_modulation",
-                  description: "Ajusta a tonalidade, velocidade e distorção da sua própria voz em tempo real.",
+                  description: "Ajusta a tonalidade e a velocidade da sua própria voz em tempo real, mantendo a saída limpa.",
                   parameters: {
                     type: Type.OBJECT,
                     properties: {
-                      pitch: { type: Type.NUMBER, description: "Tonalidade da voz (0.5 a 2.0). Default 1.0." },
-                      rate: { type: Type.NUMBER, description: "Velocidade da fala (0.5 a 2.0). Default 1.0." },
-                      distortion: { type: Type.NUMBER, description: "Nível de distorção (0.0 a 1.0). Default 0.0." }
+                      pitch: { type: Type.NUMBER, description: "Tonalidade da voz (0.75 a 1.35). Default 1.0." },
+                      rate: { type: Type.NUMBER, description: "Velocidade da fala (0.75 a 1.35). Default 1.0." }
                     }
                   }
                 },
@@ -9684,11 +9753,15 @@ IMPORTANTE PARA O AGENTE DE VOZ E CHAT:
                       });
                     }
                   } else if (call.name === "update_voice_modulation") {
-                    const { pitch, rate, distortion } = call.args as any;
+                    const { pitch, rate } = call.args as any;
                     setVoiceModulation(prev => ({
-                      pitch: pitch !== undefined ? pitch : prev.pitch,
-                      rate: rate !== undefined ? rate : prev.rate,
-                      distortion: distortion !== undefined ? distortion : prev.distortion
+                      pitch: pitch !== undefined
+                        ? Math.max(0.75, Math.min(1.35, Number(pitch) || 1))
+                        : prev.pitch,
+                      rate: rate !== undefined
+                        ? Math.max(0.75, Math.min(1.35, Number(rate) || 1))
+                        : prev.rate,
+                      distortion: 0
                     }));
                     addNotification("Modulação de Voz Ajustada pela IA", "info");
                     responses.push({
@@ -9770,6 +9843,28 @@ IMPORTANTE PARA O AGENTE DE VOZ E CHAT:
                       });
                     }
                   } else if (call.name === "google_search") {
+                    const query = String(call.args?.query || '').trim();
+                    playSearchNetworkSound();
+                    setIsModelSearching(true);
+                    try {
+                      const result = await runNativeGeminiSearch(query, apiKey);
+                      responses.push({
+                        name: call.name,
+                        id: call.id,
+                        response: { result }
+                      });
+                    } catch (err: any) {
+                      responses.push({
+                        name: call.name,
+                        id: call.id,
+                        response: {
+                          error: `Erro na pesquisa Gemini: ${err.message}`
+                        }
+                      });
+                    } finally {
+                      setIsModelSearching(false);
+                    }
+                  } else if (false && call.name === "google_search") {
                     const query = call.args.query as string;
                     playSearchNetworkSound();
                     setIsModelSearching(true);
@@ -14840,7 +14935,14 @@ Instruções imediatas obrigatórias para você (IA de Voz/Chat):
             if (aiProfileVal) setAiProfile(JSON.parse(aiProfileVal));
 
             const voiceModulationVal = payload['osone_voice_modulation'];
-            if (voiceModulationVal) setVoiceModulation(JSON.parse(voiceModulationVal));
+            if (voiceModulationVal) {
+              const restored = JSON.parse(voiceModulationVal);
+              setVoiceModulation({
+                pitch: Math.max(0.75, Math.min(1.35, Number(restored?.pitch) || 1)),
+                rate: Math.max(0.75, Math.min(1.35, Number(restored?.rate) || 1)),
+                distortion: 0
+              });
+            }
 
             const healthDataVal = payload['osone_health_data'];
             if (healthDataVal) setHealthData(JSON.parse(healthDataVal));

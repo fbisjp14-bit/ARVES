@@ -682,29 +682,17 @@ export const SettingsModal = ({
                           <Cpu size={12} className="text-emerald-400" />
                           <label className="block text-[9px] uppercase tracking-[0.2em] text-her-muted font-bold">Modelo OpenAI</label>
                         </div>
-                        <div className="grid grid-cols-3 gap-2 bg-white/[0.01] border border-white/[0.05] p-1.5 rounded-2xl">
-                          {[
-                            { id: 'gpt-5.4-nano', label: '5.4 Nano' },
-                            { id: 'gpt-5.4-mini', label: '5.4 Mini' },
-                            { id: 'gpt-5.4', label: '5.4' }
-                          ].map((model) => (
-                            <button
-                              key={model.id}
-                              type="button"
-                              onClick={() => setKeys({ ...keys, openaiModel: model.id as ApiKeys['openaiModel'] })}
-                              className={cn(
-                                "py-2.5 px-2 rounded-xl text-[10px] font-semibold transition-all",
-                                (keys.openaiModel || 'gpt-5.4-mini') === model.id
-                                  ? "bg-emerald-500/10 text-emerald-300 border border-emerald-500/20"
-                                  : "text-her-muted hover:text-white/80 border border-transparent"
-                              )}
-                            >
-                              {model.label}
-                            </button>
-                          ))}
+                        <div className="flex items-center justify-between gap-4 bg-emerald-500/[0.06] border border-emerald-500/20 px-4 py-3 rounded-2xl">
+                          <div>
+                            <p className="text-xs font-bold text-emerald-300">GPT‑5.6 Sol</p>
+                            <p className="text-[9px] text-her-muted/60 font-mono">gpt-5.6-sol</p>
+                          </div>
+                          <span className="text-[8px] font-bold uppercase tracking-widest text-emerald-400">
+                            Único modelo
+                          </span>
                         </div>
                         <p className="mt-2 text-[9px] leading-relaxed text-her-muted/50">
-                          5.4 Mini é o padrão equilibrado. 5.4 Nano reduz ainda mais o consumo. Nenhum modelo 5.6 é selecionado automaticamente.
+                          As versões antigas foram removidas. Toda solicitação OpenAI usa GPT‑5.6 Sol.
                         </p>
                       </div>
 
@@ -752,11 +740,11 @@ export const SettingsModal = ({
                         <div className="flex items-center gap-2">
                           <Activity size={12} className="text-sky-400" />
                           <p className="text-[9px] uppercase tracking-[0.2em] text-sky-300 font-bold">
-                            Pesquisa web pela OpenAI
+                            Pesquisa web nativa
                           </p>
                         </div>
                         <p className="mt-2 text-[10px] text-her-muted/65 leading-relaxed">
-                          Com OpenAI ativa, o modo “Aprofundada + fontes” usa a ferramenta Web Search do ChatGPT e inclui as fontes na resposta. Não é mais necessário informar chave Google, CX ou Tavily.
+                          Com Gemini ativo, o botão “Web ON” usa o Google Search Grounding pela própria chave Gemini. Com OpenAI ativa, “Aprofundada + fontes” usa Web Search no GPT‑5.6 Sol. Não é necessária chave Google Custom Search, CX ou Tavily.
                         </p>
                       </div>
                     </div>
@@ -1236,7 +1224,7 @@ export const SettingsModal = ({
 
                     <div className="p-6 bg-white/[0.01] border border-white/[0.03] rounded-3xl space-y-6">
                       <div className="flex items-center justify-between">
-                        <label className="block text-[9px] uppercase tracking-[0.2em] text-her-muted font-bold">Modulador de Voz</label>
+                        <label className="block text-[9px] uppercase tracking-[0.2em] text-her-muted font-bold">Modulador de Voz Limpa</label>
                         <button 
                           onClick={() => setVoiceModulation({ pitch: 1.0, rate: 1.0, distortion: 0 })}
                           className="text-[8px] uppercase tracking-widest text-her-accent hover:underline"
@@ -1252,7 +1240,7 @@ export const SettingsModal = ({
                             <span className="text-her-accent">{voiceModulation.pitch.toFixed(2)}x</span>
                           </div>
                           <input 
-                            type="range" min="0.5" max="2.0" step="0.05"
+                            type="range" min="0.75" max="1.35" step="0.05"
                             value={voiceModulation.pitch}
                             onChange={(e) => setVoiceModulation({ ...voiceModulation, pitch: parseFloat(e.target.value) })}
                             className="w-full h-1 bg-white/5 rounded-lg appearance-none cursor-pointer accent-her-accent"
@@ -1265,25 +1253,16 @@ export const SettingsModal = ({
                             <span className="text-her-accent">{voiceModulation.rate.toFixed(2)}x</span>
                           </div>
                           <input 
-                            type="range" min="0.5" max="2.0" step="0.05"
+                            type="range" min="0.75" max="1.35" step="0.05"
                             value={voiceModulation.rate}
                             onChange={(e) => setVoiceModulation({ ...voiceModulation, rate: parseFloat(e.target.value) })}
                             className="w-full h-1 bg-white/5 rounded-lg appearance-none cursor-pointer accent-her-accent"
                           />
                         </div>
 
-                        <div className="space-y-3">
-                          <div className="flex justify-between text-[10px] text-her-muted/60 uppercase font-medium">
-                            <span>Distorção / Ruído</span>
-                            <span className="text-her-accent">{Math.round(voiceModulation.distortion * 100)}%</span>
-                          </div>
-                          <input 
-                            type="range" min="0" max="1" step="0.01"
-                            value={voiceModulation.distortion}
-                            onChange={(e) => setVoiceModulation({ ...voiceModulation, distortion: parseFloat(e.target.value) })}
-                            className="w-full h-1 bg-white/5 rounded-lg appearance-none cursor-pointer accent-her-accent"
-                          />
-                        </div>
+                        <p className="text-[9px] leading-relaxed text-her-muted/50">
+                          Distorção e retorno do microfone foram desativados. A saída usa filtragem anti-ruído e proteção contra clipping.
+                        </p>
                       </div>
                     </div>
                   </motion.div>

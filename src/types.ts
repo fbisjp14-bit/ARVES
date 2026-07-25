@@ -21,7 +21,7 @@ export interface ApiKeys {
   gemini: string;
   openaiApiKey?: string;
   aiProvider?: 'gemini' | 'openai';
-  openaiModel?: 'gpt-5.4-mini' | 'gpt-5.4-nano' | 'gpt-5.4';
+  openaiModel?: 'gpt-5.6-sol';
   openaiImageModel?: 'gpt-image-2';
   openaiImageQuality?: 'medium' | 'high';
   openaiResearchMode?: 'standard' | 'deep';
@@ -229,5 +229,4 @@ export interface ChatSession {
   createdAt: number;
   messages: Message[];
 }
-
 

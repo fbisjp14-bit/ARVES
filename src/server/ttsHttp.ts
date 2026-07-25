@@ -76,22 +76,56 @@ const sendJson = (
   res.end(JSON.stringify(body));
 };
 
-const pcmToWav = (pcm: Buffer, sampleRate = 24_000): Buffer => {
+export const parsePcmAudioFormat = (
+  mimeType: unknown
+): { sampleRate: number; channels: number; bitsPerSample: number } => {
+  const normalized = String(mimeType || '').toLowerCase();
+  const rateMatch = normalized.match(/(?:rate|samplerate)\s*=\s*"?(\d+)/);
+  const channelMatch = normalized.match(/channels?\s*=\s*"?(\d+)/);
+  const bitsMatch = normalized.match(/(?:bits|bitdepth)\s*=\s*"?(\d+)/);
+  const parsedRate = Number(rateMatch?.[1]);
+  const parsedChannels = Number(channelMatch?.[1]);
+  const parsedBits = Number(bitsMatch?.[1]);
+
+  return {
+    sampleRate:
+      Number.isInteger(parsedRate) && parsedRate >= 8_000 && parsedRate <= 96_000
+        ? parsedRate
+        : 24_000,
+    channels:
+      Number.isInteger(parsedChannels) && parsedChannels >= 1 && parsedChannels <= 2
+        ? parsedChannels
+        : 1,
+    bitsPerSample: parsedBits === 8 || parsedBits === 16 ? parsedBits : 16
+  };
+};
+
+export const pcmToWav = (
+  pcm: Buffer,
+  sampleRate = 24_000,
+  channels = 1,
+  bitsPerSample = 16
+): Buffer => {
+  const bytesPerSample = bitsPerSample / 8;
+  const blockAlign = channels * bytesPerSample;
+  const alignedLength = pcm.length - (pcm.length % blockAlign);
+  const alignedPcm =
+    alignedLength === pcm.length ? pcm : pcm.subarray(0, alignedLength);
   const header = Buffer.alloc(44);
   header.write('RIFF', 0);
-  header.writeUInt32LE(36 + pcm.length, 4);
+  header.writeUInt32LE(36 + alignedPcm.length, 4);
   header.write('WAVE', 8);
   header.write('fmt ', 12);
   header.writeUInt32LE(16, 16);
   header.writeUInt16LE(1, 20);
-  header.writeUInt16LE(1, 22);
+  header.writeUInt16LE(channels, 22);
   header.writeUInt32LE(sampleRate, 24);
-  header.writeUInt32LE(sampleRate * 2, 28);
-  header.writeUInt16LE(2, 32);
-  header.writeUInt16LE(16, 34);
+  header.writeUInt32LE(sampleRate * blockAlign, 28);
+  header.writeUInt16LE(blockAlign, 32);
+  header.writeUInt16LE(bitsPerSample, 34);
   header.write('data', 36);
-  header.writeUInt32LE(pcm.length, 40);
-  return Buffer.concat([header, pcm]);
+  header.writeUInt32LE(alignedPcm.length, 40);
+  return Buffer.concat([header, alignedPcm]);
 };
 
 const fetchWithTimeout = async (
@@ -212,7 +246,7 @@ const synthesizeGemini = async (
           contents: [{
             role: 'user',
             parts: [{
-              text: `Leia com clareza, naturalidade e emoção:\n\n${text.slice(0, 4_000)}`
+              text: `Leia exatamente o texto abaixo com voz natural, clara e estável. Gere somente fala limpa, sem música, ruído, eco, efeitos sonoros ou distorção:\n\n${text.slice(0, 4_000)}`
             }]
           }],
           generationConfig: {
@@ -254,9 +288,27 @@ const synthesizeGemini = async (
   const mimeType = String(
     audioPart.inlineData.mimeType || 'audio/mpeg'
   ).toLowerCase();
-  if (mimeType.includes('pcm') || mimeType.includes('l16')) {
+  if (
+    mimeType.includes('wav') ||
+    (audio.length >= 12 &&
+      audio.subarray(0, 4).toString('ascii') === 'RIFF' &&
+      audio.subarray(8, 12).toString('ascii') === 'WAVE')
+  ) {
     return {
-      audio: pcmToWav(audio),
+      audio,
+      contentType: 'audio/wav',
+      mode: 'gemini'
+    };
+  }
+  if (mimeType.includes('pcm') || mimeType.includes('l16')) {
+    const format = parsePcmAudioFormat(mimeType);
+    return {
+      audio: pcmToWav(
+        audio,
+        format.sampleRate,
+        format.channels,
+        format.bitsPerSample
+      ),
       contentType: 'audio/wav',
       mode: 'gemini'
     };

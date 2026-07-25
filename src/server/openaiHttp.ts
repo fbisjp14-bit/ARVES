@@ -171,7 +171,11 @@ const handleOpenAIAction = async (
   }
 
   if (action === 'verify') {
-    const response = await openAIFetch('/models', apiKey, { method: 'GET' });
+    const response = await openAIFetch(
+      '/models/gpt-5.6-sol',
+      apiKey,
+      { method: 'GET' }
+    );
     if (!response.ok) {
       sendJson(res, response.status, {
         success: false,
@@ -181,7 +185,7 @@ const handleOpenAIAction = async (
     }
     sendJson(res, 200, {
       success: true,
-      message: 'Conexão com a OpenAI validada. Chat, pesquisa na web e imagens estão disponíveis.'
+      message: 'Conexão validada: esta chave possui acesso ao GPT‑5.6 Sol.'
     });
     return;
   }

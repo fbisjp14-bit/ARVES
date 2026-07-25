@@ -197,14 +197,34 @@ export const OSONELens = ({ onClose, onAddNotification }: {
     setIsPlayingAudio(true);
     try {
       const explainText = `Sintonizando objeto identificado. ${result.name}. Categoria: ${result.category}. Confiança estimada de ${result.confidence} por cento. Descrição: ${result.description}. Característica marcante: ${result.details.caracteristicaPrincipal}.`;
+      let scopedKeys: Record<string, any> = {};
+      try {
+        scopedKeys = JSON.parse(
+          sessionStorage.getItem('osone_active_api_keys_v1') || '{}'
+        );
+      } catch (_) {}
+      const engine =
+        localStorage.getItem('osone_voice_engine') === 'elevenlabs'
+          ? 'elevenlabs'
+          : 'gemini';
+      const activeElevenLabsVoice =
+        scopedKeys.elevenLabsActiveVoice === 'voice2'
+          ? scopedKeys.elevenLabsVoiceId2
+          : scopedKeys.elevenLabsActiveVoice === 'voice3'
+            ? scopedKeys.elevenLabsVoiceId3
+            : scopedKeys.elevenLabsVoiceId;
       
       const response = await fetch('/api/tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           text: explainText,
-          engine: 'premium',
-          voice: 'Kore'
+          engine,
+          clientApiKey: scopedKeys.gemini || '',
+          voice: 'Kore',
+          elevenLabsApiKey: scopedKeys.elevenLabsApiKey || '',
+          elevenLabsVoiceId: activeElevenLabsVoice || '',
+          elevenLabsModel: scopedKeys.elevenLabsModel
         })
       });
 

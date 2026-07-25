@@ -1,7 +1,11 @@
-OSONE AI 3.1.1 — CORREÇÃO VERCEL
+OSONE AI 3.2.0 — GPT-5.6 SOL, PESQUISA GEMINI E VOZ LIMPA
 
-Este pacote corrige o erro FUNCTION_INVOCATION_FAILED que impedia as funções
-OpenAI, Gemini e voz de iniciarem na Vercel.
+Este pacote mantém a correção do FUNCTION_INVOCATION_FAILED e acrescenta:
+
+- GPT-5.6 Sol como único modelo OpenAI;
+- pesquisa Google nativa usando somente a chave Gemini;
+- remoção de distorção/ruído e do retorno do microfone;
+- conversão PCM/WAV ajustada ao formato real devolvido pelo Gemini.
 
 PARA ATUALIZAR:
 
@@ -16,6 +20,7 @@ Depois do deploy:
 1. Abra https://SEU-SITE.vercel.app/api/health
 2. Confirme que aparece "ok": true.
 3. Volte ao OSONE, informe sua chave e toque em Testar chave OpenAI.
+4. Para pesquisar só com Gemini, selecione Google Gemini e deixe Web ON.
 
 SEGURANÇA:
 
