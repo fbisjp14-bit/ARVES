@@ -18,6 +18,14 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
+const NEURAL_NARRATOR_VOICES = [
+  { id: 'Kore', label: 'Kore — feminina e natural' },
+  { id: 'Aoede', label: 'Aoede — feminina e leve' },
+  { id: 'Fenrir', label: 'Fenrir — masculina e profunda' },
+  { id: 'Puck', label: 'Puck — masculina e enérgica' },
+  { id: 'Charon', label: 'Charon — masculina e calma' }
+];
+
 interface TikTokLog {
   id: string;
   type: 'chat' | 'gift' | 'like' | 'member' | 'system' | 'error';
@@ -71,7 +79,6 @@ export const TikTokLivePanel = ({
   setLiveNarratorVoice
 }: TikTokLivePanelProps) => {
   const [localUser, setLocalUser] = useState(tiktokUser);
-  const [availableSpeechVoices, setAvailableSpeechVoices] = useState<SpeechSynthesisVoice[]>([]);
   const terminalLogsEndRef = useRef<HTMLDivElement>(null);
 
   // Sync parent values if they update elsewhere
@@ -83,19 +90,6 @@ export const TikTokLivePanel = ({
   useEffect(() => {
     // We display logs newest first, so the scroll should generally stay on top. No force scrolling needed.
   }, [tiktokState.logs]);
-
-  // Retrieve browser voices for TTS
-  useEffect(() => {
-    const loadVoices = () => {
-      if (typeof window !== 'undefined' && window.speechSynthesis) {
-        setAvailableSpeechVoices(window.speechSynthesis.getVoices().filter(v => v.lang.startsWith('pt') || v.lang.startsWith('en')));
-      }
-    };
-    loadVoices();
-    if (typeof window !== 'undefined' && window.speechSynthesis) {
-      window.speechSynthesis.onvoiceschanged = loadVoices;
-    }
-  }, []);
 
   const handleConnectClick = async () => {
     const username = localUser.trim().replace(/^@/, '');
@@ -236,7 +230,7 @@ export const TikTokLivePanel = ({
                         : "bg-white/[0.02] text-zinc-500 border-white/5"
                     )}
                   >
-                    {isLiveNarratorActive ? "ATIVAR VOZ" : "VOZ DESATIVADA"}
+                    {isLiveNarratorActive ? "VOZ ATIVA" : "VOZ DESATIVADA"}
                   </button>
                 </div>
 
@@ -248,11 +242,13 @@ export const TikTokLivePanel = ({
                       onChange={(e) => setLiveNarratorVoice(e.target.value)}
                       className="w-full bg-[#080808] border border-white/[0.05] rounded-xl px-3 py-2.5 text-xs text-zinc-300 focus:outline-none focus:border-cyan-500/20 font-sans cursor-pointer"
                     >
-                      <option value="default">Voz Português Padrão do Sistema</option>
-                      {availableSpeechVoices.map(vo => (
-                        <option key={vo.name} value={vo.name}>{vo.name} ({vo.lang})</option>
+                      {NEURAL_NARRATOR_VOICES.map((voice) => (
+                        <option key={voice.id} value={voice.id}>{voice.label}</option>
                       ))}
                     </select>
+                    <p className="text-[8.5px] text-zinc-500 leading-normal">
+                      Voz neural da API configurada nos Ajustes. A voz simples do navegador foi removida.
+                    </p>
                   </div>
                 )}
               </div>

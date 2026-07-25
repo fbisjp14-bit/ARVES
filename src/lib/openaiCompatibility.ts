@@ -322,6 +322,15 @@ export const buildOpenAIResponseRequest = (body: any): any => {
   const config = body?.config || {};
   const researchMode = normalizeResearchMode(body?.openaiResearchMode);
   const tools = geminiToolsToOpenAITools(config.tools, researchMode);
+  if (
+    researchMode === 'deep' &&
+    !tools.some((tool: any) => tool.type === 'web_search')
+  ) {
+    tools.unshift({
+      type: 'web_search',
+      search_context_size: 'high'
+    });
+  }
   const isResearchRequest = tools.some(
     (tool: any) => tool.type === 'web_search'
   );

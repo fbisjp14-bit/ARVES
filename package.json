@@ -1,7 +1,7 @@
 {
   "name": "osone-ai-multiuser-stable",
   "private": true,
-  "version": "3.0.0",
+  "version": "3.1.0",
   "type": "module",
   "engines": {
     "node": "22.x"
@@ -18,7 +18,7 @@
     "test:load": "node --test --experimental-strip-types tests/multiuser-load.test.ts",
     "test:smoke": "node tests/production-smoke.mjs",
     "check": "npm run lint && npm test && npm run build && npm run build:vercel",
-    "build:vercel": "esbuild api/index.ts --bundle --platform=node --format=cjs --target=node22 --outfile=dist/vercel-function.cjs"
+    "build:vercel": "node scripts/build-vercel.mjs"
   },
   "dependencies": {
     "@google/genai": "^1.52.0",

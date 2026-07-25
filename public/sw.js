@@ -1,4 +1,4 @@
-const CACHE_NAME = 'osone-cache-v3-api-hotfix';
+const CACHE_NAME = 'osone-cache-v4-openai-neural-voice';
 const urlsToCache = [
   '/manifest.json'
 ];

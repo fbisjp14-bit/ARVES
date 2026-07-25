@@ -962,7 +962,13 @@ export default function App() {
   });
   const [tiktokLoading, setTiktokLoading] = useState(false);
   const [isLiveNarratorActive, setIsLiveNarratorActive] = useState(() => localStorage.getItem('osone_tiktok_live_narrator_active') === 'true');
-  const [liveNarratorVoice, setLiveNarratorVoice] = useState(() => localStorage.getItem('osone_tiktok_live_narrator_voice') || 'default');
+  const [liveNarratorVoice, setLiveNarratorVoice] = useState(() => {
+    const saved = localStorage.getItem('osone_tiktok_live_narrator_voice') || '';
+    return ['Kore', 'Aoede', 'Fenrir', 'Puck', 'Charon'].includes(saved)
+      ? saved
+      : 'Kore';
+  });
+  const liveNarratorAudioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     localStorage.setItem('osone_tiktok_user', tiktokUser);
@@ -1010,25 +1016,66 @@ export default function App() {
                 processedLogsRef.current.add(log.id);
                 
                 if (isLiveNarratorActive && (log.type === 'chat' || log.type === 'gift')) {
-                  // Speak using Web Speech Synthesis
-                  if (typeof window !== 'undefined' && window.speechSynthesis) {
-                    let text = '';
-                    if (log.type === 'chat') {
-                      text = `${log.user} comentou: ${log.message}`;
-                    } else if (log.type === 'gift') {
-                      text = `${log.user} enviou o presente: ${log.message}`;
-                    }
-                    if (text) {
-                      const utterance = new SpeechSynthesisUtterance(text);
-                      utterance.lang = 'pt-BR';
-                      if (liveNarratorVoice && liveNarratorVoice !== 'default') {
-                        const voices = window.speechSynthesis.getVoices();
-                        const matched = voices.find(v => v.name === liveNarratorVoice);
-                        if (matched) utterance.voice = matched;
+                  const text = log.type === 'chat'
+                    ? `${log.user} comentou: ${log.message}`
+                    : `${log.user} enviou o presente: ${log.message}`;
+                  void (async () => {
+                    try {
+                      const scopedKeys = JSON.parse(
+                        sessionStorage.getItem('osone_active_api_keys_v1') || '{}'
+                      );
+                      const engine =
+                        localStorage.getItem('osone_voice_engine') === 'elevenlabs'
+                          ? 'elevenlabs'
+                          : 'gemini';
+                      const activeElevenLabsVoice =
+                        scopedKeys.elevenLabsActiveVoice === 'voice2'
+                          ? scopedKeys.elevenLabsVoiceId2
+                          : scopedKeys.elevenLabsActiveVoice === 'voice3'
+                            ? scopedKeys.elevenLabsVoiceId3
+                            : scopedKeys.elevenLabsVoiceId;
+                      const response = await fetch('/api/tts', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          text,
+                          engine,
+                          clientApiKey: scopedKeys.gemini || '',
+                          voice: liveNarratorVoice,
+                          elevenLabsApiKey: scopedKeys.elevenLabsApiKey || '',
+                          elevenLabsVoiceId: activeElevenLabsVoice || '',
+                          elevenLabsModel: scopedKeys.elevenLabsModel,
+                          elevenLabsStability: scopedKeys.elevenLabsStability,
+                          elevenLabsSimilarityBoost: scopedKeys.elevenLabsSimilarityBoost,
+                          elevenLabsStyle: scopedKeys.elevenLabsStyle,
+                          elevenLabsSpeakerBoost: scopedKeys.elevenLabsSpeakerBoost
+                        })
+                      });
+                      if (!response.ok) {
+                        const error = await response.json().catch(() => ({}));
+                        throw new Error(error.error || `HTTP ${response.status}`);
                       }
-                      window.speechSynthesis.speak(utterance);
+
+                      liveNarratorAudioRef.current?.pause();
+                      const audioUrl = URL.createObjectURL(await response.blob());
+                      const audio = new Audio(audioUrl);
+                      liveNarratorAudioRef.current = audio;
+                      const release = () => {
+                        URL.revokeObjectURL(audioUrl);
+                        if (liveNarratorAudioRef.current === audio) {
+                          liveNarratorAudioRef.current = null;
+                        }
+                      };
+                      audio.onended = release;
+                      audio.onerror = release;
+                      await audio.play();
+                    } catch (error) {
+                      console.warn(
+                        'Narração neural indisponível; a voz simples do navegador permanece desativada.',
+                        error
+                      );
                     }
-                  }
+                  })();
                 }
               });
             }
@@ -1051,6 +1098,13 @@ export default function App() {
       if (interval) clearInterval(interval);
     };
   }, [tiktokUser, isLiveNarratorActive, liveNarratorVoice, workspaceMode, tiktokState?.status]);
+
+  useEffect(() => {
+    return () => {
+      liveNarratorAudioRef.current?.pause();
+      liveNarratorAudioRef.current = null;
+    };
+  }, []);
 
   const handleTiktokConnect = async (username: string) => {
     setTiktokLoading(true);
@@ -1474,11 +1528,6 @@ export default function App() {
     setDeferredPrompt(null);
     setShowInstallButton(false);
   };
-
-  useEffect(() => {
-    // Cancel speech synthesis when navigating away from Home
-    window.speechSynthesis.cancel();
-  }, [workspaceMode]);
 
   const [isListening, setIsListening] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
@@ -2798,8 +2847,8 @@ DIRETRIZ DE SENTIMENTO E PERSONALIDADE DINÂMICA ("HER"):
         chatAudioRef.current.pause();
         chatAudioRef.current = null;
       }
-      window.speechSynthesis.cancel();
       setIsPlayingChatSpeech(null);
+      setIsSpeaking(false);
       return;
     }
 
@@ -2807,7 +2856,6 @@ DIRETRIZ DE SENTIMENTO E PERSONALIDADE DINÂMICA ("HER"):
       chatAudioRef.current.pause();
       chatAudioRef.current = null;
     }
-    window.speechSynthesis.cancel();
     if (workspaceAudioRef.current) {
       workspaceAudioRef.current.pause();
       setIsReadingWorkspace(false);
@@ -2845,36 +2893,18 @@ DIRETRIZ DE SENTIMENTO E PERSONALIDADE DINÂMICA ("HER"):
 
       if (!response.ok) {
         const errJson = await response.json().catch(() => ({}));
-        console.warn("Premium TTS failed, falling back to Web Speech:", errJson.error);
-        addNotification(`Erro de Voz Premium: ${errJson.error || "Erro ao conectar"}. Usando voz auxiliar padrão.`, "error");
-        
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = 'pt-BR';
-        const voices = window.speechSynthesis.getVoices();
-        const matchedVoice = voices.find(v => v.name.toLowerCase().includes(selectedVoice.toLowerCase()));
-        if (matchedVoice) {
-          utterance.voice = matchedVoice;
-        } else {
-          const defaultPtVoice = voices.find(v => v.lang === 'pt-BR');
-          if (defaultPtVoice) {
-            utterance.voice = defaultPtVoice;
-          }
-        }
-        utterance.onstart = () => setVoiceTranscript(text);
-        utterance.onend = () => {
-          setIsPlayingChatSpeech(null);
-          setVoiceTranscript('');
-        };
-        utterance.onerror = () => {
-          setIsPlayingChatSpeech(null);
-          setVoiceTranscript('');
-        };
-        setIsPlayingChatSpeech(msgId);
-        window.speechSynthesis.speak(utterance);
+        const message = errJson.error || "Erro ao conectar à voz neural";
+        console.warn("Neural TTS failed:", message);
+        setIsPlayingChatSpeech(null);
+        setIsSpeaking(false);
+        setVoiceTranscript('');
+        addNotification(
+          `Voz neural indisponível: ${message}. A voz simples do navegador está desativada.`,
+          "error"
+        );
         return;
       }
 
-      const isFallback = response.headers.get("X-TTS-Mode") === "fallback";
       const isElevenLabs = response.headers.get("X-TTS-Mode") === "elevenlabs";
       const blob = await response.blob();
       const audioUrl = URL.createObjectURL(blob);
@@ -2882,15 +2912,22 @@ DIRETRIZ DE SENTIMENTO E PERSONALIDADE DINÂMICA ("HER"):
       const audio = new Audio(audioUrl);
       chatAudioRef.current = audio;
       setIsPlayingChatSpeech(msgId);
+      setIsSpeaking(true);
 
       audio.onended = () => {
+        URL.revokeObjectURL(audioUrl);
+        if (chatAudioRef.current === audio) chatAudioRef.current = null;
         setIsPlayingChatSpeech(null);
+        setIsSpeaking(false);
         setVoiceTranscript('');
         addNotification("Leitura da mensagem concluída!", "success");
       };
 
       audio.onerror = () => {
+        URL.revokeObjectURL(audioUrl);
+        if (chatAudioRef.current === audio) chatAudioRef.current = null;
         setIsPlayingChatSpeech(null);
+        setIsSpeaking(false);
         setVoiceTranscript('');
         addNotification("Erro ao reproduzir o áudio de leitura.", "error");
       };
@@ -2899,29 +2936,18 @@ DIRETRIZ DE SENTIMENTO E PERSONALIDADE DINÂMICA ("HER"):
       await audio.play();
       if (isElevenLabs) {
         addNotification("Iniciando reprodução com voz premium ElevenLabs.", "success");
-      } else if (isFallback) {
-        addNotification("Iniciando leitura com voz assistida padrão (limite diário premium atingido).", "info");
       } else {
         addNotification("Iniciando reprodução com voz inteligente Gemini 3.1.", "success");
       }
     } catch (error: any) {
-      console.error("Premium voice failed, falling back:", error);
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'pt-BR';
-      const voices = window.speechSynthesis.getVoices();
-      const matchedVoice = voices.find(v => v.name.toLowerCase().includes(selectedVoice.toLowerCase()));
-      if (matchedVoice) utterance.voice = matchedVoice;
-      utterance.onstart = () => setVoiceTranscript(text);
-      utterance.onend = () => {
-        setIsPlayingChatSpeech(null);
-        setVoiceTranscript('');
-      };
-      utterance.onerror = () => {
-        setIsPlayingChatSpeech(null);
-        setVoiceTranscript('');
-      };
-      setIsPlayingChatSpeech(msgId);
-      window.speechSynthesis.speak(utterance);
+      console.error("Neural voice failed:", error);
+      setIsPlayingChatSpeech(null);
+      setIsSpeaking(false);
+      setVoiceTranscript('');
+      addNotification(
+        `Não foi possível reproduzir a voz neural: ${error?.message || 'falha de conexão'}.`,
+        "error"
+      );
     }
   };
 
@@ -2962,7 +2988,6 @@ DIRETRIZ DE SENTIMENTO E PERSONALIDADE DINÂMICA ("HER"):
       // Se o áudioUrl já existe, reutiliza ele para poupar requisições e carregar instantaneamente
       let audioUrl = workspaceAudioUrl;
       const isElevenLabs = voiceEngine === 'elevenlabs';
-      let isFallback = false;
 
       if (!audioUrl) {
         const response = await fetch("/api/tts", {
@@ -2992,7 +3017,6 @@ DIRETRIZ DE SENTIMENTO E PERSONALIDADE DINÂMICA ("HER"):
           throw new Error(errJson.error || "Erro ao sintetizar áudio.");
         }
 
-        isFallback = response.headers.get("X-TTS-Mode") === "fallback";
         const blob = await response.blob();
         audioUrl = URL.createObjectURL(blob);
         setWorkspaceAudioUrl(audioUrl);
@@ -3030,8 +3054,6 @@ DIRETRIZ DE SENTIMENTO E PERSONALIDADE DINÂMICA ("HER"):
       await audio.play();
       if (isElevenLabs) {
         addNotification("Iniciando reprodução com voz premium ElevenLabs.", "success");
-      } else if (isFallback) {
-        addNotification("Iniciando leitura com voz assistida padrão (limite diário premium atingido).", "info");
       } else {
         addNotification("Iniciando reprodução com voz inteligente da IA.", "success");
       }
@@ -3098,7 +3120,6 @@ DIRETRIZ DE SENTIMENTO E PERSONALIDADE DINÂMICA ("HER"):
         throw new Error(errJson.error || "Erro ao gerar áudio.");
       }
 
-      const isFallback = response.headers.get("X-TTS-Mode") === "fallback";
       const isElevenLabs = response.headers.get("X-TTS-Mode") === "elevenlabs";
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
@@ -3107,15 +3128,13 @@ DIRETRIZ DE SENTIMENTO E PERSONALIDADE DINÂMICA ("HER"):
 
       const a = document.createElement('a');
       a.href = url;
-      a.download = isElevenLabs ? "prosa_osone_elevenlabs.mp3" : (isFallback ? "prosa_osone.mp3" : "prosa_osone.wav");
+      a.download = isElevenLabs ? "prosa_osone_elevenlabs.mp3" : "prosa_osone.wav";
       document.body.appendChild(a);
       a.click();
       a.remove();
 
       if (isElevenLabs) {
         addNotification("Áudio premium Elevenlabs MP3 baixado com sucesso!", "success");
-      } else if (isFallback) {
-        addNotification("Áudio MP3 padrão baixado com sucesso (limite diário premium já atingido).", "info");
       } else {
         addNotification("Áudio Premium WAV baixado com sucesso!", "success");
       }
@@ -4291,10 +4310,10 @@ interface SearchPopupItem {
   const [hunterDoubtInput, setHunterDoubtInput] = useState<string>('');
 
   const handleSlap = () => {
-    // 1. Cancel active vocal feedback, Web Speech API and audio playbacks immediately
-    if (typeof window !== 'undefined' && window.speechSynthesis) {
-      window.speechSynthesis.cancel();
-      (window as any)._activeUtterances = [];
+    // 1. Cancel active neural voice and audio playbacks immediately
+    if (chatAudioRef.current) {
+      chatAudioRef.current.pause();
+      chatAudioRef.current = null;
     }
     if (audioPlayerRef.current) {
       audioPlayerRef.current.stop();
@@ -5394,33 +5413,17 @@ ${isBad
       audio.onerror = finish;
       await audio.play();
     } catch (e) {
-      console.error("ElevenLabs REST TTS failed, falling back to Web Speech Synthesis", e);
+      console.error("ElevenLabs REST TTS failed", e);
       addNotification(
-        `Voz ElevenLabs indisponível: ${e instanceof Error ? e.message : 'falha de conexão'}. Usando a voz do navegador.`,
+        `Voz ElevenLabs indisponível: ${e instanceof Error ? e.message : 'falha de conexão'}. A voz simples do navegador está desativada.`,
         'error'
       );
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'pt-BR';
-      utterance.onstart = () => {
-        setVoiceTranscript(text);
-      };
-      utterance.onend = () => {
-        setIsSpeaking(false);
-        setVoiceTranscript('');
-        if (isElevenLabsLiveActiveRef.current) {
-          elevenLabsStateRef.current = 'listening';
-          startListeningElevenLabs();
-        }
-      };
-      utterance.onerror = () => {
-        setIsSpeaking(false);
-        setVoiceTranscript('');
-        if (isElevenLabsLiveActiveRef.current) {
-          elevenLabsStateRef.current = 'listening';
-          startListeningElevenLabs();
-        }
-      };
-      window.speechSynthesis.speak(utterance);
+      setIsSpeaking(false);
+      setVoiceTranscript('');
+      if (isElevenLabsLiveActiveRef.current) {
+        elevenLabsStateRef.current = 'listening';
+        startListeningElevenLabs();
+      }
     }
   };
 
@@ -6306,9 +6309,13 @@ Por favor, FALE AGORA com o usuário sobre essa dúvida por voz, de forma clara 
   };
 
   const interruptVoiceResponse = () => {
-    if (typeof window !== 'undefined' && window.speechSynthesis) {
-      window.speechSynthesis.cancel();
-      (window as any)._activeUtterances = [];
+    if (chatAudioRef.current) {
+      chatAudioRef.current.pause();
+      chatAudioRef.current = null;
+    }
+    if (elevenLabsLiveAudioRef.current) {
+      elevenLabsLiveAudioRef.current.pause();
+      elevenLabsLiveAudioRef.current = null;
     }
     if (audioPlayerRef.current) {
       audioPlayerRef.current.stop();
@@ -6385,258 +6392,35 @@ Por favor, FALE AGORA com o usuário sobre essa dúvida por voz, de forma clara 
   };
 
   const playDuoSpeech = (text: string) => {
-    if (typeof window === 'undefined' || !window.speechSynthesis) return;
     if (isSinging) {
       console.log("Ignoring assistant speech since singing active.");
       return;
     }
-    
-    // Ensure we resume if paused as a classic browser unfreezing technique
-    if (window.speechSynthesis.paused) {
-      window.speechSynthesis.resume();
-    }
-    
-    window.speechSynthesis.cancel();
-    (window as any)._activeUtterances = [];
 
     const currentCombo = DUO_COMBOS.find(c => c.id === duoComboId) || DUO_COMBOS[0];
     const turns = parseDuoTextToTurns(text, currentCombo);
-    if (turns.length === 0) {
+    const neuralText = turns
+      .map((turn) => cleanTextForSpeech(turn.text))
+      .filter(Boolean)
+      .join('\n');
+    if (!neuralText) {
       setDuoSpeakingHost(null);
       setIsSpeaking(false);
       return;
     }
-
-    const voices = window.speechSynthesis.getVoices();
-    
-    // Support pt-BR specific language first
-    let ptVoices = voices.filter(v => {
-      const parsedLang = v.lang.toLowerCase().replace('_', '-');
-      return parsedLang === 'pt-br' || parsedLang === 'pt_br';
-    });
-    
-    // If no pt-BR found, fallback to any pt voices
-    if (ptVoices.length === 0) {
-      ptVoices = voices.filter(v => v.lang.toLowerCase().replace('_', '-').startsWith('pt'));
-    }
-
-    const getBestVoiceForGender = (gender: 'male' | 'female', altIndex: number) => {
-      if (ptVoices.length === 0) return null;
-      
-      const lowerGender = gender.toLowerCase();
-      const foundVoice = ptVoices.find(voice => {
-        const vName = voice.name.toLowerCase();
-        if (lowerGender === 'female') {
-          return vName.includes('maria') || vName.includes('luciana') || vName.includes('leticia') || 
-                 vName.includes('helena') || vName.includes('zira') || vName.includes('rita') || 
-                 vName.includes('joana') || vName.includes('sandra') || vName.includes('samantha') ||
-                 vName.includes('sara') || vName.includes('soraia') || vName.includes('yara') ||
-                 vName.includes('clara') || vName.includes('female') || vName.includes('mulher') || 
-                 vName.includes('moça') || vName.includes('google português');
-        } else {
-          return vName.includes('daniel') || vName.includes('felipe') || vName.includes('ricardo') || 
-                 vName.includes('lucas') || vName.includes('george') || vName.includes('yuri') ||
-                 vName.includes('helio') || vName.includes('cristiano') || vName.includes('male') || 
-                 vName.includes('homem') || vName.includes('moço') || vName.includes('filipe');
-        }
-      });
-
-      if (foundVoice) return foundVoice;
-
-      if (ptVoices.length > 1) {
-        return ptVoices[altIndex % ptVoices.length];
-      }
-
-      return ptVoices[0];
-    };
-
-    const voiceHostA = getBestVoiceForGender(currentCombo.hostA.gender as any, 0);
-    const voiceHostB = getBestVoiceForGender(currentCombo.hostB.gender as any, 1);
-
-    let index = 0;
-
-    const speakNext = () => {
-      if (index >= turns.length) {
-        setDuoSpeakingHost(null);
-        setIsSpeaking(false);
-        (window as any)._activeUtterances = [];
-        return;
-      }
-
-      const turn = turns[index];
-      const isHostA = turn.speaker === 'hostA';
-      const hostConf = isHostA ? currentCombo.hostA : currentCombo.hostB;
-      const chosenVoice = isHostA ? voiceHostA : voiceHostB;
-
-      // Clean and split current turn into short sentence chunks
-      const cleanedTurnText = cleanTextForSpeech(turn.text);
-      const turnChunks = splitTextIntoSpeechChunks(cleanedTurnText);
-
-      if (turnChunks.length === 0) {
-        index++;
-        speakNext();
-        return;
-      }
-
-      let turnChunkIndex = 0;
-
-      const speakNextTurnChunk = () => {
-        if (turnChunkIndex >= turnChunks.length) {
-          setVoiceTranscript('');
-          index++;
-          speakNext();
-          return;
-        }
-
-        const currentChunk = turnChunks[turnChunkIndex];
-        const utterance = new SpeechSynthesisUtterance(currentChunk);
-        
-        if (chosenVoice) {
-          utterance.voice = chosenVoice;
-          utterance.lang = chosenVoice.lang;
-        } else {
-          utterance.lang = 'pt-BR';
-        }
-
-        let pitch = hostConf.pitch;
-        let rate = hostConf.rate;
-
-        if (voiceHostA && voiceHostB && voiceHostA.name === voiceHostB.name) {
-          if (isHostA) {
-            pitch = 0.72;
-            rate = 0.90;
-          } else {
-            pitch = 1.35;
-            rate = 1.10;
-          }
-        }
-
-        utterance.pitch = pitch;
-        utterance.rate = rate;
-
-        utterance.onstart = () => {
-          setIsSpeaking(true);
-          setDuoSpeakingHost(turn.speaker);
-          setVoiceTranscript(currentChunk);
-        };
-
-        utterance.onend = () => {
-          setVoiceTranscript('');
-          turnChunkIndex++;
-          speakNextTurnChunk();
-        };
-
-        utterance.onerror = (e) => {
-          console.error("Duo speech turn chunk error:", e);
-          setVoiceTranscript('');
-          turnChunkIndex++;
-          speakNextTurnChunk();
-        };
-
-        (window as any)._activeUtterances = (window as any)._activeUtterances || [];
-        (window as any)._activeUtterances.push(utterance);
-        if ((window as any)._activeUtterances.length > 50) {
-          (window as any)._activeUtterances.shift();
-        }
-
-        window.speechSynthesis.speak(utterance);
-      };
-
-      speakNextTurnChunk();
-    };
-
-    speakNext();
+    setDuoSpeakingHost(null);
+    void handleSpeakChatMessage(neuralText, 'duo-neural-speech');
   };
 
   const playSpeech = (text: string) => {
-    if (typeof window === 'undefined') return;
     if (isSinging) {
       console.log("Ignoring solo speech since singing active.");
       return;
     }
-    
-    // Ensure we resume if paused as a classic browser unfreezing technique
-    if (window.speechSynthesis.paused) {
-      window.speechSynthesis.resume();
-    }
-    
-    window.speechSynthesis.cancel();
-    (window as any)._activeUtterances = [];
 
     const cleanedText = cleanTextForSpeech(text);
     if (!cleanedText) return;
-
-    const chunks = splitTextIntoSpeechChunks(cleanedText);
-    if (chunks.length === 0) return;
-
-    let chunkIndex = 0;
-
-    const speakNextChunk = () => {
-      if (chunkIndex >= chunks.length) {
-        setIsSpeaking(false);
-        setVoiceTranscript('');
-        (window as any)._activeUtterances = [];
-        return;
-      }
-
-      const currentChunk = chunks[chunkIndex];
-      const utterance = new SpeechSynthesisUtterance(currentChunk);
-      
-      const voices = window.speechSynthesis.getVoices();
-      
-      // Support pt-BR specific language first
-      let ptVoices = voices.filter(v => {
-        const parsedLang = v.lang.toLowerCase().replace('_', '-');
-        return parsedLang === 'pt-br' || parsedLang === 'pt_br';
-      });
-      
-      // If no pt-BR found, fallback to any pt voices
-      if (ptVoices.length === 0) {
-        ptVoices = voices.filter(v => v.lang.toLowerCase().replace('_', '-').startsWith('pt'));
-      }
-
-      const chosenVoice = ptVoices.find(v => {
-        const name = v.name.toLowerCase();
-        return name.includes('maria') || name.includes('luciana') || name.includes('leticia') || 
-               name.includes('helena') || name.includes('zira') || name.includes('rita') || 
-               name.includes('google português') || name.includes('português') || name.includes('portuguese');
-      }) || ptVoices[0];
-
-      if (chosenVoice) {
-        utterance.voice = chosenVoice;
-        utterance.lang = chosenVoice.lang;
-      } else {
-        utterance.lang = 'pt-BR';
-      }
-
-      utterance.onstart = () => {
-        setIsSpeaking(true);
-        setVoiceTranscript(currentChunk);
-      };
-
-      utterance.onend = () => {
-        setVoiceTranscript('');
-        chunkIndex++;
-        speakNextChunk();
-      };
-
-      utterance.onerror = (e) => {
-        console.error("Solo speech chunk error:", e);
-        setVoiceTranscript('');
-        chunkIndex++;
-        speakNextChunk();
-      };
-
-      (window as any)._activeUtterances = (window as any)._activeUtterances || [];
-      (window as any)._activeUtterances.push(utterance);
-      if ((window as any)._activeUtterances.length > 50) {
-        (window as any)._activeUtterances.shift();
-      }
-
-      window.speechSynthesis.speak(utterance);
-    };
-
-    speakNextChunk();
+    void handleSpeakChatMessage(cleanedText, 'assistant-neural-speech');
   };
 
   const handleHomeChat = async (directMessage?: string) => {
@@ -10632,9 +10416,8 @@ IMPORTANTE PARA O AGENTE DE VOZ E CHAT:
 
               if (message.serverContent?.interrupted && !isMutedRef.current) {
                 audioPlayerRef.current?.stop();
-                if (typeof window !== 'undefined' && window.speechSynthesis) {
-                  window.speechSynthesis.cancel();
-                }
+                chatAudioRef.current?.pause();
+                chatAudioRef.current = null;
                 setDuoSpeakingHost(null);
                 setIsSpeaking(false);
                 if (voiceTranscriptRef.current) {

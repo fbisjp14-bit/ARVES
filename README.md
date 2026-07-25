@@ -1,4 +1,4 @@
-# OSONE AI 3.0 — versão multiusuário estável
+# OSONE AI 3.1 — OpenAI e voz neural no Vercel
 
 Esta entrega atualiza o OSONE Copilot para a interface atual, preserva a
 integração de API que funcionava na versão antiga e acrescenta OpenAI,
@@ -9,6 +9,10 @@ pesquisa web, geração de imagens e exportação de documentos.
 - Gemini com autenticação correta por `x-goog-api-key`.
 - OpenAI como provedor opcional para chat, análise de arquivos, pesquisa web
   com fontes e geração de imagens.
+- Funções OpenAI, TTS e health isoladas no Vercel para que uma falha da função
+  Express legada não derrube a validação da chave.
+- Voz simples do navegador removida; a leitura usa apenas Gemini TTS ou
+  ElevenLabs.
 - `gpt-5.4-mini` como modelo OpenAI padrão econômico.
 - Opções manuais `gpt-5.4-nano`, `gpt-5.4-mini` e `gpt-5.4`.
 - Nenhum uso automático do GPT-5.6.
@@ -41,9 +45,13 @@ npm run test:smoke
 
 1. Importe este diretório como projeto na Vercel.
 2. Use o preset Vite; o `vercel.json` já contém build, rotas e cabeçalhos.
-3. Publique sem colocar uma chave global se cada pessoa usará a própria chave.
-4. No OSONE, abra **Configurações > Chaves**, selecione Gemini ou OpenAI,
+3. Faça um novo deploy sem reaproveitar o cache da versão anterior.
+4. Publique sem colocar uma chave global se cada pessoa usará a própria chave.
+5. No OSONE, abra **Configurações > Chaves**, selecione Gemini ou OpenAI,
    informe a chave e clique para consolidar os parâmetros.
+
+Depois do deploy, `/api/health` deve responder com
+`"runtime":"isolated-vercel-function"`.
 
 As variáveis de `.env.example` são alternativas globais e opcionais. Uma chave
 global na Vercel será usada como fallback e o consumo dela será compartilhado
