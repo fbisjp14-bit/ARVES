@@ -7,7 +7,6 @@ import {
   Globe, Folder, Terminal, Download, ArrowRight, Server, Copy, Check
 } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { readLocalStorageJson } from '../lib/safeStorage';
 import { SmartDevice, SmartHomeConfig, SmartRoutine } from '../types';
 
 const DEFAULT_CONFIG: SmartHomeConfig = {
@@ -17,12 +16,12 @@ const DEFAULT_CONFIG: SmartHomeConfig = {
     clientSecret: 'secret_tuya_live_771',
     region: 'us',
     userToken: 'tuya_user_token_active',
-    linkedAccountEmail: 'usuario@osone.app'
+    linkedAccountEmail: 'usuario@arves.app'
   },
   hue: {
     enabled: true,
     bridgeIp: '192.168.1.105',
-    username: 'hue_user_osone_key'
+    username: 'hue_user_arves_key'
   },
   smartthings: {
     enabled: false,
@@ -126,31 +125,27 @@ export const SmartHomeConnect: React.FC<{
   const [selectedRoom, setSelectedRoom] = useState<string>('Todos');
 
   const [devices, setDevices] = useState<SmartDevice[]>(() => {
-    return readLocalStorageJson<SmartDevice[]>(
-      'osone_smarthome_devices',
-      DEFAULT_DEVICES,
-      (value): value is SmartDevice[] => Array.isArray(value)
-    );
+    try {
+      const saved = localStorage.getItem('arves_smarthome_devices');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return DEFAULT_DEVICES;
   });
 
   const [config, setConfig] = useState<SmartHomeConfig>(() => {
-    return readLocalStorageJson<SmartHomeConfig>(
-      'osone_smarthome_config',
-      DEFAULT_CONFIG,
-      (value): value is SmartHomeConfig => {
-        if (!value || typeof value !== 'object') return false;
-        const candidate = value as Partial<SmartHomeConfig>;
-        return Boolean(candidate.tuya && candidate.hue && candidate.smartthings);
-      }
-    );
+    try {
+      const saved = localStorage.getItem('arves_smarthome_config');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return DEFAULT_CONFIG;
   });
 
   const [routines, setRoutines] = useState<SmartRoutine[]>(() => {
-    return readLocalStorageJson<SmartRoutine[]>(
-      'osone_smarthome_routines',
-      DEFAULT_ROUTINES,
-      (value): value is SmartRoutine[] => Array.isArray(value)
-    );
+    try {
+      const saved = localStorage.getItem('arves_smarthome_routines');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return DEFAULT_ROUTINES;
   });
 
   const [tuyaEmail, setTuyaEmail] = useState<string>(config.tuya.linkedAccountEmail || '');
@@ -163,10 +158,10 @@ export const SmartHomeConnect: React.FC<{
   // Save changes and notify
   useEffect(() => {
     try {
-      localStorage.setItem('osone_smarthome_devices', JSON.stringify(devices));
-      localStorage.setItem('osone_smarthome_config', JSON.stringify(config));
-      localStorage.setItem('osone_smarthome_routines', JSON.stringify(routines));
-      window.dispatchEvent(new Event('osone_smarthome_updated'));
+      localStorage.setItem('arves_smarthome_devices', JSON.stringify(devices));
+      localStorage.setItem('arves_smarthome_config', JSON.stringify(config));
+      localStorage.setItem('arves_smarthome_routines', JSON.stringify(routines));
+      window.dispatchEvent(new Event('arves_smarthome_updated'));
     } catch (e) {
       console.error("Error saving smart home state:", e);
     }
@@ -263,7 +258,7 @@ export const SmartHomeConnect: React.FC<{
     : devices.filter(d => (d.room || 'Outros') === selectedRoom);
 
   const pythonScriptText = `# Script de Organização Automática de Arquivos do PC
-# Gerado pelo OSONE Studio para organizar seu computador físico
+# Gerado pelo ARVES Studio para organizar seu computador físico
 import os
 import shutil
 from pathlib import Path
@@ -322,7 +317,7 @@ if __name__ == "__main__":
 
           <div>
             <h2 className="text-base font-bold text-white font-mono flex items-center gap-2">
-              OSONE IoT & Cloud Smart Home
+              ARVES IoT & Cloud Smart Home
               <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/30 font-normal">
                 Tuya • Hue • SmartThings
               </span>
@@ -800,12 +795,12 @@ if __name__ == "__main__":
             </div>
 
             <div className="p-4 rounded-2xl bg-emerald-950/20 border border-emerald-500/20 text-xs text-emerald-200/90 leading-relaxed font-sans space-y-2">
-              <strong className="text-emerald-400 font-mono font-bold block">💡 Como organizar seu computador físico com o OSONE:</strong>
+              <strong className="text-emerald-400 font-mono font-bold block">💡 Como organizar seu computador físico com o ARVES:</strong>
               <p>
                 Navegadores de internet rodam dentro de um container isolado ("sandbox") por privacidade e segurança, impedindo que sites explorem pastas do seu disco rígido sem sua autorização. 
               </p>
               <p>
-                Para organizar o seu computador físico instantaneamente, o OSONE gerou este script Python abaixo. Você só precisa salvar este código no seu PC como <code className="text-cyan-300 bg-black/60 px-1.5 py-0.5 rounded font-mono">organizar.py</code> e executá-lo! Ele moverá automaticamente PDFs, planilhas, fotos, vídeos e instaladores para subpastas limpas e ordenadas na sua pasta Downloads/Documentos.
+                Para organizar o seu computador físico instantaneamente, o ARVES gerou este script Python abaixo. Você só precisa salvar este código no seu PC como <code className="text-cyan-300 bg-black/60 px-1.5 py-0.5 rounded font-mono">organizar.py</code> e executá-lo! Ele moverá automaticamente PDFs, planilhas, fotos, vídeos e instaladores para subpastas limpas e ordenadas na sua pasta Downloads/Documentos.
               </p>
             </div>
 

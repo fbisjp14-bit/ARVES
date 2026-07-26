@@ -19,17 +19,7 @@ export interface User {
 
 export interface ApiKeys {
   gemini: string;
-  /**
-   * Gemini stays the primary provider. OpenAI is used only as an automatic
-   * fallback for recoverable provider failures.
-   */
-  openaiApiKey?: string;
-  openaiFallbackEnabled?: boolean;
-  openaiModel?: 'gpt-5.6-sol';
-  openaiResearchMode?: 'standard' | 'deep';
-  openaiImageQuality?: 'medium' | 'high';
-  /** Kept only to migrate older saved settings. */
-  aiProvider?: 'gemini' | 'openai';
+  arvesAccessToken?: string;
   googleHomeId?: string;
   googleHomeToken?: string;
   elevenLabsApiKey?: string;
@@ -49,7 +39,7 @@ export interface ApiKeys {
 }
 
 export type OrbStyle = 'classic' | 'superintelligence' | 'neural' | 'shadow' | 'wave' | 'jarvis' | 'smoke';
-export type AppTheme = 'her' | 'cyberpunk' | 'monochrome' | 'nature';
+export type AppTheme = 'arves' | 'her' | 'cyberpunk' | 'monochrome' | 'nature';
 
 export type WorkspaceMode = 'home' | 'writing' | 'code' | 'sounds' | 'canvas' | 'wellness' | 'local_control' | 'whatsapp' | 'map' | 'rag' | 'creator' | 'tiktok' | 'sentinel' | 'sensus_evolution' | 'memory_book' | 'smarthome';
 

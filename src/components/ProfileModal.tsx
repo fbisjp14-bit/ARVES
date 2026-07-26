@@ -1,22 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, User, Plus, Trash2, Check, Loader2, Database, Fingerprint, Cpu, Sparkles } from 'lucide-react';
+import { X, User, Plus, Trash2, Check, Loader2, Cloud, Database, Fingerprint, Heart, Cpu, Sparkles } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { User as UserClass } from '../types';
-import { deleteMemoryItemsByPrefix } from '../lib/indexedDbMemory';
-import {
-  LOCAL_PROFILE_UID_PATTERN,
-  normalizeLocalProfile,
-  normalizeLocalProfiles
-} from '../lib/localProfiles';
-import { clearRagDB } from '../lib/ragStorage';
 
 interface ProfileModalProps {
   isOpen: boolean;
   onClose: () => void;
   currentUser: UserClass | null;
   onSwitchUser: (user: UserClass | null) => Promise<void>;
+  onGoogleLogin: () => Promise<void>;
   onLogout: () => Promise<void>;
+  isAuthLoading: boolean;
   onOpenDossier?: () => void;
   intimateAnswersCount?: number;
   aiDossierType: 'gradual' | 'complete' | null;
@@ -29,7 +24,9 @@ export const ProfileModal = ({
   onClose,
   currentUser,
   onSwitchUser,
+  onGoogleLogin,
   onLogout,
+  isAuthLoading,
   onOpenDossier,
   intimateAnswersCount,
   aiDossierType,
@@ -47,11 +44,9 @@ export const ProfileModal = ({
   useEffect(() => {
     if (isOpen) {
       try {
-        const saved = localStorage.getItem('osone_local_profiles');
+        const saved = localStorage.getItem('arves_local_profiles');
         if (saved) {
-          const profiles = normalizeLocalProfiles(JSON.parse(saved));
-          setLocalProfiles(profiles);
-          localStorage.setItem('osone_local_profiles', JSON.stringify(profiles));
+          setLocalProfiles(JSON.parse(saved));
         } else {
           setLocalProfiles([]);
         }
@@ -62,9 +57,8 @@ export const ProfileModal = ({
   }, [isOpen]);
 
   const saveLocalProfiles = (profiles: UserClass[]) => {
-    const normalized = normalizeLocalProfiles(profiles);
-    setLocalProfiles(normalized);
-    localStorage.setItem('osone_local_profiles', JSON.stringify(normalized));
+    setLocalProfiles(profiles);
+    localStorage.setItem('arves_local_profiles', JSON.stringify(profiles));
   };
 
   const handleCreateLocalProfile = async (e: React.FormEvent) => {
@@ -91,21 +85,13 @@ export const ProfileModal = ({
       return;
     }
 
-    const randomBytes = new Uint8Array(12);
-    crypto.getRandomValues(randomBytes);
-    const newUid = `local_${Array.from(
-      randomBytes,
-      (value) => value.toString(16).padStart(2, '0')
-    ).join('')}`;
-    const newProfile = normalizeLocalProfile({
+    const newUid = `local_${Math.random().toString(36).substring(2, 11)}`;
+    const newProfile: UserClass = {
       uid: newUid,
       displayName: trimmedName,
+      email: `${trimmedName.toLowerCase().replace(/\s+/g, '')}@arves.local`,
       isLocal: true
-    });
-    if (!newProfile) {
-      setErrorMessage('Não foi possível criar um identificador seguro para o perfil.');
-      return;
-    }
+    };
 
     const updated = [...localProfiles, newProfile];
     saveLocalProfiles(updated);
@@ -115,36 +101,23 @@ export const ProfileModal = ({
     await onSwitchUser(newProfile);
   };
 
-  const handleDeleteLocalProfile = async (uidToDelete: string, e: React.MouseEvent) => {
+  const handleDeleteLocalProfile = (uidToDelete: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!LOCAL_PROFILE_UID_PATTERN.test(uidToDelete)) {
-      setErrorMessage('Este perfil possui um identificador inválido.');
-      return;
-    }
-    const profileName =
-      localProfiles.find((profile) => profile.uid === uidToDelete)?.displayName ||
-      'este perfil';
-    if (!window.confirm(`Excluir ${profileName} e todos os dados locais desse perfil?`)) {
-      return;
-    }
-
     const updated = localProfiles.filter(p => p.uid !== uidToDelete);
     saveLocalProfiles(updated);
 
     // If active user was deleted, switch to null (Guest)
     if (currentUser?.uid === uidToDelete) {
-      await onSwitchUser(null);
+      onSwitchUser(null);
     }
 
+    // Clean up local data for deleted user
     try {
-      await Promise.all([
-        deleteMemoryItemsByPrefix(`osone_user_${uidToDelete}_`),
-        clearRagDB(uidToDelete)
-      ]);
-      localStorage.removeItem(`osone_rag_directory_name_${uidToDelete}`);
+      localStorage.removeItem(`arves_user_${uidToDelete}_ai_profile`);
+      localStorage.removeItem(`arves_user_${uidToDelete}_health_data`);
+      localStorage.removeItem(`arves_user_${uidToDelete}_chat_history`);
     } catch (err) {
       console.error(err);
-      setErrorMessage('O perfil foi removido, mas alguns dados locais não puderam ser apagados.');
     }
   };
 
@@ -180,7 +153,7 @@ export const ProfileModal = ({
                 Gerenciador de Perfis
               </h3>
               <p className="text-[10px] text-zinc-500 font-mono mt-0.5 uppercase tracking-wider">
-                Alternador de Consciências OSONE
+                Alternador de Consciências ARVES
               </p>
             </div>
             <button
@@ -191,7 +164,7 @@ export const ProfileModal = ({
             </button>
           </div>
 
-          <div className="p-6 space-y-6 max-h-[75vh] overflow-y-auto custom-scrollbar-osone">
+          <div className="p-6 space-y-6 max-h-[75vh] overflow-y-auto custom-scrollbar-arves">
             {/* Active profile card */}
             <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/5 space-y-3">
               <div className="text-[9px] font-mono uppercase tracking-widest text-zinc-500">Perfil Ativo</div>
@@ -209,12 +182,16 @@ export const ProfileModal = ({
                     <div>
                       <p className="text-xs font-bold text-white leading-tight flex items-center gap-1.5">
                         {currentUser.displayName}
-                        <span className="text-[8px] bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 px-1 py-0.2 rounded-full uppercase font-mono tracking-wider flex items-center gap-0.5">
-                          <Database size={8} /> NAVEGADOR
-                        </span>
+                        {currentUser.isLocal ? (
+                          <span className="text-[8px] bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 px-1 py-0.2 rounded-full uppercase font-mono tracking-wider">LOCAL</span>
+                        ) : (
+                          <span className="text-[8px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1 py-0.2 rounded-full uppercase font-mono tracking-wider flex items-center gap-0.5">
+                            <Cloud size={8} /> CLOUD
+                          </span>
+                        )}
                       </p>
                       <p className="text-[9px] text-zinc-500 font-mono mt-0.5 truncate max-w-[200px]">
-                        {currentUser.email || 'offline-only@osone.local'}
+                        {currentUser.email || 'offline-only@arves.local'}
                       </p>
                     </div>
                   </div>
@@ -241,13 +218,13 @@ export const ProfileModal = ({
               )}
             </div>
 
-            {/* Dossiê de Personalidade do OSONE (IA) */}
+            {/* Dossiê de Personalidade do ARVES (IA) */}
             <div className="p-4 rounded-2xl bg-amber-500/[0.02] border border-amber-500/10 space-y-3 relative overflow-hidden">
               <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/[0.03] blur-xl rounded-full pointer-events-none" />
               <div className="flex items-center justify-between">
                 <span className="text-[9px] font-mono uppercase tracking-widest text-amber-500 font-bold flex items-center gap-1">
                   <Cpu size={10} className="animate-pulse text-amber-450" />
-                  Dossiê de Personalidade OSONE (IA)
+                  Dossiê de Personalidade ARVES (IA)
                 </span>
                 {aiDossierType && (
                   <span className={cn(
@@ -271,7 +248,7 @@ export const ProfileModal = ({
                   ) : showInitSelection ? (
                     <div className="space-y-2.5 pt-1">
                       <p className="text-[10.5px] text-zinc-300 leading-normal font-light">
-                        Escolha como o OSONE deve estruturar a sua alma sintética:
+                        Escolha como o ARVES deve estruturar a sua alma sintética:
                       </p>
                       <div className="grid grid-cols-2 gap-2 pt-1">
                         <button
@@ -331,7 +308,7 @@ export const ProfileModal = ({
                           Iniciar Consciência da IA
                         </p>
                         <p className="text-[9px] text-zinc-500 mt-0.5 leading-tight">
-                          Monte a história, traços Big Five, MBTI, medos e manias próprios do OSONE.
+                          Monte a história, traços Big Five, MBTI, medos e manias próprios do ARVES.
                         </p>
                       </div>
                       <button
@@ -349,7 +326,7 @@ export const ProfileModal = ({
                   <div className="min-w-0">
                     <p className="text-xs font-bold text-amber-400 flex items-center gap-1.5 truncate">
                       <Sparkles size={13} className="animate-pulse" />
-                      OSONE G5 • INFJ
+                      ARVES G5 • INFJ
                     </p>
                     <p className="text-[9px] text-zinc-500 font-mono mt-0.5 uppercase tracking-wider">
                       {aiDossierType === 'complete' 
@@ -408,7 +385,7 @@ export const ProfileModal = ({
                               {isActive && <Check size={11} className="text-cyan-400" />}
                             </p>
                             <p className="text-[8.5px] text-zinc-500 font-mono mt-0.5 uppercase tracking-tighter">
-                              Dados separados neste navegador
+                              Cérebro Local Sincronizado
                             </p>
                           </div>
                         </div>
@@ -485,9 +462,9 @@ export const ProfileModal = ({
             )}
 
             <div className="border-t border-white/5 pt-5 space-y-3">
-              <span className="text-[9px] font-mono uppercase tracking-widest text-zinc-500">Privacidade OSONE</span>
+              <span className="text-[9px] font-mono uppercase tracking-widest text-zinc-500">Privacidade ARVES</span>
               <p className="text-[10px] text-zinc-400 bg-cyan-950/20 border border-cyan-500/15 p-3 rounded-2xl leading-relaxed">
-                Seus perfis, históricos e memórias ficam neste navegador e são separados por perfil. Ao usar IA, pesquisa ou voz, somente a solicitação necessária é enviada ao provedor selecionado. Em aparelho compartilhado, cada pessoa deve usar seu próprio perfil e chave.
+                🔒 **Controle local:** perfis, históricos e memórias ficam armazenados no navegador. Quando você usa um recurso de IA, os dados necessários à solicitação podem ser enviados ao provedor que você configurou.
               </p>
             </div>
           </div>

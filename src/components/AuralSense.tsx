@@ -117,7 +117,7 @@ export function AuralSense({ onBack, onMenuClick, keys }: { onBack?: () => void,
           setVibrationScore(Math.max(-100, Math.min(100, score)));
 
           if (Math.abs(score) > 10) {
-              const event = new CustomEvent('osone_aural_update', { 
+              const event = new CustomEvent('arves_aural_update', { 
                   detail: { frequency: crystalFreq, vibration: score > 0 ? 'positive' : 'dense', intensity: maxVolume } 
               });
               window.dispatchEvent(event);

@@ -8,7 +8,6 @@ import {
 import { cn, safeJsonParse } from '../lib/utils';
 import { SoundEffect } from '../types';
 import { saveAudio } from '../lib/audioDb';
-import { readLocalStorageJson } from '../lib/safeStorage';
 
 export interface GalleryItem {
   id: string;
@@ -71,13 +70,13 @@ export const SoundLibrary = ({
   // Cast members state for Elenco/Gallery
   const [castMembers, setCastMembers] = useState<CastMember[]>(() => {
     try {
-      const saved = localStorage.getItem('osone_cast_albums');
+      const saved = localStorage.getItem('arves_cast_albums');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
     } catch (e) {
-      console.error("Erro ao carregar osone_cast_albums:", e);
+      console.error("Erro ao carregar arves_cast_albums:", e);
     }
     // Default elenco
     return [
@@ -92,10 +91,10 @@ export const SoundLibrary = ({
       },
       {
         id: 'elenco-2',
-        name: 'Henrique',
+        name: 'Leinad',
         items: [
-          { id: 'item-henrique-1', type: 'image', url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600&auto=format&fit=crop&q=80', name: 'Henrique Retrato' },
-          { id: 'item-henrique-2', type: 'image', url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=600&auto=format&fit=crop&q=80', name: 'Henrique Sorridente' }
+          { id: 'item-leinad-1', type: 'image', url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600&auto=format&fit=crop&q=80', name: 'Leinad Retrato' },
+          { id: 'item-leinad-2', type: 'image', url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=600&auto=format&fit=crop&q=80', name: 'Leinad Sorridente' }
         ]
       }
     ];
@@ -103,14 +102,14 @@ export const SoundLibrary = ({
 
   const saveCastMembers = (updated: CastMember[]) => {
     setCastMembers(updated);
-    localStorage.setItem('osone_cast_albums', JSON.stringify(updated));
+    localStorage.setItem('arves_cast_albums', JSON.stringify(updated));
     // Trigger window event so other components receive updates instantly if needed
-    window.dispatchEvent(new Event('osone_cast_albums_updated'));
+    window.dispatchEvent(new Event('arves_cast_albums_updated'));
   };
 
   const [selectedCastId, setSelectedCastId] = useState<string | null>(() => {
     try {
-      const saved = localStorage.getItem('osone_cast_albums');
+      const saved = localStorage.getItem('arves_cast_albums');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) return parsed[0].id;
@@ -199,11 +198,12 @@ export const SoundLibrary = ({
   
   // Playlist State
   const [playlists, setPlaylists] = useState<Playlist[]>(() => {
-    return readLocalStorageJson<Playlist[]>(
-      'osone_playlists_musica',
-      [],
-      (value): value is Playlist[] => Array.isArray(value)
-    );
+    try {
+      const saved = localStorage.getItem('arves_playlists_musica');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
   });
 
   const [isPlaylistModalOpen, setIsPlaylistModalOpen] = useState(false);
@@ -231,7 +231,7 @@ export const SoundLibrary = ({
   // Save playlists helper
   const savePlaylists = (updated: Playlist[]) => {
     setPlaylists(updated);
-    localStorage.setItem('osone_playlists_musica', JSON.stringify(updated));
+    localStorage.setItem('arves_playlists_musica', JSON.stringify(updated));
   };
 
   // Find currently playing sound details
@@ -377,7 +377,7 @@ export const SoundLibrary = ({
     setIsGenerating(true);
     
     try {
-      const prompt = `Você é um gerador de efeitos sonoros e músicas via IA para o sistema operacional OSONE.
+      const prompt = `Você é um gerador de efeitos sonoros e músicas via IA para o sistema operacional ARVES.
       O usuário quer o seguinte som: "${aiPrompt}"
       
       Retorne um JSON com:
@@ -453,7 +453,7 @@ export const SoundLibrary = ({
     const file = e.target.files?.[0];
     if (file) {
       if (file.size > 50 * 1024 * 1024) { 
-        alert('Este arquivo é muito grande. A biblioteca do OSONE suporta músicas e áudios de até 5 minutos (limite de 50MB).');
+        alert('Este arquivo é muito grande. A biblioteca do ARVES suporta músicas e áudios de até 5 minutos (limite de 50MB).');
         return;
       }
       setIsUploading(true);
@@ -480,7 +480,7 @@ export const SoundLibrary = ({
           </div>
           <div>
             <h2 className="text-base md:text-lg font-serif italic text-white/90">Biblioteca de Sons & Música</h2>
-            <p className="text-[8px] md:text-[9px] text-her-muted uppercase tracking-[0.2em] font-light">Efeitos sonoros e playlists do OSONE</p>
+            <p className="text-[8px] md:text-[9px] text-her-muted uppercase tracking-[0.2em] font-light">Efeitos sonoros e playlists do ARVES</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -751,7 +751,7 @@ export const SoundLibrary = ({
 
               {playlists.length === 0 && (
                 <div className="py-8 px-4 text-center text-her-muted italic text-[11px] font-light">
-                  Nenhuma playlist criada. Use o botão acima para organizar suas faixas do OSONE!
+                  Nenhuma playlist criada. Use o botão acima para organizar suas faixas do ARVES!
                 </div>
               )}
             </div>
@@ -866,7 +866,7 @@ export const SoundLibrary = ({
                               ? "bg-purple-500/10 border-purple-500/30 text-purple-300 shadow-[0_0_15px_rgba(168,85,247,0.15)]"
                               : "bg-white/[0.01] border-white/[0.05] text-white/40 hover:text-white/80 hover:bg-white/[0.03]"
                           )}
-                          title="Tocar esta faixa ao ativar o sistema via viva-voz (Ei Osone / Palmas)"
+                          title="Tocar esta faixa ao ativar o sistema via viva-voz (Ei Arves / Palmas)"
                         >
                           <Sparkles size={10} className={chosenInitSoundUrl === sound.url ? "animate-pulse text-purple-400" : "text-white/30"} />
                           <span>{chosenInitSoundUrl === sound.url ? "Inicialização On" : "Tocar no Início"}</span>
@@ -1203,7 +1203,7 @@ export const SoundLibrary = ({
             {/* Volume indicator or auxiliary info */}
             <div className="hidden md:flex items-center gap-2 justify-end w-[30%] font-mono text-[9px] text-her-muted">
               <Volume2 size={12} />
-              <span>Canais Estéreo OSONE Live • 60% Vol</span>
+              <span>Canais Estéreo ARVES Live • 60% Vol</span>
             </div>
           </motion.div>
         )}

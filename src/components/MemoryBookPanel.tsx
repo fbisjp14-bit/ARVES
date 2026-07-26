@@ -48,10 +48,9 @@ interface GroupedChapter {
 interface MemoryBookPanelProps {
   onBack: () => void;
   onAddNotification: (msg: string, type: 'success' | 'error' | 'info') => void;
-  storageKey: string;
 }
 
-export const MemoryBookPanel = ({ onBack, onAddNotification, storageKey }: MemoryBookPanelProps) => {
+export const MemoryBookPanel = ({ onBack, onAddNotification }: MemoryBookPanelProps) => {
   const [memories, setMemories] = useState<MemoryEntry[]>([]);
   const [chapters, setChapters] = useState<GroupedChapter[]>([]);
   const [activeChapterIndex, setActiveChapterIndex] = useState<number>(0);
@@ -91,12 +90,10 @@ export const MemoryBookPanel = ({ onBack, onAddNotification, storageKey }: Memor
 
   // Load conversation memories from localStorage (standard behavior)
   useEffect(() => {
-    setMemories([]);
-    const saved = localStorage.getItem(storageKey);
+    const saved = localStorage.getItem('arves_memory_book');
     if (saved) {
       try {
         const parsed = JSON.parse(saved) as MemoryEntry[];
-        if (!Array.isArray(parsed)) return;
         // Sort chronologically by date and creation time
         parsed.sort((a, b) => {
           if (a.date !== b.date) {
@@ -109,7 +106,7 @@ export const MemoryBookPanel = ({ onBack, onAddNotification, storageKey }: Memor
         console.error("Error reading memory book:", e);
       }
     }
-  }, [storageKey]);
+  }, []);
 
   // Process memories into chapters (grouped by date) and pages
   useEffect(() => {
@@ -201,7 +198,7 @@ export const MemoryBookPanel = ({ onBack, onAddNotification, storageKey }: Memor
 
     const updated = memories.filter(m => m.id !== id);
     setMemories(updated);
-    localStorage.setItem(storageKey, JSON.stringify(updated));
+    localStorage.setItem('arves_memory_book', JSON.stringify(updated));
     onAddNotification("Memória de conversação removida com sucesso.", "success");
   };
 
@@ -312,7 +309,7 @@ export const MemoryBookPanel = ({ onBack, onAddNotification, storageKey }: Memor
             <ArrowLeft size={18} />
           </button>
           <div className="text-left">
-            <span className="block text-[9px] uppercase tracking-[0.3em] text-pink-400 font-mono font-bold">Protocolo de Cognição OSONE</span>
+            <span className="block text-[9px] uppercase tracking-[0.3em] text-pink-400 font-mono font-bold">Protocolo de Cognição ARVES</span>
             <h2 className="text-lg font-bold uppercase tracking-wider text-white font-serif italic">Núcleo Evolutivo de Memória</h2>
           </div>
         </div>
@@ -412,8 +409,8 @@ export const MemoryBookPanel = ({ onBack, onAddNotification, storageKey }: Memor
             </div>
             <h3 className="text-lg font-bold font-serif italic text-zinc-200 mb-2">Suas páginas estão em branco</h3>
             <p className="text-xs text-zinc-400 leading-relaxed mb-6 font-sans">
-              O Livro de Memórias do OSONE registra e consolida as conversas importantes do seu dia. 
-              Ao finalizar ou fechar uma conversa de chat, você poderá salvá-la para que o OSONE organize os tópicos e guarde os aprendizados nestas páginas.
+              O Livro de Memórias do ARVES registra e consolida as conversas importantes do seu dia. 
+              Ao finalizar ou fechar uma conversa de chat, você poderá salvá-la para que o ARVES organize os tópicos e guarde os aprendizados nestas páginas.
             </p>
             <button 
               onClick={onBack}
@@ -540,7 +537,7 @@ export const MemoryBookPanel = ({ onBack, onAddNotification, storageKey }: Memor
 
                   {/* Left Footer: Day bookmark and navigation */}
                   <div className="flex items-center justify-between border-t border-black/5 pt-3 text-[10px] font-mono text-zinc-500">
-                    <span>OSONE MEMORY BOOK</span>
+                    <span>ARVES MEMORY BOOK</span>
                     <span>DAY #{currentChapter ? currentChapter.chapterNum : 1}</span>
                   </div>
                 </div>
@@ -686,7 +683,7 @@ export const MemoryBookPanel = ({ onBack, onAddNotification, storageKey }: Memor
                 </div>
                 
                 <p className="text-xs text-zinc-400 mb-6 font-sans leading-relaxed">
-                  Estes são os fatos objetivos que o OSONE aprendeu sobre você (seus gostos, rotinas, traços). Você pode registrar novos fatos diretamente abaixo.
+                  Estes são os fatos objetivos que o ARVES aprendeu sobre você (seus gostos, rotinas, traços). Você pode registrar novos fatos diretamente abaixo.
                 </p>
 
                 {/* Add Fact Form */}
@@ -751,7 +748,7 @@ export const MemoryBookPanel = ({ onBack, onAddNotification, storageKey }: Memor
                 </div>
 
                 <p className="text-xs text-zinc-400 mb-6 font-sans leading-relaxed">
-                  Registre datas comemorativas, aniversários ou lembretes sazonais. O OSONE as lembrará inteligentemente em suas conversas!
+                  Registre datas comemorativas, aniversários ou lembretes sazonais. O ARVES as lembrará inteligentemente em suas conversas!
                 </p>
 
                 {/* Add Date Form */}
@@ -1012,7 +1009,7 @@ export const MemoryBookPanel = ({ onBack, onAddNotification, storageKey }: Memor
                 </div>
 
                 <p className="text-xs text-zinc-400 mb-6 font-sans leading-relaxed">
-                  Insira conceitos, jargões, filosofias, ou saberes intelectuais importantes. O OSONE os conectará de forma profunda aos fluxos de RAG da IA.
+                  Insira conceitos, jargões, filosofias, ou saberes intelectuais importantes. O ARVES os conectará de forma profunda aos fluxos de RAG da IA.
                 </p>
 
                 <form onSubmit={handleAddSemanticSubmit} className="space-y-4">
@@ -1105,7 +1102,7 @@ export const MemoryBookPanel = ({ onBack, onAddNotification, storageKey }: Memor
                   ))
                 ) : (
                   <div className="col-span-2 text-center py-16 bg-zinc-900/10 border border-dashed border-white/5 rounded-2xl text-zinc-500 italic text-xs font-sans">
-                    Nenhum conceito estruturado na memória conceitual. Adicione ao lado para treinar a inteligência OSONE!
+                    Nenhum conceito estruturado na memória conceitual. Adicione ao lado para treinar a inteligência ARVES!
                   </div>
                 )}
               </div>

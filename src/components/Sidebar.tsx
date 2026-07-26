@@ -4,13 +4,14 @@ import { X, Volume2, FileText, Code2, Folder, Music, Gamepad2, Zap, Activity, Lo
 import { cn } from '../lib/utils';
 import { WorkspaceMode } from '../types';
 
-export const Sidebar = ({ isOpen, onClose, mode, setMode, user, onLogout, onOpenProfileModal, onOpenSettings }: { 
+export const Sidebar = ({ isOpen, onClose, mode, setMode, user, onLogout, onLogin, onOpenProfileModal, onOpenSettings }: { 
   isOpen: boolean; 
   onClose: () => void;
   mode: WorkspaceMode;
   setMode: (mode: WorkspaceMode) => void;
   user?: any;
   onLogout?: () => void;
+  onLogin?: () => void;
   onOpenProfileModal?: () => void;
   onOpenSettings?: () => void;
 }) => (
@@ -32,7 +33,7 @@ export const Sidebar = ({ isOpen, onClose, mode, setMode, user, onLogout, onOpen
           className="fixed inset-y-0 left-0 z-50 w-72 bg-her-bg border-r border-white/[0.03] shadow-2xl p-8 flex flex-col"
         >
           <div className="flex justify-between items-center mb-12">
-            <h1 className="text-2xl font-serif italic tracking-tight font-light text-her-ink/40">OSONE G5</h1>
+            <h1 className="text-2xl font-serif italic tracking-tight font-light text-her-ink/40">ARVES G5</h1>
             <button onClick={onClose} className="p-2 hover:bg-white/[0.03] rounded-full transition-colors text-her-muted">
               <X size={20} />
             </button>
@@ -87,7 +88,7 @@ export const Sidebar = ({ isOpen, onClose, mode, setMode, user, onLogout, onOpen
                   )}
                 >
                   <Code2 size={18} className="text-cyan-400" />
-                  <span>OSONE CODE</span>
+                  <span>ARVES CODE</span>
                 </button>
 
                 <button 
@@ -225,7 +226,11 @@ export const Sidebar = ({ isOpen, onClose, mode, setMode, user, onLogout, onOpen
                   <div className="min-w-0">
                     <p className="text-[11px] font-bold text-her-ink/80 truncate leading-tight">{user.displayName}</p>
                     <p className="text-[8px] text-zinc-400 truncate mt-0.5">{user.email}</p>
-                    <p className="text-[7px] text-cyan-400 mt-1 uppercase tracking-wider font-semibold">Dados locais separados</p>
+                    {user.isLocal ? (
+                      <p className="text-[7px] text-cyan-400 mt-1 uppercase tracking-wider font-semibold">Cérebro Local</p>
+                    ) : (
+                      <p className="text-[7px] text-emerald-400 mt-1 uppercase tracking-wider font-semibold">Firebase Secure</p>
+                    )}
                   </div>
                 </div>
                 {onLogout && (

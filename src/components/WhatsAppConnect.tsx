@@ -70,10 +70,6 @@ export function WhatsAppConnect({ onStatusChange, className = '' }: WhatsAppConn
       if (res.ok) {
         const data = await res.json();
         setStatus(data.status || 'iniciando');
-      } else {
-        const data = await res.json().catch(() => ({}));
-        setStatus('erro');
-        setErrorMsg(data.error || 'Conector local indisponível. Use Evolution API.');
       }
     } catch (e: any) {
       setErrorMsg(e.message || "Erro ao conectar WhatsApp");
@@ -98,10 +94,13 @@ export function WhatsAppConnect({ onStatusChange, className = '' }: WhatsAppConn
     }
   };
 
-  // Do not start a Puppeteer session automatically. The removed legacy
-  // connector was incompatible with serverless and could crash the app.
+  // Connect automatically on component mount
   useEffect(() => {
-    checkStatus();
+    handleConnect();
+
+    // Setup status polling
+    const interval = setInterval(checkStatus, 3000);
+    return () => clearInterval(interval);
   }, [checkStatus]);
 
   return (
@@ -122,7 +121,7 @@ export function WhatsAppConnect({ onStatusChange, className = '' }: WhatsAppConn
                 Local Session
               </span>
             </h3>
-            <p className="text-xs text-zinc-400">Conector local legado desativado • use Evolution API</p>
+            <p className="text-xs text-zinc-400">whatsapp-web.js via Puppeteer local</p>
           </div>
         </div>
 
@@ -183,7 +182,7 @@ export function WhatsAppConnect({ onStatusChange, className = '' }: WhatsAppConn
 
             <h4 className="text-lg font-bold text-white mb-1">WhatsApp Sincronizado e Ativo!</h4>
             <p className="text-sm text-emerald-300/80 mb-4 max-w-sm">
-              Sua sessão local do WhatsApp está pareada e pronta para responder mensagens via OSONE IA.
+              Sua sessão local do WhatsApp está pareada e pronta para responder mensagens via ARVES IA.
             </p>
 
             {phoneInfo.name && (
@@ -245,7 +244,7 @@ export function WhatsAppConnect({ onStatusChange, className = '' }: WhatsAppConn
           </motion.div>
         )}
 
-        {/* State 3: INICIANDO / LOADING (Com Orbe de Constelação Neural Laranja OSONE) */}
+        {/* State 3: INICIANDO / LOADING (Com Orbe de Constelação Neural Laranja ARVES) */}
         {(status === 'iniciando' || isConnecting) && (
           <motion.div
             key="loading"
@@ -267,7 +266,7 @@ export function WhatsAppConnect({ onStatusChange, className = '' }: WhatsAppConn
             </div>
 
             <h4 className="text-base font-bold text-white mb-1">
-              Inicializando Motor Puppeteer OSONE...
+              Inicializando Motor Puppeteer ARVES...
             </h4>
             <p className="text-xs text-orange-300/80 max-w-sm">
               Carregando Chromium e autenticação persistente em disco...
@@ -338,7 +337,7 @@ export function WhatsAppConnect({ onStatusChange, className = '' }: WhatsAppConn
           <RefreshCw size={12} className="animate-spin text-orange-400" />
           Status atualizado em tempo real (Polling 3s)
         </span>
-        <span className="font-mono text-zinc-400">OSONE v5.0</span>
+        <span className="font-mono text-zinc-400">ARVES v5.0</span>
       </div>
     </div>
   );

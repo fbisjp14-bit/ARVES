@@ -1,7 +1,7 @@
 // IndexedDB Audio Storage Manager
 // Solves localStorage 5MB local limits for larger audio files (e.g. songs up to 5 minutes / ~50MB)
 
-const DB_NAME = "OSONE_AUDIO_STORE";
+const DB_NAME = "ARVES_AUDIO_STORE";
 const STORE_NAME = "audios";
 const DB_VERSION = 1;
 

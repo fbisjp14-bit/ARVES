@@ -27,11 +27,11 @@ const NeuralConstellationCanvas = ({
     const handleAssistantVoice = (e: any) => {
       assistantLevelRef.current = active ? e.detail.level : 0;
     };
-    window.addEventListener('osone_user_voice', handleUserVoice);
-    window.addEventListener('osone_assistant_voice', handleAssistantVoice);
+    window.addEventListener('arves_user_voice', handleUserVoice);
+    window.addEventListener('arves_assistant_voice', handleAssistantVoice);
     return () => {
-      window.removeEventListener('osone_user_voice', handleUserVoice);
-      window.removeEventListener('osone_assistant_voice', handleAssistantVoice);
+      window.removeEventListener('arves_user_voice', handleUserVoice);
+      window.removeEventListener('arves_assistant_voice', handleAssistantVoice);
     };
   }, [active]);
 
@@ -450,9 +450,9 @@ const NeuralConstellationCanvas = ({
         if (p.colorType === 'white') {
           color = `rgba(255, 250, 240, ${Math.min(1, alpha * 0.95)})`;
         } else if (p.colorType === 'cyan') {
-          color = `rgba(249, 115, 22, ${Math.min(0.85, alpha * 0.8)})`;
+          color = `rgba(59, 130, 246, ${Math.min(0.85, alpha * 0.8)})`;
         } else {
-          color = `rgba(234, 88, 12, ${Math.min(0.75, alpha * 0.6)})`;
+          color = `rgba(29, 78, 216, ${Math.min(0.75, alpha * 0.6)})`;
         }
 
         return {
@@ -478,7 +478,7 @@ const NeuralConstellationCanvas = ({
           const sizeBonus = node.size * (1.1 + node.flashScale * 3.0);
           ctx.arc(node.x, node.y, Math.max(1.0, sizeBonus), 0, Math.PI * 2);
           ctx.shadowBlur = Math.round(14 * node.flashScale);
-          ctx.shadowColor = '#f97316';
+          ctx.shadowColor = '#2563eb';
           ctx.fillStyle = `rgba(255, 255, 255, ${Math.min(1.0, node.flashScale * 1.5)})`;
           ctx.fill();
           ctx.shadowBlur = 0; // reset optimization
@@ -503,7 +503,7 @@ const NeuralConstellationCanvas = ({
 
   return (
     <div className="relative w-44 h-44 md:w-56 md:h-56 flex items-center justify-center bg-transparent overflow-visible">
-      <div className="absolute inset-0 rounded-full bg-orange-500/5 blur-[55px] pointer-events-none" />
+      <div className="absolute inset-0 rounded-full bg-blue-500/5 blur-[55px] pointer-events-none" />
       <canvas 
         ref={canvasRef} 
         className="overflow-visible" 
@@ -537,9 +537,9 @@ export const InfinityLogo = ({
         setUserRms(0);
       }
     };
-    window.addEventListener('osone_user_voice', handleUserVoice);
+    window.addEventListener('arves_user_voice', handleUserVoice);
     return () => {
-      window.removeEventListener('osone_user_voice', handleUserVoice);
+      window.removeEventListener('arves_user_voice', handleUserVoice);
     };
   }, [active]);
 
@@ -889,7 +889,7 @@ export const InfinityLogo = ({
         return (
           <div className="relative flex items-center justify-center overflow-visible w-full h-full">
             {/* Background Smoky Dreamy Volumetric Glow */}
-            <div className="absolute w-32 h-32 rounded-full bg-orange-500/5 mix-blend-screen blur-[30px] opacity-40 select-none pointer-events-none" />
+            <div className="absolute w-32 h-32 rounded-full bg-blue-500/5 mix-blend-screen blur-[30px] opacity-40 select-none pointer-events-none" />
             <div className={`absolute w-36 h-36 rounded-full bg-stone-300/10 mix-blend-color-dodge blur-[40px] transition-opacity duration-1000 ${active ? 'opacity-30' : 'opacity-10'} select-none pointer-events-none`} />
 
             {/* Layer 1: Outermost Translucent Smoke Wisp */}
@@ -920,7 +920,7 @@ export const InfinityLogo = ({
                 borderRadius: { duration: 7.5, repeat: Infinity, ease: "easeInOut" },
                 rotate: { duration: 25, repeat: Infinity, ease: "linear" }
               }}
-              className="absolute w-24 h-24 md:w-28 md:h-28 bg-gradient-to-tr from-orange-500/[0.06] via-stone-400/[0.04] to-orange-400/[0.08] border border-orange-500/10 shadow-[inset_0_0_15px_rgba(249,115,22,0.1),0_8px_20px_rgba(249,115,22,0.04)]"
+              className="absolute w-24 h-24 md:w-28 md:h-28 bg-gradient-to-tr from-blue-500/[0.06] via-stone-400/[0.04] to-blue-400/[0.08] border border-blue-500/10 shadow-[inset_0_0_15px_rgba(59, 130, 246,0.1),0_8px_20px_rgba(59, 130, 246,0.04)]"
               style={{ filter: "blur(3px)" }}
             />
 
@@ -936,7 +936,7 @@ export const InfinityLogo = ({
                 borderRadius: { duration: 6, repeat: Infinity, ease: "easeInOut" },
                 rotate: { duration: 18, repeat: Infinity, ease: "linear" }
               }}
-              className="absolute w-18 h-18 md:w-22 md:h-22 bg-gradient-to-bl from-white/[0.85] via-stone-200/[0.5] to-orange-450/[0.3] shadow-[inset_0_4px_12px_rgba(255,255,255,1),inset_0_-4px_12px_rgba(249,115,22,0.15),0_0_15px_rgba(255,255,255,0.4)]"
+              className="absolute w-18 h-18 md:w-22 md:h-22 bg-gradient-to-bl from-white/[0.85] via-stone-200/[0.5] to-blue-400/[0.3] shadow-[inset_0_4px_12px_rgba(255,255,255,1),inset_0_-4px_12px_rgba(59, 130, 246,0.15),0_0_15px_rgba(255,255,255,0.4)]"
             >
               {/* Internal Refraction Wisp */}
               <motion.div
@@ -945,7 +945,7 @@ export const InfinityLogo = ({
                   opacity: [0.4, 0.8, 0.4],
                 }}
                 transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut" }}
-                className="absolute inset-[3px] rounded-full bg-gradient-to-br from-orange-400/20 to-transparent mix-blend-overlay blur-[2px]"
+                className="absolute inset-[3px] rounded-full bg-gradient-to-br from-blue-400/20 to-transparent mix-blend-overlay blur-[2px]"
               />
               <div className="absolute inset-0 rounded-full shadow-[inset_0_2px_6px_rgba(255,255,255,0.95)]" style={{ mixBlendMode: 'overlay' }} />
             </motion.div>
@@ -972,7 +972,7 @@ export const InfinityLogo = ({
                     opacity: [0.3, 0.7, 0.3]
                   }}
                   transition={{ duration: 4 + i * 1.5, repeat: Infinity, ease: "easeInOut" }}
-                  className="w-2.5 h-2.5 rounded-full bg-gradient-to-tr from-white to-orange-400/50"
+                  className="w-2.5 h-2.5 rounded-full bg-gradient-to-tr from-white to-blue-400/50"
                   style={{ filter: 'blur(1px)' }}
                 />
               </motion.div>
@@ -1192,7 +1192,7 @@ export const InfinityLogo = ({
         "absolute inset-0 transition-all duration-1000",
         style === 'wave' ? "rounded-3xl" : "rounded-full",
         (active || combinedSpeaking) ? (
-          (style === 'superintelligence' || style === 'smoke') ? "bg-orange-500/10 blur-[100px] scale-110" : 
+          (style === 'superintelligence' || style === 'smoke') ? "bg-blue-500/10 blur-[100px] scale-110" : 
           style === 'jarvis' ? "bg-cyan-500/15 blur-[120px] scale-110" :
           style === 'wave' ? "bg-cyan-500/10 blur-[110px] scale-110" :
           "bg-her-accent/10 blur-[100px] scale-110"
@@ -1222,7 +1222,7 @@ export const InfinityLogo = ({
         <motion.div
           animate={{ rotate: [0, 360], scale: [1, 1.1, 1] }}
           transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-          className="absolute inset-0 border border-orange-400/10 rounded-full"
+          className="absolute inset-0 border border-blue-400/10 rounded-full"
         />
       )}
 
@@ -1256,7 +1256,7 @@ export const InfinityLogo = ({
                 style === 'wave' 
                   ? "border-cyan-400/25 rounded-full" // Clean pristine circular ripple
                   : (style === 'superintelligence' || style === 'smoke') 
-                    ? "border-orange-400/30 rounded-full" 
+                    ? "border-blue-400/30 rounded-full" 
                     : style === 'jarvis' 
                       ? "border-cyan-400/30 rounded-full" 
                       : "border-her-accent/30 rounded-full"

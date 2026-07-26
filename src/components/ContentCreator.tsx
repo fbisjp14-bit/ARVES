@@ -7,7 +7,6 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 import { ApiKeys } from '../types';
-import { MAX_AI_FILE_BYTES } from '../lib/requestLimits';
 
 interface ContentCreatorProps {
   apiKeys: ApiKeys;
@@ -168,11 +167,6 @@ export function ContentCreator({ apiKeys, addNotification, onSaveToVirtualWorksp
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > Math.min(MAX_AI_FILE_BYTES, 1_000_000)) {
-      addNotification('A base de conhecimento deve ter no máximo 1 MB.', 'error');
-      e.target.value = '';
-      return;
-    }
 
     setKbFileName(file.name);
     
@@ -255,14 +249,14 @@ Considere as diretrizes, ideias e exemplos contidos nesta Base de Conhecimento f
 
       const approachedPrompt = selectedApproaches.length > 0 
         ? `Use obrigatoriamente as seguintes abordagens científicas/futuristas escolhidas pelo usuário para pautar o roteiro: [${selectedApproaches.map(id => SCIENTIFIC_APPROACHES.find(a => a.id === id)?.name).join(', ')}].`
-        : `Você (OSONE) deve escolher ativamente entre 3 e 5 destas abordagens científicas/futuristas para modelar o roteiro e o embasamento cognitivo do usuário: Análise de Camadas Causais (CLA), Planejamento de Cenários, Princípio da Menor Ação, Lei de Snell-Descartes, Cognição Quântica, Economia Comportamental, Arquitetura de Escolha & Nudging, Modelo de Comportamento de Fogg, Teoria Cognitiva Social (SCT), Backcasting, Método Delphi, Análise Morfológica, Roda do Futuro, Análise de Impacto Cruzado, Heurística do Olhar, Monitoramento de Wild Cards, Teoria do Caos, Entropia Comportamental, Condicionamento Operante, Modelagem Baseada em Agentes.`;
+        : `Você (ARVES) deve escolher ativamente entre 3 e 5 destas abordagens científicas/futuristas para modelar o roteiro e o embasamento cognitivo do usuário: Análise de Camadas Causais (CLA), Planejamento de Cenários, Princípio da Menor Ação, Lei de Snell-Descartes, Cognição Quântica, Economia Comportamental, Arquitetura de Escolha & Nudging, Modelo de Comportamento de Fogg, Teoria Cognitiva Social (SCT), Backcasting, Método Delphi, Análise Morfológica, Roda do Futuro, Análise de Impacto Cruzado, Heurística do Olhar, Monitoramento de Wild Cards, Teoria do Caos, Entropia Comportamental, Condicionamento Operante, Modelagem Baseada em Agentes.`;
 
       const prompt = `
-Você é o OSONE Neural Short-Form Scriptwriter, especialista em neurocomunicação, storytelling educativo e hiper-viralização no TikTok, Reels, YouTube Shorts e Kwai.
+Você é o ARVES Neural Short-Form Scriptwriter, especialista em neurocomunicação, storytelling educativo e hiper-viralização no TikTok, Reels, YouTube Shorts e Kwai.
 Sua missão especial é criar roteiros e textos baseados em neurociência que não apenas informem, mas que "assinem" o cérebro do espectador através de gatilhos neuroquímicos e ativação de áreas cerebrais específicas.
 
 Siga obrigatoriamente este protocolo que prioriza o processamento cognitivo antes da redação:
-"osone, quando você for criar um roteiro, antes de escrever, pense sobre as áreas cerebrais que precisam ser acessadas. Só depois de analisar a neurociência envolvida no aprendizado daquele tema, você irá escrever o roteiro de acordo, garantindo que as palavras escolhidas sejam 'bússolas' que guiam o cérebro para o estado de fluxo e compreensão máxima."
+"arves, quando você for criar um roteiro, antes de escrever, pense sobre as áreas cerebrais que precisam ser acessadas. Só depois de analisar a neurociência envolvida no aprendizado daquele tema, você irá escrever o roteiro de acordo, garantindo que as palavras escolhidas sejam 'bússolas' que guiam o cérebro para o estado de fluxo e compreensão máxima."
 
 Informações base enviadas pelo usuário:
 - Tema/Nicho do Canal: "${channelTema}"
@@ -363,14 +357,14 @@ O schema JSON deve ser rigorosamente o seguinte:
       });
 
       if (!response.ok) {
-        throw new Error(`Falha no processador neural OSONE: status ${response.status}`);
+        throw new Error(`Falha no processador neural ARVES: status ${response.status}`);
       }
 
       const resData = await response.json();
       const rawText = resData.candidates?.[0]?.content?.parts?.[0]?.text || '';
       
       if (!rawText) {
-        throw new Error('OSONE processou as ideias, mas a resposta retornou vazia. Tente novamente.');
+        throw new Error('ARVES processou as ideias, mas a resposta retornou vazia. Tente novamente.');
       }
 
       // Parse JSON safely
@@ -427,7 +421,7 @@ O schema JSON deve ser rigorosamente o seguinte:
       }
 
       const prompt = `
-Você é o OSONE Neural Short-Form Scriptwriter.
+Você é o ARVES Neural Short-Form Scriptwriter.
 O usuário selecionou especificamente a Ideia #${ideaId} de 9 ideias virais geradas para o canal sobre: "${channelTema}".
 
 [DADOS DA IDEIA SELECIONADA]:
@@ -521,7 +515,7 @@ Responda APENAS em formato JSON válido:
     if (!activeScript) return;
 
     const fileContent = `=====================================================
-OSONE VIRAL SHORT-FORM CREATIVE AUDIO/SCRIPT
+ARVES VIRAL SHORT-FORM CREATIVE AUDIO/SCRIPT
 =====================================================
 TEMA DE CANAL: ${channelTema}
 IDEIA CONCEITO: ${activeScript.title} (Ideia #${selectedIdeaId || 1})
@@ -544,7 +538,7 @@ SCENE ${idx + 1}: ${s.scene}
 `).join('\n')}
 
 ---
-Gerado por OSONE G5 Creative Media Center.
+Gerado por ARVES G5 Creative Media Center.
 `;
     const cleanFileName = `roteiro_viral_${activeScript.title.toLowerCase().replace(/[^a-z0-9]/g, '_')}.txt`;
     onSaveToVirtualWorkspace(cleanFileName, fileContent);
@@ -641,7 +635,7 @@ Responda RIGOROSAMENTE com um objeto JSON puro, sem textos adicionais, seguindo 
   };
 
   return (
-    <div className="w-full flex flex-col gap-6" id="osone_content_creator_hub">
+    <div className="w-full flex flex-col gap-6" id="arves_content_creator_hub">
       {/* HEADER BAR */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 bg-white/[0.01] border-b border-white/[0.04]">
         <div className="flex items-center gap-3">
@@ -763,7 +757,7 @@ Responda RIGOROSAMENTE com um objeto JSON puro, sem textos adicionais, seguindo 
               <textarea
                 value={knowledgeBaseText}
                 onChange={(e) => setKnowledgeBaseText(e.target.value)}
-                placeholder="Cole regras estratégicas, roteiros milionários do TikTok/Shorts ou diretrizes que já deram muito certo para o OSONE seguir..."
+                placeholder="Cole regras estratégicas, roteiros milionários do TikTok/Shorts ou diretrizes que já deram muito certo para o ARVES seguir..."
                 className="w-full min-h-[90px] bg-black/40 border border-white/[0.06] focus:border-orange-500/30 rounded-xl p-3 text-xs font-light text-zinc-100 focus:outline-none transition-all resize-none leading-relaxed placeholder:text-stone-600"
               />
 
@@ -909,7 +903,7 @@ Responda RIGOROSAMENTE com um objeto JSON puro, sem textos adicionais, seguindo 
           <div className="p-4 rounded-2xl bg-cyan-950/10 border border-cyan-800/10 text-[11px] text-cyan-400 font-light flex items-start gap-2.5">
             <Info size={16} className="shrink-0 text-cyan-400 mt-0.5" />
             <p className="leading-relaxed">
-              O OSONE sincronizará as criações, ideias e roteiros formados diretamente com a aba de documentos e o seu computador via <strong>Canal RAG integrado</strong>, facilitando edições físicas no seu PC em tempo real!
+              O ARVES sincronizará as criações, ideias e roteiros formados diretamente com a aba de documentos e o seu computador via <strong>Canal RAG integrado</strong>, facilitando edições físicas no seu PC em tempo real!
             </p>
           </div>
         </div>
@@ -931,7 +925,7 @@ Responda RIGOROSAMENTE com um objeto JSON puro, sem textos adicionais, seguindo 
                 </div>
                 <h3 className="text-sm font- serif text-white/50 mb-1 italic">Estúdio Criativo Aguardando Chamado</h3>
                 <p className="text-xs text-her-muted max-w-sm mb-6 leading-relaxed">
-                  Insira as referências do seu canal à esquerda ou carregue as bases e inicie o OSONE para estruturar o roteiro ideal de retenção.
+                  Insira as referências do seu canal à esquerda ou carregue as bases e inicie o ARVES para estruturar o roteiro ideal de retenção.
                 </p>
                 <div className="flex gap-2 max-w-md flex-wrap justify-center">
                   <span className="text-[9px] bg-white/[0.02] text-her-muted/80 px-2.5 py-1 rounded-full border border-white/[0.05]">9 Ideias Simultâneas</span>
@@ -999,7 +993,7 @@ Responda RIGOROSAMENTE com um objeto JSON puro, sem textos adicionais, seguindo 
                   </div>
 
                   <p className="text-xs text-her-muted max-w-xs mx-auto leading-relaxed mt-2">
-                    O OSONE está consultando o cérebro do Gemini para estruturar o fluxo psicológico de retenção perfeito baseado na sua aba local.
+                    O ARVES está consultando o cérebro do Gemini para estruturar o fluxo psicológico de retenção perfeito baseado na sua aba local.
                   </p>
 
                   {/* Progressive loading bar */}
@@ -1337,7 +1331,7 @@ Responda RIGOROSAMENTE com um objeto JSON puro, sem textos adicionais, seguindo 
                               Expandindo Roteiro de Retenção para a Ideia #{selectedIdeaId}...
                             </h4>
                             <p className="text-xs text-her-muted max-w-sm leading-relaxed">
-                              O OSONE está formatando a estrutura em 3 partes e a linha de narração personalizada para a sua ideia escolhida.
+                              O ARVES está formatando a estrutura em 3 partes e a linha de narração personalizada para a sua ideia escolhida.
                             </p>
                           </div>
                         ) : (() => {
@@ -1465,7 +1459,7 @@ Responda RIGOROSAMENTE com um objeto JSON puro, sem textos adicionais, seguindo 
                                       </div>
                                       <div>
                                         <h5 className="text-xs font-bold text-white uppercase tracking-wider">Prompts de Imagem para a Ideia #{selectedIdeaId || 1}</h5>
-                                        <p className="text-[10px] text-her-muted mt-0.5">O OSONE criará fórmulas e prompts cinematográficos ultra detalhados para cada cena desta ideia.</p>
+                                        <p className="text-[10px] text-her-muted mt-0.5">O ARVES criará fórmulas e prompts cinematográficos ultra detalhados para cada cena desta ideia.</p>
                                       </div>
                                     </div>
                                     
@@ -1601,7 +1595,7 @@ Responda RIGOROSAMENTE com um objeto JSON puro, sem textos adicionais, seguindo 
                             Protocolo Neural & Cognição Pré-Redação
                           </h4>
                           <p className="text-[11px] text-zinc-400">
-                            Estudo e mapeamento prévio realizado pelo OSONE antes da redação do roteiro, com base nas teorias de ação comportamental e física.
+                            Estudo e mapeamento prévio realizado pelo ARVES antes da redação do roteiro, com base nas teorias de ação comportamental e física.
                           </p>
                         </div>
 
@@ -1611,7 +1605,7 @@ Responda RIGOROSAMENTE com um objeto JSON puro, sem textos adicionais, seguindo 
                             <div className="p-5 rounded-2xl bg-purple-500/[0.02] border border-purple-500/20 relative overflow-hidden shadow-xl">
                               <div className="absolute top-0 right-0 w-24 h-24 bg-purple-500/5 blur-2xl rounded-full" />
                               <span className="text-[8px] uppercase tracking-widest font-mono text-purple-400 font-bold bg-purple-500/15 px-2.5 py-0.5 rounded-full border border-purple-500/15">
-                                Reflexão de Consciência de osone
+                                Reflexão de Consciência de arves
                               </span>
                               <p className="text-xs text-purple-100/90 italic font-mono leading-relaxed mt-3 whitespace-pre-wrap leading-relaxed select-text">
                                 "{output.neuroAnalysis.cognitivePreWritingReflexion}"

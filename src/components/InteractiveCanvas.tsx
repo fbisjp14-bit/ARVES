@@ -8,7 +8,6 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { DrawingObject } from '../types';
-import { MAX_AI_FILE_BYTES } from '../lib/requestLimits';
 
 interface InteractiveCanvasProps {
   objects: DrawingObject[];
@@ -723,11 +722,6 @@ export function InteractiveCanvas({ objects, setObjects, onClear, isAIProcessing
   const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith('image/') || file.size > MAX_AI_FILE_BYTES) {
-      window.alert('Selecione uma imagem de até 2,5 MB.');
-      e.target.value = '';
-      return;
-    }
 
     const reader = new FileReader();
     reader.onload = (event) => {
@@ -901,7 +895,7 @@ export function InteractiveCanvas({ objects, setObjects, onClear, isAIProcessing
 
       // Save to disk
       const link = document.createElement('a');
-      link.download = `osone-paint-${transparent ? 'alpha' : 'backdrop'}.png`;
+      link.download = `arves-paint-${transparent ? 'alpha' : 'backdrop'}.png`;
       link.href = printerCanvas.toDataURL();
       link.click();
     }, 50);
@@ -921,7 +915,7 @@ export function InteractiveCanvas({ objects, setObjects, onClear, isAIProcessing
             <Sparkles size={18} className="animate-pulse" />
           </div>
           <div>
-            <h2 className="text-sm font-bold tracking-wider uppercase text-white">Estúdio de Arte OSONE</h2>
+            <h2 className="text-sm font-bold tracking-wider uppercase text-white">Estúdio de Arte ARVES</h2>
             <p className="text-[10px] text-white/40 font-mono">Quadro dinâmico multifuncional à mão livre e objetos inteligentes</p>
           </div>
         </div>
@@ -1280,7 +1274,7 @@ export function InteractiveCanvas({ objects, setObjects, onClear, isAIProcessing
                         <Sparkles size={28} className="text-purple-400 animate-spin" />
                       </div>
                       <h3 className="text-sm font-bold font-mono tracking-widest text-purple-400">ANALISANDO O QUADRO...</h3>
-                      <p className="text-[10px] text-white/30 font-mono mt-1 px-4 max-w-sm">O canal neural do OSONE está ouvindo ou estruturando respostas...</p>
+                      <p className="text-[10px] text-white/30 font-mono mt-1 px-4 max-w-sm">O canal neural do ARVES está ouvindo ou estruturando respostas...</p>
                     </motion.div>
                   ) : (
                     <div className="flex flex-col items-center opacity-25">

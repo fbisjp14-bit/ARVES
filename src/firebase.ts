@@ -1,23 +1,4 @@
-import { initializeApp } from "firebase/app";
-import { 
-  getAuth, 
-  GoogleAuthProvider, 
-  signInWithPopup, 
-  signOut, 
-  onAuthStateChanged,
-  type User 
-} from "firebase/auth";
-import { getFirestore, doc, setDoc, getDoc, updateDoc, onSnapshot, collection } from "firebase/firestore";
-// Merge settings with explicit environment variables (e.g. on Vercel or GitHub builds)
-const mergedConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "",
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "",
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "",
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "",
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "",
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || "",
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "",
-};
+import type { User } from "./types";
 
 // Firebase is disabled by explicit developer instruction (fully operating in offline/local-profiles mode)
 export const isFirebaseFullyConfigured = false;
@@ -121,4 +102,3 @@ export {
   customOnSnapshot as onSnapshot, 
   customCollection as collection
 };
-

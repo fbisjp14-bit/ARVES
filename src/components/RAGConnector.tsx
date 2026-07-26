@@ -7,30 +7,82 @@ import {
 } from 'lucide-react';
 import { RagFile } from '../types';
 import { cn } from '../lib/utils';
-import {
-  clearRagDB,
-  deleteRagFileFromDB,
-  loadRagFilesFromDB,
-  MAX_RAG_FILE_BYTES,
-  MAX_RAG_FILES,
-  MAX_RAG_TOTAL_BYTES,
-  saveRagFileToDB
-} from '../lib/ragStorage';
+
+// Simple IndexedDB helper for robust RAG persistence
+export const openIDB = (): Promise<IDBDatabase> => {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open("arves_rag_db", 1);
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains("files")) {
+        db.createObjectStore("files", { keyPath: "id" });
+      }
+    };
+  });
+};
+
+export const saveRagFileToDB = async (file: RagFile): Promise<void> => {
+  try {
+    const db = await openIDB();
+    const transaction = db.transaction("files", "readwrite");
+    const store = transaction.objectStore("files");
+    store.put(file);
+  } catch (err) {
+    console.error("IndexedDB Save Error:", err);
+  }
+};
+
+export const deleteRagFileFromDB = async (id: string): Promise<void> => {
+  try {
+    const db = await openIDB();
+    const transaction = db.transaction("files", "readwrite");
+    const store = transaction.objectStore("files");
+    store.delete(id);
+  } catch (err) {
+    console.error("IndexedDB Delete Error:", err);
+  }
+};
+
+export const clearRagDB = async (): Promise<void> => {
+  try {
+    const db = await openIDB();
+    const transaction = db.transaction("files", "readwrite");
+    const store = transaction.objectStore("files");
+    store.clear();
+  } catch (err) {
+    console.error("IndexedDB Clear Error:", err);
+  }
+};
+
+export const loadRagFilesFromDB = (): Promise<RagFile[]> => {
+  return new Promise((resolve) => {
+    openIDB().then(db => {
+      const transaction = db.transaction("files", "readonly");
+      const store = transaction.objectStore("files");
+      const request = store.getAll();
+      request.onsuccess = () => resolve(request.result || []);
+      request.onerror = () => resolve([]);
+    }).catch(err => {
+      console.error("IndexedDB Load Error:", err);
+      resolve([]);
+    });
+  });
+};
 
 export const RAGConnector = ({
   ragFiles,
   setRagFiles,
-  storageScope,
   onAddNotification
 }: {
   ragFiles: RagFile[];
   setRagFiles: React.Dispatch<React.SetStateAction<RagFile[]>>;
-  storageScope: string;
   onAddNotification?: (msg: string, type: 'success' | 'info' | 'error') => void;
 }) => {
   const [isScanning, setIsScanning] = useState(false);
   const [selectedDirectoryName, setSelectedDirectoryName] = useState<string>(() => {
-    return localStorage.getItem(`osone_rag_directory_name_${storageScope}`) || '';
+    return localStorage.getItem('arves_rag_directory_name') || '';
   });
   const [searchTerm, setSearchTerm] = useState('');
   const [testQuery, setTestQuery] = useState('');
@@ -43,18 +95,12 @@ export const RAGConnector = ({
 
   // Load files from IndexedDB on start
   useEffect(() => {
-    let cancelled = false;
-    setSelectedDirectoryName(
-      localStorage.getItem(`osone_rag_directory_name_${storageScope}`) || ''
-    );
-    setSelectedFileContents(null);
-    loadRagFilesFromDB(storageScope).then(files => {
-      if (!cancelled) setRagFiles(files);
+    loadRagFilesFromDB().then(files => {
+      if (files.length > 0) {
+        setRagFiles(files);
+      }
     });
-    return () => {
-      cancelled = true;
-    };
-  }, [setRagFiles, storageScope]);
+  }, [setRagFiles]);
 
   // Handle native showDirectoryPicker
   const handleConnectDirectory = async () => {
@@ -69,33 +115,19 @@ export const RAGConnector = ({
       setIsScanning(true);
       const dirHandle = await (window as any).showDirectoryPicker();
       setSelectedDirectoryName(dirHandle.name);
-      localStorage.setItem(`osone_rag_directory_name_${storageScope}`, dirHandle.name);
+      localStorage.setItem('arves_rag_directory_name', dirHandle.name);
 
       const accumulated: { name: string; path: string; content: string; size: number }[] = [];
-      let accumulatedBytes = ragFiles.reduce(
-        (sum, file) => sum + Math.max(0, Number(file.size) || file.content.length),
-        0
-      );
       
       const readDir = async (handle: any, currentPath = "") => {
         for await (const entry of handle.values()) {
-          if (
-            ragFiles.length + accumulated.length >= MAX_RAG_FILES ||
-            accumulatedBytes >= MAX_RAG_TOTAL_BYTES
-          ) {
-            break;
-          }
           const relativePath = currentPath ? `${currentPath}/${entry.name}` : entry.name;
           if (entry.kind === 'file') {
             const file = await entry.getFile();
             const ext = file.name.split('.').pop()?.toLowerCase() || '';
             const allowedExts = ['txt', 'md', 'json', 'js', 'ts', 'jsx', 'tsx', 'html', 'css', 'csv', 'yaml', 'yml', 'xml', 'log', 'ini', 'conf'];
             
-            if (
-              file.size <= MAX_RAG_FILE_BYTES &&
-              accumulatedBytes + file.size <= MAX_RAG_TOTAL_BYTES &&
-              (allowedExts.includes(ext) || file.type.startsWith('text/'))
-            ) {
+            if (allowedExts.includes(ext) || file.type.startsWith('text/')) {
               try {
                 const text = await file.text();
                 accumulated.push({
@@ -104,7 +136,6 @@ export const RAGConnector = ({
                   content: text,
                   size: file.size
                 });
-                accumulatedBytes += file.size;
               } catch (e) {
                 console.warn(`Could not read file ${entry.name}`, e);
               }
@@ -145,7 +176,7 @@ export const RAGConnector = ({
 
       // Store in IndexedDB and state
       for (const rf of newRagFiles) {
-        await saveRagFileToDB(rf, storageScope);
+        await saveRagFileToDB(rf);
       }
 
       setRagFiles(prev => {
@@ -184,21 +215,8 @@ export const RAGConnector = ({
   const processUploadedFiles = async (files: File[]) => {
     setIsScanning(true);
     let count = 0;
-    let rejected = 0;
-    let totalBytes = ragFiles.reduce(
-      (sum, file) => sum + Math.max(0, Number(file.size) || file.content.length),
-      0
-    );
     
     for (const file of files) {
-      if (
-        ragFiles.length + count >= MAX_RAG_FILES ||
-        file.size > MAX_RAG_FILE_BYTES ||
-        totalBytes + file.size > MAX_RAG_TOTAL_BYTES
-      ) {
-        rejected += 1;
-        continue;
-      }
       const ext = file.name.split('.').pop()?.toLowerCase() || '';
       const text = await file.text();
       
@@ -212,30 +230,19 @@ export const RAGConnector = ({
         isActive: true
       };
 
-      try {
-        await saveRagFileToDB(ragFile, storageScope);
-        setRagFiles(prev => {
-          if (prev.some(p => p.name === ragFile.name)) {
-            return prev.map(p => p.name === ragFile.name ? ragFile : p);
-          }
-          return [...prev, ragFile];
-        });
-        count++;
-        totalBytes += file.size;
-      } catch {
-        rejected += 1;
-      }
+      await saveRagFileToDB(ragFile);
+      setRagFiles(prev => {
+        if (prev.some(p => p.name === ragFile.name)) {
+          return prev.map(p => p.name === ragFile.name ? ragFile : p);
+        }
+        return [...prev, ragFile];
+      });
+      count++;
     }
 
     setIsScanning(false);
     if (onAddNotification && count > 0) {
       onAddNotification(`${count} arquivos manuais indexados no RAG local com sucesso!`, "success");
-    }
-    if (onAddNotification && rejected > 0) {
-      onAddNotification(
-        `${rejected} arquivo(s) ignorado(s): limite de 1 MB por arquivo, 200 arquivos ou 20 MB por perfil.`,
-        'info'
-      );
     }
   };
 
@@ -244,9 +251,7 @@ export const RAGConnector = ({
     setRagFiles(prev => prev.map(f => {
       if (f.id === id) {
         const updated = { ...f, isActive: !f.isActive };
-        void saveRagFileToDB(updated, storageScope).catch(() => {
-          onAddNotification?.('Não foi possível salvar a alteração no RAG local.', 'error');
-        });
+        saveRagFileToDB(updated);
         return updated;
       }
       return f;
@@ -255,7 +260,7 @@ export const RAGConnector = ({
 
   // Delete specific file
   const handleDeleteFile = async (id: string) => {
-    await deleteRagFileFromDB(id, storageScope);
+    await deleteRagFileFromDB(id);
     setRagFiles(prev => prev.filter(f => f.id !== id));
     if (onAddNotification) {
       onAddNotification("Documento desvinculado do cérebro local.", "info");
@@ -265,10 +270,10 @@ export const RAGConnector = ({
   // Disconnect all
   const handleDisconnectAll = async () => {
     if (confirm("Deseja desconectar absolutamente todos os documentos vinculados da sua máquina local?")) {
-      await clearRagDB(storageScope);
+      await clearRagDB();
       setRagFiles([]);
       setSelectedDirectoryName('');
-      localStorage.removeItem(`osone_rag_directory_name_${storageScope}`);
+      localStorage.removeItem('arves_rag_directory_name');
       if (onAddNotification) {
         onAddNotification("Todos os documentos locais foram desvinculados com sucesso.", "success");
       }
@@ -335,7 +340,7 @@ export const RAGConnector = ({
             Conexão de Documentos Locais
           </h2>
           <p className="text-xs text-her-muted font-light mt-1 max-w-xl">
-            Sincronize pastas de projetos ou notas privadas do seu PC. O OSONE G5 usará essa inteligência exclusiva para responder no chat ou debater por voz (Live).
+            Sincronize pastas de projetos ou notas privadas do seu PC. O ARVES G5 usará essa inteligência exclusiva para responder no chat ou debater por voz (Live).
           </p>
         </div>
 
@@ -633,13 +638,13 @@ export const RAGConnector = ({
                 </h3>
                 <div className="text-xs text-her-muted font-light space-y-3 leading-relaxed">
                   <p>
-                    O OSONE G5 utiliza o padrão **RAG (Retrieval-Augmented Generation)**. Diferente de treinar novamente uma grande rede neural, o RAG expande o cérebro da nossa inteligência enviando de forma dinâmica os arquivos mais importantes do seu computador como suporte imediato.
+                    O ARVES G5 utiliza o padrão **RAG (Retrieval-Augmented Generation)**. Diferente de treinar novamente uma grande rede neural, o RAG expande o cérebro da nossa inteligência enviando de forma dinâmica os arquivos mais importantes do seu computador como suporte imediato.
                   </p>
                   <p>
-                    Utilizando a **API de Acesso ao Sistema de Arquivos do Navegador**, nós conectamos a pasta selecionada de maneira local e segura. O navegador lê os arquivos diretamente do seu HD e realiza o controle sem trafegar seus arquivos por servidores terceiros.
+                    Utilizando a **API de Acesso ao Sistema de Arquivos do Navegador**, conectamos somente a pasta selecionada. A leitura e a seleção de trechos acontecem no navegador; os trechos usados em uma pergunta podem ser enviados ao provedor de IA configurado.
                   </p>
                   <p>
-                    Sempre que você manda uma pergunta no chat ou discute sobre qualquer assunto, o OSONE vasculha as palavras e trechos de maior afinidade e os injeta nos prompts de forma síncrona.
+                    Sempre que você manda uma pergunta no chat ou discute sobre qualquer assunto, o ARVES vasculha as palavras e trechos de maior afinidade e os injeta nos prompts de forma síncrona.
                   </p>
                 </div>
               </div>
@@ -647,16 +652,16 @@ export const RAGConnector = ({
               <div className="space-y-4 bg-white/[0.01] border border-white/[0.03] p-5 rounded-2xl">
                 <h3 className="text-sm font-sans font-bold text-her-ink/80 flex items-center gap-2 uppercase tracking-wide text-xs">
                   <Info size={14} className="text-cyan-400" />
-                  Privacidade Absoluta
+                  Privacidade sob seu controle
                 </h3>
                 <div className="text-xs text-her-muted font-light space-y-3 leading-relaxed">
                   <p>
-                    Seus dados nunca são doados ou processados em servidores na nuvem sem seu comando. Tudo acontece sob segurança criptográfica local:
+                    O ARVES trabalha com acesso explícito e escopo limitado:
                   </p>
                   <ul className="list-disc pl-4 space-y-2">
-                    <li>Os arquivos sincronizados residem com segurança no seu próprio navegador via banco de dados **IndexedDB**.</li>
-                    <li>Sua chave de API do Gemini no Settings serve de ponte apenas no envio do prompt + trecho final solicitado.</li>
-                    <li>O OSONE não possui acesso constante fora do contexto ativo da aplicação. Suas permissões são exclusivas.</li>
+                    <li>Os arquivos selecionados ficam no navegador via **IndexedDB**, sujeito às regras de armazenamento e limpeza do próprio navegador.</li>
+                    <li>Somente os trechos relevantes à pergunta são anexados ao prompt enviado à API configurada.</li>
+                    <li>O ARVES não acessa pastas fora do escopo concedido e não mantém acesso quando a permissão do navegador é revogada.</li>
                   </ul>
                 </div>
               </div>

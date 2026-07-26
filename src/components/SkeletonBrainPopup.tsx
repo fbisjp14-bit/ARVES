@@ -69,7 +69,7 @@ export function SkeletonBrainPopup({ plan, onApprove, onReject }: SkeletonBrainP
           {/* Footer Actions */}
           <div className="shrink-0 p-8 border-t border-white/[0.05] bg-white/[0.02] flex flex-col md:flex-row items-center gap-4">
             <div className="flex-1 text-[11px] text-her-muted leading-relaxed text-center md:text-left">
-              Ao aprovar, o <b>OSONE G5</b> iniciará a construção seguindo rigorosamente a sequência lógica acima.
+              Ao aprovar, o <b>ARVES G5</b> iniciará a construção seguindo rigorosamente a sequência lógica acima.
             </div>
             <div className="flex items-center gap-3 w-full md:w-auto">
               <button

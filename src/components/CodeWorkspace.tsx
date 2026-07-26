@@ -39,7 +39,7 @@ const DEFAULT_FILES: CodeRepositoryFile[] = [
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>OSONE CODE App</title>
+  <title>ARVES CODE App</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
   <style>
@@ -55,7 +55,7 @@ const DEFAULT_FILES: CodeRepositoryFile[] = [
 
     <div>
       <h1 class="text-2xl font-bold bg-gradient-to-r from-cyan-400 to-emerald-400 bg-clip-text text-transparent">
-        OSONE CODE Studio
+        ARVES CODE Studio
       </h1>
       <p class="text-xs text-zinc-400 mt-2">
         Arquitetura de Agentes Swarm & Harness Engineering.
@@ -63,9 +63,9 @@ const DEFAULT_FILES: CodeRepositoryFile[] = [
     </div>
 
     <div class="p-4 rounded-xl bg-black/40 border border-white/5 text-left text-xs font-mono text-cyan-300/80 space-y-1">
-      <div>> Sistema OSONE CODE v5.0 ativo</div>
+      <div>> Sistema ARVES CODE v5.0 ativo</div>
       <div>> Swarm Engine (PM, Architect, Coder, QA) pronto</div>
-      <div>> Clique em "🐝 ENXAME OSONE CODE" para criar jogos</div>
+      <div>> Clique em "🐝 ENXAME ARVES CODE" para criar jogos</div>
     </div>
 
     <button id="counterBtn" class="w-full py-3 px-6 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black font-semibold transition-all transform active:scale-95 shadow-lg shadow-cyan-500/20">
@@ -91,7 +91,7 @@ const DEFAULT_FILES: CodeRepositoryFile[] = [
     name: 'styles.css',
     language: 'css',
     updatedAt: Date.now() - 3600000,
-    content: `/* Custom OSONE Stylesheet */
+    content: `/* Custom ARVES Stylesheet */
 :root {
   --primary: #06b6d4;
   --bg-dark: #090a0f;
@@ -110,7 +110,7 @@ body {
     language: 'javascript',
     updatedAt: Date.now() - 7200000,
     content: `// Main Application Logic
-console.log("OSONE CODE Studio Inicializado!");
+console.log("ARVES CODE Studio Inicializado!");
 
 function calculateMetrics(a, b) {
   return a * b;
@@ -127,7 +127,7 @@ export const CodeWorkspace: React.FC<{
 }> = ({ onClose, onGenerateCodeRequest, onStartLiveVoice, apiKeys, isGenerating }) => {
   const [files, setFiles] = useState<CodeRepositoryFile[]>(() => {
     try {
-      const saved = localStorage.getItem('osone_code_repository_files');
+      const saved = localStorage.getItem('arves_code_repository_files');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
@@ -179,7 +179,7 @@ export const CodeWorkspace: React.FC<{
   useEffect(() => {
     const handleRepoUpdated = () => {
       try {
-        const saved = localStorage.getItem('osone_code_repository_files');
+        const saved = localStorage.getItem('arves_code_repository_files');
         if (saved) {
           const parsed = JSON.parse(saved);
           if (Array.isArray(parsed) && parsed.length > 0) {
@@ -188,14 +188,14 @@ export const CodeWorkspace: React.FC<{
         }
       } catch (e) {}
     };
-    window.addEventListener('osone_repository_updated', handleRepoUpdated);
-    return () => window.removeEventListener('osone_repository_updated', handleRepoUpdated);
+    window.addEventListener('arves_repository_updated', handleRepoUpdated);
+    return () => window.removeEventListener('arves_repository_updated', handleRepoUpdated);
   }, []);
 
   // Auto-save repository files to localStorage
   useEffect(() => {
     try {
-      localStorage.setItem('osone_code_repository_files', JSON.stringify(files));
+      localStorage.setItem('arves_code_repository_files', JSON.stringify(files));
       setIsSaved(true);
     } catch (e) {
       console.error("Erro ao salvar repositório:", e);
@@ -317,7 +317,7 @@ export const CodeWorkspace: React.FC<{
       const effectiveApiKey = apiKeys?.gemini || '';
       const currentCode = activeFile ? activeFile.content : '';
 
-      const systemInstruction = `Você é o HUNTER, o Caçador e Examinador Agêntico de Código do OSONE Studio.
+      const systemInstruction = `Você é o HUNTER, o Caçador e Examinador Agêntico de Código do ARVES Studio.
 Sua missão é examinar o CÓDIGO FONTE ATUAL do arquivo do repositório ("${activeFile?.name || 'código'}") contra as REQUISITOS E PEDIDO DO USUÁRIO.
 
 Sua meta é GARANTIR 100% de conformidade, precisão e integridade do código sem faltar nada do pedido:
@@ -392,7 +392,7 @@ ${currentCode}`;
 
         if (parsed.correctedCode && parsed.correctedCode.trim().length > 0) {
           handleUpdateActiveContent(parsed.correctedCode);
-          window.dispatchEvent(new Event('osone_repository_updated'));
+          window.dispatchEvent(new Event('arves_repository_updated'));
         }
       }
     } catch (err: any) {
@@ -428,7 +428,7 @@ ${currentCode}`;
       setSwarmCurrentStep('pm');
       addSwarmLog('📋 Agente de Produto', 'Analisando conceito e criando o Game Design Document (GDD)...', 'info');
 
-      const pmSystemInstruction = `Você é o AGENTE DE PRODUTO (Product Manager) do OSONE CODE Swarm Engine.
+      const pmSystemInstruction = `Você é o AGENTE DE PRODUTO (Product Manager) do ARVES CODE Swarm Engine.
 Sua missão é pegar a ideia do usuário para um jogo ou aplicação web em HTML5 e desdobrá-la em um Game Design Document (GDD) completo com requisitos, mecânicas, regras de pontuação/vitória/derrota e controles.
 
 FORMATO OBRIGATÓRIO (JSON estrito):
@@ -466,7 +466,7 @@ FORMATO OBRIGATÓRIO (JSON estrito):
       setSwarmCurrentStep('architect');
       addSwarmLog('🏗️ Agente de Arquitetura', 'Projetando estrutura de arquivos, game loop e gerenciamento de estado...', 'info');
 
-      const architectSystemInstruction = `Você é o AGENTE DE ARQUITETURA (Software Architect) do OSONE CODE Swarm Engine.
+      const architectSystemInstruction = `Você é o AGENTE DE ARQUITETURA (Software Architect) do ARVES CODE Swarm Engine.
 Mapeie a estrutura de arquivos e o game loop (requestAnimationFrame), detecção de colisões, estado do canvas/DOM e bibliotecas unificadas.
 
 FORMATO OBRIGATÓRIO (JSON estrito):
@@ -513,7 +513,7 @@ FORMATO OBRIGATÓRIO (JSON estrito):
         setSwarmCurrentStep('coder');
         addSwarmLog('💻 Agente de Engenharia', `Codificando projeto completo em HTML5 + Canvas (Iteração ${currentIter}/${maxHarnessIterations})...`, 'info');
 
-        const coderSystemInstruction = `Você é o AGENTE DE ENGENHARIA (Engineer/Coder) do OSONE CODE Swarm Engine.
+        const coderSystemInstruction = `Você é o AGENTE DE ENGENHARIA (Engineer/Coder) do ARVES CODE Swarm Engine.
 Sua missão é escrever o CÓDIGO FONTE 100% COMPLETO, FUNCIONAL E LINDO no arquivo "index.html".
 O código DEVE conter:
 - HTML5 completo com <head>, estilo e <script> unificados no mesmo arquivo.
@@ -550,7 +550,7 @@ IMPORTANTE: Retorne APENAS O CÓDIGO FONTE HTML CRU sem explicações e sem mark
         setSwarmCurrentStep('qa');
         addSwarmLog('🧪 Agente de QA (Harness Evaluator)', `Executando testes automáticos de qualidade (Iteração ${currentIter})...`, 'info');
 
-        const qaSystemInstruction = `Você é o AGENTE DE QA & TESTES (QA Tester / Harness Evaluator) do OSONE CODE Swarm Engine.
+        const qaSystemInstruction = `Você é o AGENTE DE QA & TESTES (QA Tester / Harness Evaluator) do ARVES CODE Swarm Engine.
 Analise criteriosamente o código HTML/JS/CSS gerado contra o GDD e pedido do usuário.
 
 Verifique:
@@ -611,15 +611,15 @@ FORMATO OBRIGATÓRIO (JSON estrito):
       // STAGE 5: ASSEMBLY & REPOSITORY SYNCHRONIZATION
       // ==========================================
       setSwarmCurrentStep('assembly');
-      addSwarmLog('🚀 Cérebro Integrador', 'Aplicando o projeto aprovado no Repositório do OSONE CODE...', 'info');
+      addSwarmLog('🚀 Cérebro Integrador', 'Aplicando o projeto aprovado no Repositório do ARVES CODE...', 'info');
 
       if (lastCode && lastCode.trim()) {
         handleUpdateActiveContent(lastCode);
-        window.dispatchEvent(new Event('osone_repository_updated'));
+        window.dispatchEvent(new Event('arves_repository_updated'));
       }
 
       setSwarmStatus('success');
-      addSwarmLog('🚀 Cérebro Integrador', '✨ Projeto finalizado e testado pelo Enxame de Agentes OSONE CODE!', 'success');
+      addSwarmLog('🚀 Cérebro Integrador', '✨ Projeto finalizado e testado pelo Enxame de Agentes ARVES CODE!', 'success');
 
     } catch (err: any) {
       console.error("Erro na execução do Enxame Swarm:", err);
@@ -649,7 +649,7 @@ FORMATO OBRIGATÓRIO (JSON estrito):
           <div className="flex items-center gap-2">
             <Code2 size={18} className="text-cyan-400" />
             <h2 className="text-sm font-semibold tracking-tight text-white font-mono flex items-center gap-2">
-              OSONE CODE
+              ARVES CODE
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 font-normal">
                 {files.length} arquivo(s)
               </span>
@@ -705,10 +705,10 @@ FORMATO OBRIGATÓRIO (JSON estrito):
           <button 
             onClick={() => setIsSwarmModalOpen(true)}
             className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-purple-600 via-cyan-600 to-emerald-600 hover:from-purple-500 hover:to-emerald-500 text-white font-mono font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-purple-950/60 active:scale-95 cursor-pointer border border-purple-400/40 transition-all"
-            title="Enxame OSONE CODE: 4 Agentes Especializados + Harness Engineering em Loop Autônomo!"
+            title="Enxame ARVES CODE: 4 Agentes Especializados + Harness Engineering em Loop Autônomo!"
           >
             <Bot size={16} className="text-purple-200 animate-pulse" />
-            <span className="tracking-wider hidden sm:inline">🐝 ENXAME OSONE CODE</span>
+            <span className="tracking-wider hidden sm:inline">🐝 ENXAME ARVES CODE</span>
           </button>
 
           {/* BOTÃO HUNTER NOVO */}
@@ -841,7 +841,7 @@ FORMATO OBRIGATÓRIO (JSON estrito):
               {/* Footer status */}
               <div className="p-3 border-t border-white/5 bg-black/40 text-[10px] font-mono text-zinc-500 flex items-center justify-between">
                 <span>{isSaved ? "✓ Repositório Salvo" : "• Alterações não salvas"}</span>
-                <span className="text-cyan-400">OSONE CODE</span>
+                <span className="text-cyan-400">ARVES CODE</span>
               </div>
             </motion.div>
           )}
@@ -904,7 +904,7 @@ FORMATO OBRIGATÓRIO (JSON estrito):
           {/* AI Quick Prompts */}
           <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
             <span className="text-[10px] font-mono text-cyan-400/80 uppercase tracking-wider flex items-center gap-1 shrink-0">
-              <Sparkles size={11} /> OSONE CODE IA:
+              <Sparkles size={11} /> ARVES CODE IA:
             </span>
 
             {[
@@ -978,7 +978,7 @@ FORMATO OBRIGATÓRIO (JSON estrito):
 
                   <div>
                     <h3 className="text-lg font-bold text-white font-mono flex items-center gap-2">
-                      🐝 OSONE CODE — ENXAME DE AGENTES & HARNESS LOOPS
+                      🐝 ARVES CODE — ENXAME DE AGENTES & HARNESS LOOPS
                       <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30 font-normal">
                         Game & Web Architecture Engine
                       </span>
