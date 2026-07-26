@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { DrawingObject } from '../types';
+import { MAX_AI_FILE_BYTES } from '../lib/requestLimits';
 
 interface InteractiveCanvasProps {
   objects: DrawingObject[];
@@ -722,6 +723,11 @@ export function InteractiveCanvas({ objects, setObjects, onClear, isAIProcessing
   const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (!file.type.startsWith('image/') || file.size > MAX_AI_FILE_BYTES) {
+      window.alert('Selecione uma imagem de até 2,5 MB.');
+      e.target.value = '';
+      return;
+    }
 
     const reader = new FileReader();
     reader.onload = (event) => {

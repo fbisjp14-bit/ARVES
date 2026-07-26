@@ -88,7 +88,8 @@ import { WellnessCenter } from './components/WellnessCenter';
 import { AuralSense } from './components/AuralSense';
 import { TikTokLivePanel } from './components/TikTokLivePanel';
 import { InteractiveCanvas } from './components/InteractiveCanvas';
-import { RAGConnector, loadRagFilesFromDB, saveRagFileToDB } from './components/RAGConnector';
+import { RAGConnector } from './components/RAGConnector';
+import { loadRagFilesFromDB, saveRagFileToDB } from './lib/ragStorage';
 import { ContentCreator } from './components/ContentCreator';
 import { SmartHomeConnect } from './components/SmartHomeConnect';
 
@@ -107,8 +108,11 @@ import osoneOrbImage from './assets/images/osone_constellation_orb_1782154846239
 import { SoundEffect, DrawingObject, User } from './types';
 import { getMemoryItem, setMemoryItem } from './lib/indexedDbMemory';
 import { generatePDF } from './lib/pdfUtils';
+import { createXlsxBlob, normalizeXlsxFileName } from './lib/excelUtils';
 import { resolveAudioUrl, deleteAudio } from './lib/audioDb';
-import { auth, googleProvider, signInWithPopup, signOut, onAuthStateChanged, db, doc, setDoc, getDoc, OperationType, handleFirestoreError } from './firebase';
+import { normalizeLocalProfile } from './lib/localProfiles';
+import { getSystemDocument } from './lib/systemDocs';
+import { auth, googleProvider, signInWithPopup, signOut, onAuthStateChanged, db, doc, setDoc, getDoc, OperationType, handleFirestoreError } from './localAuthCompat';
 
 // Safe helper to dynamically load PDF.js from cdnjs for client-side PDF text extraction
 const loadPdfJs = async (): Promise<any> => {
@@ -823,173 +827,104 @@ const getFriendlyModeName = (mode: WorkspaceMode): string => {
   }
 };
 
-// Queue player for handling dynamic chunk-by-chunk playback of base64 audio chunks from ElevenLabs
-class ElevenLabsQueuePlayer {
-  private audioCtx: AudioContext | null = null;
-  private nextPlayTime: number = 0;
-  private isPlaying: boolean = false;
-  private queue: AudioBuffer[] = [];
-  private onStateChange: (speaking: boolean) => void;
-  private activeSources: any[] = [];
-  public onQueueDrained: (() => void) | null = null;
-  public isStreamFinished: boolean = false;
+const createDefaultApiKeys = (): ApiKeys => ({
+  gemini: '',
+  googleHomeId: '',
+  googleHomeToken: '',
+  elevenLabsApiKey: '',
+  elevenLabsVoiceId: '',
+  elevenLabsVoiceId2: '',
+  elevenLabsVoiceId3: '',
+  elevenLabsActiveVoice: 'voice1',
+  elevenLabsStability: 0.5,
+  elevenLabsSimilarityBoost: 0.75,
+  elevenLabsStyle: 0,
+  elevenLabsSpeakerBoost: true,
+  elevenLabsModel: 'eleven_multilingual_v2',
+  geminiModel: 'gemini-3.6-flash',
+  aiProvider: 'gemini',
+  openaiApiKey: '',
+  openaiFallbackEnabled: true,
+  openaiModel: 'gpt-5.6-sol',
+  openaiImageQuality: 'high',
+  openaiResearchMode: 'standard'
+});
 
-  constructor(onStateChange: (speaking: boolean) => void) {
-    this.onStateChange = onStateChange;
+const normalizeStoredUser = (value: unknown): User | null => {
+  if (!value || typeof value !== 'object') return null;
+  const candidate = value as Partial<User>;
+  if (candidate.isLocal) return normalizeLocalProfile(candidate);
+  const uid = typeof candidate.uid === 'string' ? candidate.uid.trim() : '';
+  const displayName =
+    typeof candidate.displayName === 'string'
+      ? candidate.displayName.trim().slice(0, 80)
+      : '';
+  const email =
+    typeof candidate.email === 'string'
+      ? candidate.email.trim().slice(0, 254)
+      : '';
+  if (!/^[A-Za-z0-9:_-]{4,128}$/.test(uid) || !displayName) return null;
+  return {
+    uid,
+    displayName,
+    email,
+    ...(typeof candidate.photoURL === 'string' &&
+    /^https:\/\//i.test(candidate.photoURL)
+      ? { photoURL: candidate.photoURL.slice(0, 2_048) }
+      : {})
+  };
+};
+
+const apiKeyStorageKeyForUser = (activeUser: User | null): string => {
+  const profile = normalizeStoredUser(activeUser);
+  return profile
+    ? `osone_user_${profile.uid}_api_keys`
+    : 'osone_guest_api_keys';
+};
+
+const readStoredLocalUser = (): User | null => {
+  try {
+    const saved = localStorage.getItem('osone_last_active_user');
+    if (!saved) return null;
+    const profile = normalizeStoredUser(JSON.parse(saved));
+    if (!profile) localStorage.removeItem('osone_last_active_user');
+    return profile;
+  } catch {
+    localStorage.removeItem('osone_last_active_user');
+    return null;
   }
+};
 
-  public resetStreamState() {
-    this.isStreamFinished = false;
+const readApiKeysForUser = (activeUser: User | null): ApiKeys => {
+  const defaults = createDefaultApiKeys();
+  try {
+    const scopedKey = apiKeyStorageKeyForUser(activeUser);
+    const scoped = localStorage.getItem(scopedKey);
+    const legacy = localStorage.getItem('osone_api_keys');
+    const saved = scoped || legacy;
+    if (!saved) return defaults;
+    const parsed = JSON.parse(saved);
+    const normalized: ApiKeys = {
+      ...defaults,
+      ...parsed,
+      aiProvider: 'gemini',
+      openaiModel: 'gpt-5.6-sol',
+      openaiFallbackEnabled: parsed.openaiFallbackEnabled !== false
+    };
+    if (!scoped && legacy) {
+      localStorage.setItem(scopedKey, JSON.stringify(normalized));
+    }
+    return normalized;
+  } catch {
+    return defaults;
   }
-
-  public markStreamFinished() {
-    this.isStreamFinished = true;
-    if (!this.isPlaying && this.activeSources.length === 0 && this.queue.length === 0) {
-      setTimeout(() => {
-        if (!this.isPlaying && this.activeSources.length === 0 && this.queue.length === 0) {
-          if (this.onQueueDrained) {
-            this.onQueueDrained();
-          }
-        }
-      }, 350);
-    }
-  }
-
-  private async initAudio() {
-    if (!this.audioCtx || this.audioCtx.state === 'closed') {
-      this.audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-    }
-    if (this.audioCtx.state === 'suspended') {
-      try {
-        await this.audioCtx.resume();
-      } catch (_) {}
-    }
-  }
-
-  public async addChunk(base64Data: string) {
-    await this.initAudio();
-    if (!this.audioCtx) return;
-
-    try {
-      const binaryString = window.atob(base64Data);
-      const len = binaryString.length;
-      if (len === 0) return;
-
-      const bytes = new Uint8Array(len);
-      for (let i = 0; i < len; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
-
-      let audioBuffer: AudioBuffer | null = null;
-
-      // Primary: Raw 24kHz Int16 PCM (2 bytes per sample, 1 channel)
-      if (len % 2 === 0) {
-        try {
-          const int16Array = new Int16Array(bytes.buffer);
-          const float32Array = new Float32Array(int16Array.length);
-          for (let i = 0; i < int16Array.length; i++) {
-            float32Array[i] = int16Array[i] / 32768.0;
-          }
-          audioBuffer = this.audioCtx.createBuffer(1, float32Array.length, 24000);
-          audioBuffer.getChannelData(0).set(float32Array);
-        } catch (_) {}
-      }
-
-      // Fallback: Web Audio decodeAudioData for MP3/WAV
-      if (!audioBuffer) {
-        try {
-          audioBuffer = await this.audioCtx.decodeAudioData(bytes.buffer.slice(0));
-        } catch (_) {}
-      }
-
-      if (audioBuffer) {
-        this.queue.push(audioBuffer);
-        this.processQueue();
-      }
-    } catch (e) {
-      console.warn("Soft warning: failed to decode an individual audio chunk:", e);
-    }
-  }
-
-  private processQueue() {
-    if (!this.audioCtx) return;
-
-    const currentTime = this.audioCtx.currentTime;
-    if (this.nextPlayTime < currentTime) {
-      this.nextPlayTime = currentTime;
-    }
-
-    while (this.queue.length > 0) {
-      const chunk = this.queue.shift();
-      if (!chunk) break;
-
-      const source = this.audioCtx.createBufferSource();
-      source.buffer = chunk;
-      source.connect(this.audioCtx.destination);
-      this.activeSources.push(source);
-
-      source.start(this.nextPlayTime);
-      this.nextPlayTime += chunk.duration;
-      this.isPlaying = true;
-      this.onStateChange(true);
-
-      source.onended = () => {
-        this.activeSources = this.activeSources.filter(s => s !== source);
-        if (this.activeSources.length === 0 && this.queue.length === 0) {
-          setTimeout(() => {
-            if (this.activeSources.length === 0 && this.queue.length === 0) {
-              this.isPlaying = false;
-              this.onStateChange(false);
-              if (this.isStreamFinished && this.onQueueDrained) {
-                this.onQueueDrained();
-              }
-            }
-          }, 350);
-        }
-      };
-    }
-  }
-
-  public stop() {
-    this.queue = [];
-    this.isPlaying = false;
-    this.isStreamFinished = false;
-    this.nextPlayTime = 0;
-    
-    this.activeSources.forEach(s => {
-      try { s.stop(); } catch (_) {}
-    });
-    this.activeSources = [];
-
-    if (this.audioCtx && this.audioCtx.state !== 'closed') {
-      try {
-        this.audioCtx.close();
-      } catch (_) {}
-      this.audioCtx = null;
-    }
-    this.onStateChange(false);
-  }
-}
+};
 
 export default function App() {
-  const [user, setUser] = useState<User | null>(() => {
-    try {
-      const saved = localStorage.getItem('osone_last_active_user');
-      return saved ? JSON.parse(saved) : null;
-    } catch {
-      return null;
-    }
-  });
+  const [user, setUser] = useState<User | null>(readStoredLocalUser);
   const isCloudSyncReady = useRef<boolean>(false);
   const [isAuthLoading, setIsAuthLoading] = useState(false);
-  const [isGuestMode, setIsGuestMode] = useState(() => {
-    try {
-      const saved = localStorage.getItem('osone_last_active_user');
-      return !saved;
-    } catch {
-      return true;
-    }
-  });
+  const [isGuestMode, setIsGuestMode] = useState(() => !readStoredLocalUser());
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
@@ -1019,8 +954,6 @@ export default function App() {
 
   // ====== TikTok Live Global Integration State ======
   const [tiktokUser, setTiktokUser] = useState(() => localStorage.getItem('osone_tiktok_user') || '');
-  const [tiktokSessionId, setTiktokSessionId] = useState(() => localStorage.getItem('osone_tiktok_session_id') || '');
-  const [tiktokTargetIdc, setTiktokTargetIdc] = useState(() => localStorage.getItem('osone_tiktok_target_idc') || '');
   const [tiktokState, setTiktokState] = useState<any>({
     status: 'disconnected',
     username: '',
@@ -1032,18 +965,11 @@ export default function App() {
   const [tiktokLoading, setTiktokLoading] = useState(false);
   const [isLiveNarratorActive, setIsLiveNarratorActive] = useState(() => localStorage.getItem('osone_tiktok_live_narrator_active') === 'true');
   const [liveNarratorVoice, setLiveNarratorVoice] = useState(() => localStorage.getItem('osone_tiktok_live_narrator_voice') || 'default');
+  const liveNarratorAudioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     localStorage.setItem('osone_tiktok_user', tiktokUser);
   }, [tiktokUser]);
-
-  useEffect(() => {
-    localStorage.setItem('osone_tiktok_session_id', tiktokSessionId);
-  }, [tiktokSessionId]);
-
-  useEffect(() => {
-    localStorage.setItem('osone_tiktok_target_idc', tiktokTargetIdc);
-  }, [tiktokTargetIdc]);
 
   useEffect(() => {
     localStorage.setItem('osone_tiktok_live_narrator_active', String(isLiveNarratorActive));
@@ -1069,13 +995,6 @@ export default function App() {
           if (data.username && !tiktokUser) {
             setTiktokUser(data.username);
           }
-          if (data.sessionId && !tiktokSessionId) {
-            setTiktokSessionId(data.sessionId);
-          }
-          if (data.targetIdc && !tiktokTargetIdc) {
-            setTiktokTargetIdc(data.targetIdc);
-          }
-
           // Handle Speech synthesis of new comments/gifts in real-time
           if (data.status === 'connected' && data.logs && data.logs.length > 0) {
             if (isFirstPollRef.current) {
@@ -1094,25 +1013,58 @@ export default function App() {
                 processedLogsRef.current.add(log.id);
                 
                 if (isLiveNarratorActive && (log.type === 'chat' || log.type === 'gift')) {
-                  // Speak using Web Speech Synthesis
-                  if (typeof window !== 'undefined' && window.speechSynthesis) {
-                    let text = '';
-                    if (log.type === 'chat') {
-                      text = `${log.user} comentou: ${log.message}`;
-                    } else if (log.type === 'gift') {
-                      text = `${log.user} enviou o presente: ${log.message}`;
-                    }
-                    if (text) {
-                      const utterance = new SpeechSynthesisUtterance(text);
-                      utterance.lang = 'pt-BR';
-                      if (liveNarratorVoice && liveNarratorVoice !== 'default') {
-                        const voices = window.speechSynthesis.getVoices();
-                        const matched = voices.find(v => v.name === liveNarratorVoice);
-                        if (matched) utterance.voice = matched;
+                  const narrationText = log.type === 'chat'
+                    ? `${log.user} comentou: ${log.message}`
+                    : `${log.user} enviou o presente: ${log.message}`;
+                  void (async () => {
+                    try {
+                      const response = await fetch('/api/tts', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          text: narrationText,
+                          engine: voiceEngine,
+                          clientApiKey: apiKeys.gemini || '',
+                          voice: liveNarratorVoice,
+                          elevenLabsApiKey: apiKeys.elevenLabsApiKey || '',
+                          elevenLabsVoiceId: getActiveElevenLabsVoiceId(),
+                          elevenLabsModel: apiKeys.elevenLabsModel,
+                          elevenLabsStability: apiKeys.elevenLabsStability,
+                          elevenLabsSimilarityBoost:
+                            apiKeys.elevenLabsSimilarityBoost,
+                          elevenLabsStyle: apiKeys.elevenLabsStyle,
+                          elevenLabsSpeakerBoost:
+                            apiKeys.elevenLabsSpeakerBoost
+                        })
+                      });
+                      if (!response.ok) {
+                        const errorBody = await response.json().catch(() => ({}));
+                        throw new Error(
+                          errorBody.error || `HTTP ${response.status}`
+                        );
                       }
-                      window.speechSynthesis.speak(utterance);
+                      liveNarratorAudioRef.current?.pause();
+                      const audioUrl = URL.createObjectURL(
+                        await response.blob()
+                      );
+                      const audio = new Audio(audioUrl);
+                      liveNarratorAudioRef.current = audio;
+                      const release = () => {
+                        URL.revokeObjectURL(audioUrl);
+                        if (liveNarratorAudioRef.current === audio) {
+                          liveNarratorAudioRef.current = null;
+                        }
+                      };
+                      audio.onended = release;
+                      audio.onerror = release;
+                      await audio.play();
+                    } catch (error) {
+                      console.warn(
+                        'Narração neural indisponível; a voz simples do navegador permanece desativada.',
+                        error
+                      );
                     }
-                  }
+                  })();
                 }
               });
             }
@@ -1134,19 +1086,17 @@ export default function App() {
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [tiktokUser, tiktokSessionId, tiktokTargetIdc, isLiveNarratorActive, liveNarratorVoice, workspaceMode, tiktokState?.status]);
+  }, [tiktokUser, isLiveNarratorActive, liveNarratorVoice, workspaceMode, tiktokState?.status]);
 
-  const handleTiktokConnect = async (simulate = false) => {
+  const handleTiktokConnect = async (username: string) => {
     setTiktokLoading(true);
     try {
       const res = await fetch('/api/tiktok/connect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          username: tiktokUser,
-          simulate,
-          sessionId: tiktokSessionId,
-          targetIdc: tiktokTargetIdc
+          username,
+          simulate: true
         })
       });
 
@@ -1585,11 +1535,6 @@ export default function App() {
     setDeferredPrompt(null);
     setShowInstallButton(false);
   };
-
-  useEffect(() => {
-    // Cancel speech synthesis when navigating away from Home
-    window.speechSynthesis.cancel();
-  }, [workspaceMode]);
 
   const [isListening, setIsListening] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
@@ -2043,10 +1988,9 @@ export default function App() {
   }, [orbCenterMode]);
 
   useEffect(() => {
-    // One-time factory restore flag v2 to clean up and fully reset Jarvis & Gemini Live to pristine defaults
+    // One-time visual/voice migration. Credentials are intentionally preserved.
     const hasRestored = localStorage.getItem('osone_v4_factory_restored_v2_clean');
     if (!hasRestored) {
-      localStorage.removeItem('osone_api_keys');
       localStorage.removeItem('osone_voice_engine');
       localStorage.removeItem('osone_voice_page_index');
       localStorage.removeItem('osone_selected_voice');
@@ -2070,22 +2014,6 @@ export default function App() {
       setSelectedVoice('Zephyr');
       setChatHistory([]);
       setIsChatAutoSpeakActive(false);
-      setApiKeys({
-        gemini: '', 
-        googleHomeId: '',
-        googleHomeToken: '',
-        elevenLabsApiKey: '',
-        elevenLabsVoiceId: '',
-        elevenLabsVoiceId2: '',
-        elevenLabsVoiceId3: '',
-        elevenLabsActiveVoice: 'voice1',
-        elevenLabsStability: 0.5,
-        elevenLabsSimilarityBoost: 0.75,
-        elevenLabsStyle: 0.0,
-        elevenLabsSpeakerBoost: true,
-        elevenLabsModel: 'eleven_multilingual_v2',
-        geminiModel: 'gemini-3.6-flash',
-      });
       localStorage.setItem('osone_v4_factory_restored_v2_clean', 'true');
     }
   }, []);
@@ -2120,29 +2048,7 @@ export default function App() {
   }, [bgTheme]);
 
   const [apiKeys, setApiKeys] = useState<ApiKeys>(() => {
-    const defaultKeys: ApiKeys = { 
-      gemini: '', 
-      googleHomeId: '',
-      googleHomeToken: '',
-      elevenLabsApiKey: '',
-      elevenLabsVoiceId: '',
-      elevenLabsVoiceId2: '',
-      elevenLabsVoiceId3: '',
-      elevenLabsActiveVoice: 'voice1',
-      elevenLabsStability: 0.5,
-      elevenLabsSimilarityBoost: 0.75,
-      elevenLabsStyle: 0.0,
-      elevenLabsSpeakerBoost: true,
-      elevenLabsModel: 'eleven_multilingual_v2',
-      geminiModel: 'gemini-3.6-flash',
-    };
-    try {
-      const saved = localStorage.getItem('osone_api_keys');
-      if (saved) return { ...defaultKeys, ...JSON.parse(saved) };
-    } catch (e) {
-      console.error("Failed to parse API keys:", e);
-    }
-    return defaultKeys;
+    return readApiKeysForUser(user);
   });
 
   const getActiveElevenLabsVoiceId = (): string => {
@@ -2972,8 +2878,8 @@ DIRETRIZ DE SENTIMENTO E PERSONALIDADE DINÂMICA ("HER"):
         chatAudioRef.current.pause();
         chatAudioRef.current = null;
       }
-      window.speechSynthesis.cancel();
       setIsPlayingChatSpeech(null);
+      setIsSpeaking(false);
       return;
     }
 
@@ -2981,7 +2887,6 @@ DIRETRIZ DE SENTIMENTO E PERSONALIDADE DINÂMICA ("HER"):
       chatAudioRef.current.pause();
       chatAudioRef.current = null;
     }
-    window.speechSynthesis.cancel();
     if (workspaceAudioRef.current) {
       workspaceAudioRef.current.pause();
       setIsReadingWorkspace(false);
@@ -3019,36 +2924,18 @@ DIRETRIZ DE SENTIMENTO E PERSONALIDADE DINÂMICA ("HER"):
 
       if (!response.ok) {
         const errJson = await response.json().catch(() => ({}));
-        console.warn("Premium TTS failed, falling back to Web Speech:", errJson.error);
-        addNotification(`Erro de Voz Premium: ${errJson.error || "Erro ao conectar"}. Usando voz auxiliar padrão.`, "error");
-        
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = 'pt-BR';
-        const voices = window.speechSynthesis.getVoices();
-        const matchedVoice = voices.find(v => v.name.toLowerCase().includes(selectedVoice.toLowerCase()));
-        if (matchedVoice) {
-          utterance.voice = matchedVoice;
-        } else {
-          const defaultPtVoice = voices.find(v => v.lang === 'pt-BR');
-          if (defaultPtVoice) {
-            utterance.voice = defaultPtVoice;
-          }
-        }
-        utterance.onstart = () => setVoiceTranscript(text);
-        utterance.onend = () => {
-          setIsPlayingChatSpeech(null);
-          setVoiceTranscript('');
-        };
-        utterance.onerror = () => {
-          setIsPlayingChatSpeech(null);
-          setVoiceTranscript('');
-        };
-        setIsPlayingChatSpeech(msgId);
-        window.speechSynthesis.speak(utterance);
+        const message = errJson.error || 'Erro ao conectar à voz neural';
+        console.warn('Neural TTS failed:', message);
+        setIsPlayingChatSpeech(null);
+        setIsSpeaking(false);
+        setVoiceTranscript('');
+        addNotification(
+          `Voz neural indisponível: ${message}. A voz simples do navegador está desativada.`,
+          'error'
+        );
         return;
       }
 
-      const isFallback = response.headers.get("X-TTS-Mode") === "fallback";
       const isElevenLabs = response.headers.get("X-TTS-Mode") === "elevenlabs";
       const blob = await response.blob();
       const audioUrl = URL.createObjectURL(blob);
@@ -3056,15 +2943,22 @@ DIRETRIZ DE SENTIMENTO E PERSONALIDADE DINÂMICA ("HER"):
       const audio = new Audio(audioUrl);
       chatAudioRef.current = audio;
       setIsPlayingChatSpeech(msgId);
+      setIsSpeaking(true);
 
       audio.onended = () => {
+        URL.revokeObjectURL(audioUrl);
+        if (chatAudioRef.current === audio) chatAudioRef.current = null;
         setIsPlayingChatSpeech(null);
+        setIsSpeaking(false);
         setVoiceTranscript('');
         addNotification("Leitura da mensagem concluída!", "success");
       };
 
       audio.onerror = () => {
+        URL.revokeObjectURL(audioUrl);
+        if (chatAudioRef.current === audio) chatAudioRef.current = null;
         setIsPlayingChatSpeech(null);
+        setIsSpeaking(false);
         setVoiceTranscript('');
         addNotification("Erro ao reproduzir o áudio de leitura.", "error");
       };
@@ -3073,29 +2967,20 @@ DIRETRIZ DE SENTIMENTO E PERSONALIDADE DINÂMICA ("HER"):
       await audio.play();
       if (isElevenLabs) {
         addNotification("Iniciando reprodução com voz premium ElevenLabs.", "success");
-      } else if (isFallback) {
-        addNotification("Iniciando leitura com voz assistida padrão (limite diário premium atingido).", "info");
       } else {
         addNotification("Iniciando reprodução com voz inteligente Gemini 3.1.", "success");
       }
     } catch (error: any) {
-      console.error("Premium voice failed, falling back:", error);
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'pt-BR';
-      const voices = window.speechSynthesis.getVoices();
-      const matchedVoice = voices.find(v => v.name.toLowerCase().includes(selectedVoice.toLowerCase()));
-      if (matchedVoice) utterance.voice = matchedVoice;
-      utterance.onstart = () => setVoiceTranscript(text);
-      utterance.onend = () => {
-        setIsPlayingChatSpeech(null);
-        setVoiceTranscript('');
-      };
-      utterance.onerror = () => {
-        setIsPlayingChatSpeech(null);
-        setVoiceTranscript('');
-      };
-      setIsPlayingChatSpeech(msgId);
-      window.speechSynthesis.speak(utterance);
+      console.error('Neural voice failed:', error);
+      setIsPlayingChatSpeech(null);
+      setIsSpeaking(false);
+      setVoiceTranscript('');
+      addNotification(
+        `Não foi possível reproduzir a voz neural: ${
+          error?.message || 'falha de conexão'
+        }.`,
+        'error'
+      );
     }
   };
 
@@ -3809,8 +3694,25 @@ DIRETRIZ DE SENTIMENTO E PERSONALIDADE DINÂMICA ("HER"):
   };
 
   const switchUser = async (targetUser: User | null) => {
+    const normalizedUser = targetUser
+      ? normalizeStoredUser(targetUser)
+      : null;
+    if (targetUser && !normalizedUser) {
+      addNotification(
+        'O perfil informado é inválido. A troca foi bloqueada para proteger os dados locais.',
+        'error'
+      );
+      return;
+    }
+    targetUser = normalizedUser;
     isCloudSyncReady.current = false;
     setUser(targetUser);
+    const nextApiKeys = readApiKeysForUser(targetUser);
+    setApiKeys(nextApiKeys);
+    sessionStorage.setItem(
+      'osone_active_api_keys_v1',
+      JSON.stringify(nextApiKeys)
+    );
     
     if (targetUser) {
       setIsGuestMode(false);
@@ -4744,11 +4646,7 @@ interface SearchPopupItem {
   const [hunterDoubtInput, setHunterDoubtInput] = useState<string>('');
 
   const handleSlap = () => {
-    // 1. Cancel active vocal feedback, Web Speech API and audio playbacks immediately
-    if (typeof window !== 'undefined' && window.speechSynthesis) {
-      window.speechSynthesis.cancel();
-      (window as any)._activeUtterances = [];
-    }
+    // Cancel active neural audio playbacks immediately.
     if (audioPlayerRef.current) {
       audioPlayerRef.current.stop();
     }
@@ -5504,23 +5402,9 @@ ${isBad
   const isElevenLabsLiveActiveRef = useRef(false);
   const elevenLabsStateRef = useRef<'idle' | 'listening' | 'thinking' | 'speaking'>('idle');
   const elevenLabsLiveAudioRef = useRef<HTMLAudioElement | null>(null);
-  const elevenLabsQueuePlayerRef = useRef<ElevenLabsQueuePlayer | null>(null);
-  const elevenLabsWsRef = useRef<WebSocket | null>(null);
   const elevenLabsSilenceTimeoutRef = useRef<any>(null);
   const accumulatedTranscriptRef = useRef<string>("");
   const lastProcessedResultIndexRef = useRef<number>(0);
-
-  useEffect(() => {
-    elevenLabsQueuePlayerRef.current = new ElevenLabsQueuePlayer((speaking) => {
-      setIsSpeaking(speaking);
-    });
-    return () => {
-      elevenLabsQueuePlayerRef.current?.stop();
-      if (elevenLabsWsRef.current) {
-        try { elevenLabsWsRef.current.close(); } catch (_) {}
-      }
-    };
-  }, []);
 
   const elevenLabsRecognitionRef = useRef<any>(null);
 
@@ -5762,15 +5646,6 @@ ${isBad
       elevenLabsLiveAudioRef.current = null;
     }
 
-    if (elevenLabsQueuePlayerRef.current) {
-      try { elevenLabsQueuePlayerRef.current.stop(); } catch(_) {}
-    }
-
-    if (elevenLabsWsRef.current) {
-      try { elevenLabsWsRef.current.close(); } catch(_) {}
-      elevenLabsWsRef.current = null;
-    }
-    
     setIsListening(false);
     setIsSpeaking(false);
     setIsTranscribing(false);
@@ -5799,115 +5674,82 @@ ${isBad
 
   const playElevenLabsSpeech = async (text: string) => {
     if (!isElevenLabsLiveActiveRef.current) return;
-    
+
     elevenLabsStateRef.current = 'speaking';
     setIsSpeaking(true);
     setIsListening(false);
     setIsTranscribing(true);
     setVoiceTranscript(text);
 
-    // Stop previous audio playback
-    if (elevenLabsQueuePlayerRef.current) {
-      elevenLabsQueuePlayerRef.current.stop();
-    }
-    if (elevenLabsWsRef.current) {
-      try { elevenLabsWsRef.current.close(); } catch (_) {}
-      elevenLabsWsRef.current = null;
+    if (elevenLabsLiveAudioRef.current) {
+      try {
+        const previousUrl = elevenLabsLiveAudioRef.current.src;
+        elevenLabsLiveAudioRef.current.pause();
+        elevenLabsLiveAudioRef.current.src = '';
+        if (previousUrl.startsWith('blob:')) URL.revokeObjectURL(previousUrl);
+      } catch (_) {}
+      elevenLabsLiveAudioRef.current = null;
     }
 
     try {
-      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const voiceId = getActiveElevenLabsVoiceId();
-      const modelId = apiKeys.elevenLabsModel || 'eleven_flash_v2_5';
-      const apiKeyParam = apiKeys.elevenLabsApiKey ? `&apiKey=${apiKeys.elevenLabsApiKey}` : '';
-      const stability = apiKeys.elevenLabsStability ?? 0.5;
-      const similarityBoost = apiKeys.elevenLabsSimilarityBoost ?? 0.75;
-
-      const wsUrl = `${protocol}//${window.location.host}/api/elevenlabs-ws?voiceId=${voiceId}&modelId=${modelId}${apiKeyParam}&stability=${stability}&similarityBoost=${similarityBoost}`;
-      const ws = new WebSocket(wsUrl);
-      elevenLabsWsRef.current = ws;
-
-      ws.onopen = () => {
-        console.log("ElevenLabs Proxy WS connected for single-play text speech");
-        if (elevenLabsQueuePlayerRef.current) {
-          elevenLabsQueuePlayerRef.current.resetStreamState();
-        }
-        // Send the complete phrase chunk
-        ws.send(JSON.stringify({ text: text }));
-        // Immediately flush to signal end of stream
-        ws.send(JSON.stringify({ text: "", flush: true }));
-      };
-
-      ws.onmessage = async (event) => {
-        try {
-          const parsed = JSON.parse(event.data);
-          if (parsed.error) {
-            console.error("ElevenLabs server-side WS proxy error:", parsed.error);
-            addNotification(`Erro ElevenLabs: ${parsed.error}`, "error");
-            return;
-          }
-
-          if (parsed.audio) {
-            // Add chunk to player queue
-            elevenLabsQueuePlayerRef.current?.addChunk(parsed.audio);
-          }
-          if (parsed.isFinal || parsed.is_final) {
-            elevenLabsQueuePlayerRef.current?.markStreamFinished();
-          }
-        } catch (e) {
-          console.error("Error processing websocket message:", e);
-        }
-      };
-
-      ws.onerror = (err) => {
-        console.error("ElevenLabs Proxy WS error during speech playback:", err);
-      };
-
-      ws.onclose = () => {
-        console.log("ElevenLabs Proxy WS closed for single-play text speech");
-        elevenLabsQueuePlayerRef.current?.markStreamFinished();
-      };
-
-      // Set up the drainage handler to transition state back when speaking finishes
-      if (elevenLabsQueuePlayerRef.current) {
-        elevenLabsQueuePlayerRef.current.onQueueDrained = () => {
-          setIsSpeaking(false);
-          setVoiceTranscript('');
-          if (isElevenLabsLiveActiveRef.current) {
-            elevenLabsStateRef.current = 'listening';
-            startListeningElevenLabs();
-          }
-          if (elevenLabsWsRef.current) {
-            try { elevenLabsWsRef.current.close(); } catch (_) {}
-            elevenLabsWsRef.current = null;
-          }
-        };
+      const response = await fetch('/api/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text,
+          engine: 'elevenlabs',
+          elevenLabsApiKey: apiKeys.elevenLabsApiKey || '',
+          elevenLabsVoiceId: getActiveElevenLabsVoiceId(),
+          elevenLabsModel: apiKeys.elevenLabsModel || 'eleven_flash_v2_5',
+          elevenLabsStability: apiKeys.elevenLabsStability ?? 0.5,
+          elevenLabsSimilarityBoost: apiKeys.elevenLabsSimilarityBoost ?? 0.75,
+          elevenLabsStyle: apiKeys.elevenLabsStyle,
+          elevenLabsSpeakerBoost: apiKeys.elevenLabsSpeakerBoost
+        })
+      });
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => ({}));
+        throw new Error(
+          errorBody.error ||
+          `Falha ElevenLabs (HTTP ${response.status}).`
+        );
       }
 
+      const audioUrl = URL.createObjectURL(await response.blob());
+      const audio = new Audio(audioUrl);
+      elevenLabsLiveAudioRef.current = audio;
+      let finalized = false;
+      const finish = () => {
+        if (finalized) return;
+        finalized = true;
+        URL.revokeObjectURL(audioUrl);
+        if (elevenLabsLiveAudioRef.current === audio) {
+          elevenLabsLiveAudioRef.current = null;
+        }
+        setIsSpeaking(false);
+        setVoiceTranscript('');
+        if (isElevenLabsLiveActiveRef.current) {
+          elevenLabsStateRef.current = 'listening';
+          startListeningElevenLabs();
+        }
+      };
+      audio.onended = finish;
+      audio.onerror = finish;
+      await audio.play();
     } catch (e) {
-      console.error("WS ElevenLabs speech failed, falling back to Web Speech Synthesis", e);
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'pt-BR';
-      utterance.onstart = () => {
-        setVoiceTranscript(text);
-      };
-      utterance.onend = () => {
-        setIsSpeaking(false);
-        setVoiceTranscript('');
-        if (isElevenLabsLiveActiveRef.current) {
-          elevenLabsStateRef.current = 'listening';
-          startListeningElevenLabs();
-        }
-      };
-      utterance.onerror = () => {
-        setIsSpeaking(false);
-        setVoiceTranscript('');
-        if (isElevenLabsLiveActiveRef.current) {
-          elevenLabsStateRef.current = 'listening';
-          startListeningElevenLabs();
-        }
-      };
-      window.speechSynthesis.speak(utterance);
+      console.error('ElevenLabs REST TTS failed', e);
+      addNotification(
+        `Voz ElevenLabs indisponível: ${
+          e instanceof Error ? e.message : 'falha de conexão'
+        }. A voz simples do navegador está desativada.`,
+        'error'
+      );
+      setIsSpeaking(false);
+      setVoiceTranscript('');
+      if (isElevenLabsLiveActiveRef.current) {
+        elevenLabsStateRef.current = 'listening';
+        startListeningElevenLabs();
+      }
     }
   };
 
@@ -6041,11 +5883,8 @@ ${isBad
   const handleElevenLabsUserTurn = async (userText: string) => {
     elevenLabsStateRef.current = 'thinking';
     setIsGenerating(true);
-
-    // Evolução Emocional Sensus (Filme Her)
     triggerSensusEvolution(userText);
-    
-    // Captura histórico ANTES de adicionar nova mensagem (evita duplicação)
+
     const historyContents = chatHistoryRef.current.slice(-100).map(msg => ({
       role: msg.role === 'assistant' ? 'model' : 'user',
       parts: [{ text: msg.content }]
@@ -6054,22 +5893,21 @@ ${isBad
       role: 'user',
       parts: [{ text: userText }]
     });
+    addMessage({ role: 'user', content: userText });
 
-    addMessage({ role: 'user', content: userText }); // Só agora adiciona ao chat
-    
-    // Stop any previous audio playback
-    if (elevenLabsQueuePlayerRef.current) {
-      elevenLabsQueuePlayerRef.current.stop();
+    if (elevenLabsLiveAudioRef.current) {
+      try {
+        const previousUrl = elevenLabsLiveAudioRef.current.src;
+        elevenLabsLiveAudioRef.current.pause();
+        elevenLabsLiveAudioRef.current.src = '';
+        if (previousUrl.startsWith('blob:')) {
+          URL.revokeObjectURL(previousUrl);
+        }
+      } catch (_) {}
+      elevenLabsLiveAudioRef.current = null;
     }
-    if (elevenLabsWsRef.current) {
-      try { elevenLabsWsRef.current.close(); } catch (_) {}
-      elevenLabsWsRef.current = null;
-    }
 
-    let heartbeat: any = null;
-    let elWs: WebSocket | null = null;
-    let assistantMsgId = "";
-
+    let assistantMessageId = '';
     try {
       const adaptive = getAdaptivePersonalityMetadata(chatHistoryRef.current);
       let systemInstruction = `${profileInstruction}
@@ -6077,137 +5915,44 @@ ${isBad
 
       if (selectedPersona.id === 'osone') {
         systemInstruction += `\n\n[SISTEMA DE EVOLUÇÃO NEURO-ADAPTATIVA DO OSONE ATIVO]:
-Seu alinhamento comportamental atual está na seguinte escala de afinidade evolutiva com o usuário:
 - Estágio de Afinidade: ${adaptive.description}
-- Foco de Interesse Mapeado: ${adaptive.focusProfile} (tom a adequar: ${adaptive.vibeAdjustment})
+- Foco de Interesse Mapeado: ${adaptive.focusProfile}
 - Total de Interações: ${adaptive.totalMsgs} mensagens
 
-Diretriz adaptativa atual do OSONE para o diálogo:
+Diretriz adaptativa atual:
 ${adaptive.directions}` + getSensusSystemInstructionPrompt();
       }
+      systemInstruction += `\n\nDIRETRIZ DE DIÁLOGO POR VOZ:
+- Responda em português, com frases naturais e completas.
+- Evite listas longas quando a resposta for falada.
+- Seja útil, acolhedor e direto.`;
 
-      systemInstruction += `\n\nDIRETRIZ DE DIÁLOGO POR VOZ NATURAL E DINÂMICO (WhatsApp / Conversa Humana):
-      - Responda com um parágrafo completo, fluido e rico (elaborando a resposta de forma contínua com pelo menos 3 a 5 frases completas e calorosas).
-      - Evite respostas curtas de uma única frase ou termos secos de poucas palavras. Seja acolhedor, desenvolva o raciocínio e elabore um parágrafo rico de fácil conversação.
-      - Nunca faça listas, tópicos estruturados, tópicos com hífens ou qualquer numeração por voz.
-      - Conduza a conversa de forma estimulante, mantendo o diálogo profundo, natural e contínuo.`;
-
-      // 1. Establish the ElevenLabs proxy WebSocket connection
-      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const voiceId = getActiveElevenLabsVoiceId();
-      const modelId = apiKeys.elevenLabsModel || 'eleven_flash_v2_5';
-      const apiKeyParam = apiKeys.elevenLabsApiKey ? `&apiKey=${encodeURIComponent(apiKeys.elevenLabsApiKey)}` : '';
-      const stability = apiKeys.elevenLabsStability ?? 0.5;
-      const similarityBoost = apiKeys.elevenLabsSimilarityBoost ?? 0.75;
-
-      const wsUrl = `${protocol}//${window.location.host}/api/elevenlabs-ws?voiceId=${voiceId}&modelId=${modelId}${apiKeyParam}&stability=${stability}&similarityBoost=${similarityBoost}`;
-      elWs = new WebSocket(wsUrl);
-      elevenLabsWsRef.current = elWs;
-
-      let hasReceivedAudio = false;
-      const wsSendQueue: string[] = [];
-
-      const safeSendToWs = (payload: object) => {
-        const str = JSON.stringify(payload);
-        if (elWs && elWs.readyState === WebSocket.OPEN) {
-          elWs.send(str);
-        } else if (elWs && (elWs.readyState === WebSocket.CONNECTING || !elWs.readyState)) {
-          wsSendQueue.push(str);
-        }
-      };
-
-      elWs.onopen = () => {
-        console.log("ElevenLabs Client WS connected. Flushing queued chunks:", wsSendQueue.length);
-        while (wsSendQueue.length > 0) {
-          const item = wsSendQueue.shift();
-          if (item && elWs && elWs.readyState === WebSocket.OPEN) {
-            elWs.send(item);
-          }
-        }
-      };
-
-      // Set up the queue player
-      if (!elevenLabsQueuePlayerRef.current) {
-        elevenLabsQueuePlayerRef.current = new ElevenLabsQueuePlayer((speaking) => {
-          setIsSpeaking(speaking);
-        });
-      }
-      elevenLabsQueuePlayerRef.current.resetStreamState();
-
-      elevenLabsQueuePlayerRef.current.onQueueDrained = () => {
-        setIsSpeaking(false);
-        setVoiceTranscript('');
-        if (isElevenLabsLiveActiveRef.current) {
-          elevenLabsStateRef.current = 'listening';
-          startListeningElevenLabs();
-        }
-        if (elevenLabsWsRef.current) {
-          try { elevenLabsWsRef.current.close(); } catch (_) {}
-          elevenLabsWsRef.current = null;
-        }
-      };
-
-      elWs.onmessage = (event) => {
-        try {
-          const parsed = JSON.parse(event.data);
-          if (parsed.error) {
-            console.error("ElevenLabs WS proxy response error:", parsed.error);
-            addNotification(`Erro ElevenLabs: ${parsed.error}`, "error");
-            return;
-          }
-          if (parsed.audio) {
-            hasReceivedAudio = true;
-            elevenLabsQueuePlayerRef.current?.addChunk(parsed.audio);
-          }
-          if (parsed.isFinal || parsed.is_final) {
-            elevenLabsQueuePlayerRef.current?.markStreamFinished();
-          }
-        } catch (e) {
-          console.error("Error reading streaming audio chunk:", e);
-        }
-      };
-
-      elWs.onerror = (err) => {
-        console.error("ElevenLabs WS client error:", err);
-      };
-
-      elWs.onclose = () => {
-        console.log("ElevenLabs WS client closed.");
-        elevenLabsQueuePlayerRef.current?.markStreamFinished();
-      };
-
-      // Start the heartbeat/keep-alive to send " " every 10 seconds
-      heartbeat = setInterval(() => {
-        safeSendToWs({ text: " " });
-      }, 10000);
-
-      // Create empty assistant message container
-      assistantMsgId = addMessage({ role: 'assistant', content: '' });
-
-      // 2. Fetch the streaming Gemini response
-      const response = await fetch("/api/chat-intel-stream", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
+      assistantMessageId = addMessage({
+        role: 'assistant',
+        content: ''
+      });
+      const response = await fetch('/api/chat-intel-stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           historyContents,
           systemInstruction,
           clientApiKey: apiKeys.gemini || ''
         })
       });
-
       if (!response.ok || !response.body) {
-        throw new Error("Erro de resposta do servidor de inteligência stream");
+        const errorBody = await response.json().catch(() => ({}));
+        throw new Error(
+          errorBody.error ||
+          'Erro de resposta do servidor de inteligência.'
+        );
       }
 
       const reader = response.body.getReader();
-      const decoder = new TextDecoder("utf-8");
+      const decoder = new TextDecoder('utf-8');
+      let streamBuffer = '';
+      let accumulatedReply = '';
       let finished = false;
-      let buffer = "";
-      let accumulatedReply = "";
-
-      // Change states to speaking/transcribing
       elevenLabsStateRef.current = 'speaking';
       setIsGenerating(false);
       setIsTranscribing(false);
@@ -6215,78 +5960,51 @@ ${adaptive.directions}` + getSensusSystemInstructionPrompt();
       while (!finished) {
         const { value, done } = await reader.read();
         finished = done;
-        if (value) {
-          buffer += decoder.decode(value, { stream: !finished });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() || "";
-
-          for (const line of lines) {
-            if (line.startsWith("data: ")) {
-              const dataStr = line.slice(6).trim();
-              if (dataStr === "[DONE]") {
-                finished = true;
-                break;
-              }
-              try {
-                const parsed = JSON.parse(dataStr);
-                if (parsed.error) {
-                  throw new Error(parsed.error);
-                }
-                if (parsed.text) {
-                  const chunkText = parsed.text;
-                  accumulatedReply += chunkText;
-
-                  // Update UI message content in real-time!
-                  setChatHistory(prev => prev.map(m => m.id === assistantMsgId ? { ...m, content: accumulatedReply } : m));
-
-                  // Update subtitle/voice transcript
-                  setVoiceTranscript(accumulatedReply);
-
-                  // Stream text chunk into ElevenLabs WebSocket proxy safely!
-                  safeSendToWs({ text: chunkText });
-                }
-              } catch (e) {
-                console.error("Error parsing SSE line:", e);
-              }
-            }
+        if (!value) continue;
+        streamBuffer += decoder.decode(value, { stream: !done });
+        const lines = streamBuffer.split('\n');
+        streamBuffer = lines.pop() || '';
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const raw = line.slice(6).trim();
+          if (raw === '[DONE]') {
+            finished = true;
+            break;
           }
+          const parsed = JSON.parse(raw);
+          if (parsed.error) throw new Error(parsed.error);
+          if (!parsed.text) continue;
+          accumulatedReply += parsed.text;
+          setChatHistory(previous =>
+            previous.map(message =>
+              message.id === assistantMessageId
+                ? { ...message, content: accumulatedReply }
+                : message
+            )
+          );
+          setVoiceTranscript(accumulatedReply);
         }
       }
 
-      // Cleanup heartbeat
-      if (heartbeat) {
-        clearInterval(heartbeat);
+      if (accumulatedReply && isElevenLabsLiveActiveRef.current) {
+        await playElevenLabsSpeech(accumulatedReply);
       }
-
-      // 3. Send final flush chunk to ElevenLabs to complete audio synthesis
-      safeSendToWs({ text: "", flush: true });
-
-      // Fallback check: Se o WebSocket da ElevenLabs não enviou nenhum áudio e a resposta já terminou, toca via REST TTS
-      setTimeout(() => {
-        if (!hasReceivedAudio && accumulatedReply && isElevenLabsLiveActiveRef.current) {
-          console.warn("ElevenLabs WS não gerou chunks de áudio. Executando fallback via REST TTS...");
-          playElevenLabsSpeech(accumulatedReply);
-        }
-      }, 1200);
-
-    } catch (err) {
-      console.error("Erro no processamento Gemini ElevenLabs Live Stream:", err);
-      if (heartbeat) {
-        clearInterval(heartbeat);
-      }
+    } catch (error) {
+      console.error('Erro no diálogo neural ElevenLabs:', error);
       setIsGenerating(false);
       setIsTranscribing(false);
-
-      // Fallback message
-      const errorText = "Desculpe, tive um atraso na conexão cerebral agora.";
-      if (assistantMsgId) {
-        setChatHistory(prev => prev.map(m => m.id === assistantMsgId ? { ...m, content: errorText } : m));
+      const errorText =
+        'Desculpe, tive um atraso na conexão cerebral agora.';
+      if (assistantMessageId) {
+        setChatHistory(previous =>
+          previous.map(message =>
+            message.id === assistantMessageId
+              ? { ...message, content: errorText }
+              : message
+          )
+        );
       } else {
         addMessage({ role: 'assistant', content: errorText });
-      }
-
-      if (isElevenLabsLiveActiveRef.current) {
-        await playElevenLabsSpeech(errorText);
       }
     }
   };
@@ -6302,8 +6020,16 @@ ${adaptive.directions}` + getSensusSystemInstructionPrompt();
   }, [selectedVoice]);
 
   useEffect(() => {
-    localStorage.setItem('osone_api_keys', JSON.stringify(apiKeys));
-  }, [apiKeys]);
+    const normalized: ApiKeys = {
+      ...apiKeys,
+      aiProvider: 'gemini',
+      openaiModel: 'gpt-5.6-sol',
+      openaiFallbackEnabled: apiKeys.openaiFallbackEnabled !== false
+    };
+    const serialized = JSON.stringify(normalized);
+    localStorage.setItem(apiKeyStorageKeyForUser(user), serialized);
+    sessionStorage.setItem('osone_active_api_keys_v1', serialized);
+  }, [apiKeys, user]);
 
   useEffect(() => {
     return () => {
@@ -6898,10 +6624,6 @@ Por favor, FALE AGORA com o usuário sobre essa dúvida por voz, de forma clara 
   };
 
   const interruptVoiceResponse = () => {
-    if (typeof window !== 'undefined' && window.speechSynthesis) {
-      window.speechSynthesis.cancel();
-      (window as any)._activeUtterances = [];
-    }
     if (audioPlayerRef.current) {
       audioPlayerRef.current.stop();
     }
@@ -6977,258 +6699,35 @@ Por favor, FALE AGORA com o usuário sobre essa dúvida por voz, de forma clara 
   };
 
   const playDuoSpeech = (text: string) => {
-    if (typeof window === 'undefined' || !window.speechSynthesis) return;
     if (isSinging) {
       console.log("Ignoring assistant speech since singing active.");
       return;
     }
-    
-    // Ensure we resume if paused as a classic browser unfreezing technique
-    if (window.speechSynthesis.paused) {
-      window.speechSynthesis.resume();
-    }
-    
-    window.speechSynthesis.cancel();
-    (window as any)._activeUtterances = [];
 
     const currentCombo = DUO_COMBOS.find(c => c.id === duoComboId) || DUO_COMBOS[0];
     const turns = parseDuoTextToTurns(text, currentCombo);
-    if (turns.length === 0) {
+    const neuralText = turns
+      .map((turn) => cleanTextForSpeech(turn.text))
+      .filter(Boolean)
+      .join('\n');
+    if (!neuralText) {
       setDuoSpeakingHost(null);
       setIsSpeaking(false);
       return;
     }
-
-    const voices = window.speechSynthesis.getVoices();
-    
-    // Support pt-BR specific language first
-    let ptVoices = voices.filter(v => {
-      const parsedLang = v.lang.toLowerCase().replace('_', '-');
-      return parsedLang === 'pt-br' || parsedLang === 'pt_br';
-    });
-    
-    // If no pt-BR found, fallback to any pt voices
-    if (ptVoices.length === 0) {
-      ptVoices = voices.filter(v => v.lang.toLowerCase().replace('_', '-').startsWith('pt'));
-    }
-
-    const getBestVoiceForGender = (gender: 'male' | 'female', altIndex: number) => {
-      if (ptVoices.length === 0) return null;
-      
-      const lowerGender = gender.toLowerCase();
-      const foundVoice = ptVoices.find(voice => {
-        const vName = voice.name.toLowerCase();
-        if (lowerGender === 'female') {
-          return vName.includes('maria') || vName.includes('luciana') || vName.includes('leticia') || 
-                 vName.includes('helena') || vName.includes('zira') || vName.includes('rita') || 
-                 vName.includes('joana') || vName.includes('sandra') || vName.includes('samantha') ||
-                 vName.includes('sara') || vName.includes('soraia') || vName.includes('yara') ||
-                 vName.includes('clara') || vName.includes('female') || vName.includes('mulher') || 
-                 vName.includes('moça') || vName.includes('google português');
-        } else {
-          return vName.includes('daniel') || vName.includes('felipe') || vName.includes('ricardo') || 
-                 vName.includes('lucas') || vName.includes('george') || vName.includes('yuri') ||
-                 vName.includes('helio') || vName.includes('cristiano') || vName.includes('male') || 
-                 vName.includes('homem') || vName.includes('moço') || vName.includes('filipe');
-        }
-      });
-
-      if (foundVoice) return foundVoice;
-
-      if (ptVoices.length > 1) {
-        return ptVoices[altIndex % ptVoices.length];
-      }
-
-      return ptVoices[0];
-    };
-
-    const voiceHostA = getBestVoiceForGender(currentCombo.hostA.gender as any, 0);
-    const voiceHostB = getBestVoiceForGender(currentCombo.hostB.gender as any, 1);
-
-    let index = 0;
-
-    const speakNext = () => {
-      if (index >= turns.length) {
-        setDuoSpeakingHost(null);
-        setIsSpeaking(false);
-        (window as any)._activeUtterances = [];
-        return;
-      }
-
-      const turn = turns[index];
-      const isHostA = turn.speaker === 'hostA';
-      const hostConf = isHostA ? currentCombo.hostA : currentCombo.hostB;
-      const chosenVoice = isHostA ? voiceHostA : voiceHostB;
-
-      // Clean and split current turn into short sentence chunks
-      const cleanedTurnText = cleanTextForSpeech(turn.text);
-      const turnChunks = splitTextIntoSpeechChunks(cleanedTurnText);
-
-      if (turnChunks.length === 0) {
-        index++;
-        speakNext();
-        return;
-      }
-
-      let turnChunkIndex = 0;
-
-      const speakNextTurnChunk = () => {
-        if (turnChunkIndex >= turnChunks.length) {
-          setVoiceTranscript('');
-          index++;
-          speakNext();
-          return;
-        }
-
-        const currentChunk = turnChunks[turnChunkIndex];
-        const utterance = new SpeechSynthesisUtterance(currentChunk);
-        
-        if (chosenVoice) {
-          utterance.voice = chosenVoice;
-          utterance.lang = chosenVoice.lang;
-        } else {
-          utterance.lang = 'pt-BR';
-        }
-
-        let pitch = hostConf.pitch;
-        let rate = hostConf.rate;
-
-        if (voiceHostA && voiceHostB && voiceHostA.name === voiceHostB.name) {
-          if (isHostA) {
-            pitch = 0.72;
-            rate = 0.90;
-          } else {
-            pitch = 1.35;
-            rate = 1.10;
-          }
-        }
-
-        utterance.pitch = pitch;
-        utterance.rate = rate;
-
-        utterance.onstart = () => {
-          setIsSpeaking(true);
-          setDuoSpeakingHost(turn.speaker);
-          setVoiceTranscript(currentChunk);
-        };
-
-        utterance.onend = () => {
-          setVoiceTranscript('');
-          turnChunkIndex++;
-          speakNextTurnChunk();
-        };
-
-        utterance.onerror = (e) => {
-          console.error("Duo speech turn chunk error:", e);
-          setVoiceTranscript('');
-          turnChunkIndex++;
-          speakNextTurnChunk();
-        };
-
-        (window as any)._activeUtterances = (window as any)._activeUtterances || [];
-        (window as any)._activeUtterances.push(utterance);
-        if ((window as any)._activeUtterances.length > 50) {
-          (window as any)._activeUtterances.shift();
-        }
-
-        window.speechSynthesis.speak(utterance);
-      };
-
-      speakNextTurnChunk();
-    };
-
-    speakNext();
+    setDuoSpeakingHost(null);
+    void handleSpeakChatMessage(neuralText, 'duo-neural-speech');
   };
 
   const playSpeech = (text: string) => {
-    if (typeof window === 'undefined') return;
     if (isSinging) {
       console.log("Ignoring solo speech since singing active.");
       return;
     }
-    
-    // Ensure we resume if paused as a classic browser unfreezing technique
-    if (window.speechSynthesis.paused) {
-      window.speechSynthesis.resume();
-    }
-    
-    window.speechSynthesis.cancel();
-    (window as any)._activeUtterances = [];
 
     const cleanedText = cleanTextForSpeech(text);
     if (!cleanedText) return;
-
-    const chunks = splitTextIntoSpeechChunks(cleanedText);
-    if (chunks.length === 0) return;
-
-    let chunkIndex = 0;
-
-    const speakNextChunk = () => {
-      if (chunkIndex >= chunks.length) {
-        setIsSpeaking(false);
-        setVoiceTranscript('');
-        (window as any)._activeUtterances = [];
-        return;
-      }
-
-      const currentChunk = chunks[chunkIndex];
-      const utterance = new SpeechSynthesisUtterance(currentChunk);
-      
-      const voices = window.speechSynthesis.getVoices();
-      
-      // Support pt-BR specific language first
-      let ptVoices = voices.filter(v => {
-        const parsedLang = v.lang.toLowerCase().replace('_', '-');
-        return parsedLang === 'pt-br' || parsedLang === 'pt_br';
-      });
-      
-      // If no pt-BR found, fallback to any pt voices
-      if (ptVoices.length === 0) {
-        ptVoices = voices.filter(v => v.lang.toLowerCase().replace('_', '-').startsWith('pt'));
-      }
-
-      const chosenVoice = ptVoices.find(v => {
-        const name = v.name.toLowerCase();
-        return name.includes('maria') || name.includes('luciana') || name.includes('leticia') || 
-               name.includes('helena') || name.includes('zira') || name.includes('rita') || 
-               name.includes('google português') || name.includes('português') || name.includes('portuguese');
-      }) || ptVoices[0];
-
-      if (chosenVoice) {
-        utterance.voice = chosenVoice;
-        utterance.lang = chosenVoice.lang;
-      } else {
-        utterance.lang = 'pt-BR';
-      }
-
-      utterance.onstart = () => {
-        setIsSpeaking(true);
-        setVoiceTranscript(currentChunk);
-      };
-
-      utterance.onend = () => {
-        setVoiceTranscript('');
-        chunkIndex++;
-        speakNextChunk();
-      };
-
-      utterance.onerror = (e) => {
-        console.error("Solo speech chunk error:", e);
-        setVoiceTranscript('');
-        chunkIndex++;
-        speakNextChunk();
-      };
-
-      (window as any)._activeUtterances = (window as any)._activeUtterances || [];
-      (window as any)._activeUtterances.push(utterance);
-      if ((window as any)._activeUtterances.length > 50) {
-        (window as any)._activeUtterances.shift();
-      }
-
-      window.speechSynthesis.speak(utterance);
-    };
-
-    speakNextChunk();
+    void handleSpeakChatMessage(cleanedText, 'assistant-neural-speech');
   };
 
   const handleHomeChat = async (directMessage?: string) => {
@@ -7515,15 +7014,11 @@ Por favor, FALE AGORA com o usuário sobre essa dúvida por voz, de forma clara 
                     const scrapeData = await scrapeRes.json();
                     resValue = `[CONTEÚDO INTEGRO DA PÁGINA WEB - FONTE EXTRAÍDA]:\n${scrapeData.text || "Sem conteúdo legível."}`;
                   } else {
-                    const response = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
-                    const data = await response.json();
-                    const html = data.contents;
-                    const doc = new DOMParser().parseFromString(html, 'text/html');
-                    const scripts = doc.querySelectorAll('script, style, nav, footer, header');
-                    scripts.forEach(s => s.remove());
-                    const text = doc.body.innerText || doc.body.textContent || "";
-                    const cleanText = text.replace(/\s+/g, ' ').trim().slice(0, 8000);
-                    resValue = `[CONTEÚDO DA PÁGINA WEB - ALLORIGINS FALLBACK]:\n${cleanText}`;
+                    const errorData = await scrapeRes.json().catch(() => ({}));
+                    resValue =
+                      `Erro ao ler a página com segurança: ${
+                        errorData.error || `HTTP ${scrapeRes.status}`
+                      }`;
                   }
                   addNotification("Página web lida e integrada ao contexto!", "success");
                 } catch (err: any) {
@@ -7534,24 +7029,15 @@ Por favor, FALE AGORA com o usuário sobre essa dúvida por voz, de forma clara 
               } else if (call.name === 'read_system_docs') {
                 const fileName = (call.args as any).fileName;
                 try {
-                  const docRes = await fetch(`/api/system-docs?file=${encodeURIComponent(fileName)}`);
-                  if (docRes.ok) {
-                    const docData = await docRes.json();
-                    resValue = docData.text || `O arquivo ${fileName} está vazio.`;
-                    addNotification(`Documento de sistema '${fileName}' lido com sucesso!`, "success");
-                  } else {
-                    const docData = await docRes.json();
-                    resValue = `Erro ao ler documento: ${docData.error || docRes.statusText}`;
-                  }
+                  resValue = getSystemDocument(fileName);
+                  addNotification(`Documento de sistema '${fileName}' lido com sucesso!`, "success");
                 } catch (err: any) {
-                  resValue = "Erro de conexão ao ler documento de sistema: " + err.message;
+                  resValue = "Erro ao ler documento de sistema: " + err.message;
                 }
               } else if (call.name === 'read_user_profile_facts') {
                 try {
-                  const savedAnswersStr = localStorage.getItem('osone_intimate_mission_answers') || '{}';
-                  const parsedAnswers = JSON.parse(savedAnswersStr);
                   const list = INTIMATE_QUESTIONS.map(q => {
-                    const ans = parsedAnswers[q.id] || "(Sem resposta ainda - Fique à vontade para preencher com register_user_profile_facts)";
+                    const ans = intimateAnswers[q.id] || "(Sem resposta ainda - Fique à vontade para preencher com register_user_profile_facts)";
                     return `ID ${q.id} [${q.category}] - ${q.question}\nResposta: ${ans}`;
                   }).join("\n\n");
                   resValue = `[DOSSIÊ COMPLETO DE MEMÓRIA ÍNTIMA DO CRIADOR]\n\n${list}`;
@@ -8380,14 +7866,16 @@ tools: tools
             playSearchNetworkSound();
             setIsModelSearching(true);
             try {
-              const response = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
+              const response = await fetch('/api/scrape', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url })
+              });
               const data = await response.json();
-              const html = data.contents;
-              const doc = new DOMParser().parseFromString(html, 'text/html');
-              const scripts = doc.querySelectorAll('script, style, nav, footer, header');
-              scripts.forEach(s => s.remove());
-              const text = doc.body.innerText || doc.body.textContent || "";
-              const cleanText = text.replace(/\s+/g, ' ').trim().slice(0, 8000);
+              if (!response.ok) {
+                throw new Error(data.error || `HTTP ${response.status}`);
+              }
+              const cleanText = String(data.text || '').slice(0, 8_000);
               
               setChatHistory(prev => [...prev, { 
                 id: Math.random().toString(36).substr(2, 9), 
@@ -8633,18 +8121,14 @@ tools: tools
           } else if (call.name === 'export_to_excel') {
             const { fileName, data } = call.args as any;
             try {
-              const xlsx = await import('xlsx');
-              const worksheet = xlsx.utils.json_to_sheet(data);
-              const workbook = xlsx.utils.book_new();
-              xlsx.utils.book_append_sheet(workbook, worksheet, "Planilha");
-              const excelBuffer = xlsx.write(workbook, { bookType: 'xlsx', type: 'array' });
-              const blob = new Blob([excelBuffer], {type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8'});
-              saveAs(blob, `${fileName}.xlsx`);
+              const safeFileName = normalizeXlsxFileName(fileName);
+              const blob = await createXlsxBlob(data);
+              saveAs(blob, safeFileName);
               
               setChatHistory(prev => [...prev, { 
                 id: Math.random().toString(36).substr(2, 9), 
                 role: 'assistant' as const, 
-                content: `Gerei e iniciei o download da planilha '${fileName}.xlsx'.` 
+                content: `Gerei e iniciei o download da planilha '${safeFileName}'.` 
               }]);
             } catch (e: any) {
               console.error(e);
@@ -10471,13 +9955,9 @@ IMPORTANTE PARA O AGENTE DE VOZ E CHAT:
                   } else if (call.name === 'export_to_excel') {
                     const { fileName, data } = call.args as any;
                     try {
-                      const xlsx = await import('xlsx');
-                      const worksheet = xlsx.utils.json_to_sheet(data);
-                      const workbook = xlsx.utils.book_new();
-                      xlsx.utils.book_append_sheet(workbook, worksheet, "Planilha");
-                      const excelBuffer = xlsx.write(workbook, { bookType: 'xlsx', type: 'array' });
-                      const blob = new Blob([excelBuffer], {type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8'});
-                      saveAs(blob, `${fileName}.xlsx`);
+                      const safeFileName = normalizeXlsxFileName(fileName);
+                      const blob = await createXlsxBlob(data);
+                      saveAs(blob, safeFileName);
                       
                       responses.push({
                         name: call.name,
@@ -10828,15 +10308,16 @@ IMPORTANTE PARA O AGENTE DE VOZ E CHAT:
                     playSearchNetworkSound();
                     setIsModelSearching(true);
                     try {
-                      const response = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
+                      const response = await fetch('/api/scrape', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ url })
+                      });
                       const data = await response.json();
-                      const html = data.contents;
-                      const parser = new DOMParser();
-                      const doc = parser.parseFromString(html, 'text/html');
-                      const scripts = doc.querySelectorAll('script, style, nav, footer, header, iframe, ads');
-                      scripts.forEach(s => s.remove());
-                      const text = doc.body.innerText || doc.body.textContent || "";
-                      const cleanText = text.replace(/\s+/g, ' ').trim().slice(0, 10000);
+                      if (!response.ok) {
+                        throw new Error(data.error || `HTTP ${response.status}`);
+                      }
+                      const cleanText = String(data.text || '').slice(0, 10_000);
                       
                       responses.push({
                         name: call.name,
@@ -11244,9 +10725,6 @@ IMPORTANTE PARA O AGENTE DE VOZ E CHAT:
 
               if (message.serverContent?.interrupted && !isMutedRef.current) {
                 audioPlayerRef.current?.stop();
-                if (typeof window !== 'undefined' && window.speechSynthesis) {
-                  window.speechSynthesis.cancel();
-                }
                 setDuoSpeakingHost(null);
                 setIsSpeaking(false);
                 if (voiceTranscriptRef.current) {
@@ -12019,9 +11497,9 @@ IMPORTANTE PARA O AGENTE DE VOZ E CHAT:
                               <span>Cérebro Local Ativo</span>
                             </div>
                           ) : (
-                            <div className="text-[10px] bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-lg p-2 flex items-center gap-2">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                              <span>Nuvem Ativa via Gmail</span>
+                            <div className="text-[10px] bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 rounded-lg p-2 flex items-center gap-2">
+                              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+                              <span>Perfil local isolado</span>
                             </div>
                           )}
 
@@ -13366,6 +12844,7 @@ Instruções imediatas obrigatórias para você (IA de Voz/Chat):
               <RAGConnector 
                 ragFiles={ragFiles}
                 setRagFiles={setRagFiles}
+                storageScope={user?.uid || 'guest'}
                 onAddNotification={addNotification}
               />
             </motion.div>
@@ -13425,10 +12904,6 @@ Instruções imediatas obrigatórias para você (IA de Voz/Chat):
                   onBack={() => setWorkspaceMode('home')}
                   tiktokUser={tiktokUser}
                   setTiktokUser={setTiktokUser}
-                  tiktokSessionId={tiktokSessionId}
-                  setTiktokSessionId={setTiktokSessionId}
-                  tiktokTargetIdc={tiktokTargetIdc}
-                  setTiktokTargetIdc={setTiktokTargetIdc}
                   tiktokState={tiktokState}
                   tiktokLoading={tiktokLoading}
                   onConnect={handleTiktokConnect}
@@ -13547,6 +13022,11 @@ Instruções imediatas obrigatórias para você (IA de Voz/Chat):
               <MemoryBookPanel
                 onBack={() => setWorkspaceMode('home')}
                 onAddNotification={addNotification}
+                storageKey={
+                  user
+                    ? `osone_user_${user.uid}_memory_book`
+                    : 'osone_memory_book'
+                }
               />
             </motion.div>
           ) : (
@@ -15601,7 +15081,6 @@ Instruções imediatas obrigatórias para você (IA de Voz/Chat):
         setMode={setWorkspaceMode}
         user={user}
         onLogout={handleLogout}
-        onLogin={handleLogin}
         onOpenProfileModal={() => setIsProfileModalOpen(true)}
         onOpenSettings={() => setIsSettingsOpen(true)}
       />
@@ -15633,9 +15112,6 @@ Instruções imediatas obrigatórias para você (IA de Voz/Chat):
         setVocalProfileEscarlate={setVocalProfileEscarlate}
         onRestoreState={(payload) => {
           try {
-            const apiKeysVal = payload['osone_api_keys'];
-            if (apiKeysVal) setApiKeys(JSON.parse(apiKeysVal));
-
             const chatHistoryVal = payload['osone_chat_history'];
             if (chatHistoryVal) setChatHistory(JSON.parse(chatHistoryVal));
 
@@ -15753,9 +15229,7 @@ Instruções imediatas obrigatórias para você (IA de Voz/Chat):
         onClose={() => setIsProfileModalOpen(false)}
         currentUser={user}
         onSwitchUser={switchUser}
-        onGoogleLogin={handleLogin}
         onLogout={handleLogout}
-        isAuthLoading={isAuthLoading}
         onOpenDossier={() => setIsIntimateMissionOpen(true)}
         intimateAnswersCount={Object.keys(intimateAnswers).length}
         aiDossierType={aiDossierType}

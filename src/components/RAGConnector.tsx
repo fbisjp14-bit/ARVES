@@ -7,82 +7,30 @@ import {
 } from 'lucide-react';
 import { RagFile } from '../types';
 import { cn } from '../lib/utils';
-
-// Simple IndexedDB helper for robust RAG persistence
-export const openIDB = (): Promise<IDBDatabase> => {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open("osone_rag_db", 1);
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve(request.result);
-    request.onupgradeneeded = () => {
-      const db = request.result;
-      if (!db.objectStoreNames.contains("files")) {
-        db.createObjectStore("files", { keyPath: "id" });
-      }
-    };
-  });
-};
-
-export const saveRagFileToDB = async (file: RagFile): Promise<void> => {
-  try {
-    const db = await openIDB();
-    const transaction = db.transaction("files", "readwrite");
-    const store = transaction.objectStore("files");
-    store.put(file);
-  } catch (err) {
-    console.error("IndexedDB Save Error:", err);
-  }
-};
-
-export const deleteRagFileFromDB = async (id: string): Promise<void> => {
-  try {
-    const db = await openIDB();
-    const transaction = db.transaction("files", "readwrite");
-    const store = transaction.objectStore("files");
-    store.delete(id);
-  } catch (err) {
-    console.error("IndexedDB Delete Error:", err);
-  }
-};
-
-export const clearRagDB = async (): Promise<void> => {
-  try {
-    const db = await openIDB();
-    const transaction = db.transaction("files", "readwrite");
-    const store = transaction.objectStore("files");
-    store.clear();
-  } catch (err) {
-    console.error("IndexedDB Clear Error:", err);
-  }
-};
-
-export const loadRagFilesFromDB = (): Promise<RagFile[]> => {
-  return new Promise((resolve) => {
-    openIDB().then(db => {
-      const transaction = db.transaction("files", "readonly");
-      const store = transaction.objectStore("files");
-      const request = store.getAll();
-      request.onsuccess = () => resolve(request.result || []);
-      request.onerror = () => resolve([]);
-    }).catch(err => {
-      console.error("IndexedDB Load Error:", err);
-      resolve([]);
-    });
-  });
-};
+import {
+  clearRagDB,
+  deleteRagFileFromDB,
+  loadRagFilesFromDB,
+  MAX_RAG_FILE_BYTES,
+  MAX_RAG_FILES,
+  MAX_RAG_TOTAL_BYTES,
+  saveRagFileToDB
+} from '../lib/ragStorage';
 
 export const RAGConnector = ({
   ragFiles,
   setRagFiles,
+  storageScope,
   onAddNotification
 }: {
   ragFiles: RagFile[];
   setRagFiles: React.Dispatch<React.SetStateAction<RagFile[]>>;
+  storageScope: string;
   onAddNotification?: (msg: string, type: 'success' | 'info' | 'error') => void;
 }) => {
   const [isScanning, setIsScanning] = useState(false);
   const [selectedDirectoryName, setSelectedDirectoryName] = useState<string>(() => {
-    return localStorage.getItem('osone_rag_directory_name') || '';
+    return localStorage.getItem(`osone_rag_directory_name_${storageScope}`) || '';
   });
   const [searchTerm, setSearchTerm] = useState('');
   const [testQuery, setTestQuery] = useState('');
@@ -95,12 +43,18 @@ export const RAGConnector = ({
 
   // Load files from IndexedDB on start
   useEffect(() => {
-    loadRagFilesFromDB().then(files => {
-      if (files.length > 0) {
-        setRagFiles(files);
-      }
+    let cancelled = false;
+    setSelectedDirectoryName(
+      localStorage.getItem(`osone_rag_directory_name_${storageScope}`) || ''
+    );
+    setSelectedFileContents(null);
+    loadRagFilesFromDB(storageScope).then(files => {
+      if (!cancelled) setRagFiles(files);
     });
-  }, [setRagFiles]);
+    return () => {
+      cancelled = true;
+    };
+  }, [setRagFiles, storageScope]);
 
   // Handle native showDirectoryPicker
   const handleConnectDirectory = async () => {
@@ -115,19 +69,33 @@ export const RAGConnector = ({
       setIsScanning(true);
       const dirHandle = await (window as any).showDirectoryPicker();
       setSelectedDirectoryName(dirHandle.name);
-      localStorage.setItem('osone_rag_directory_name', dirHandle.name);
+      localStorage.setItem(`osone_rag_directory_name_${storageScope}`, dirHandle.name);
 
       const accumulated: { name: string; path: string; content: string; size: number }[] = [];
+      let accumulatedBytes = ragFiles.reduce(
+        (sum, file) => sum + Math.max(0, Number(file.size) || file.content.length),
+        0
+      );
       
       const readDir = async (handle: any, currentPath = "") => {
         for await (const entry of handle.values()) {
+          if (
+            ragFiles.length + accumulated.length >= MAX_RAG_FILES ||
+            accumulatedBytes >= MAX_RAG_TOTAL_BYTES
+          ) {
+            break;
+          }
           const relativePath = currentPath ? `${currentPath}/${entry.name}` : entry.name;
           if (entry.kind === 'file') {
             const file = await entry.getFile();
             const ext = file.name.split('.').pop()?.toLowerCase() || '';
             const allowedExts = ['txt', 'md', 'json', 'js', 'ts', 'jsx', 'tsx', 'html', 'css', 'csv', 'yaml', 'yml', 'xml', 'log', 'ini', 'conf'];
             
-            if (allowedExts.includes(ext) || file.type.startsWith('text/')) {
+            if (
+              file.size <= MAX_RAG_FILE_BYTES &&
+              accumulatedBytes + file.size <= MAX_RAG_TOTAL_BYTES &&
+              (allowedExts.includes(ext) || file.type.startsWith('text/'))
+            ) {
               try {
                 const text = await file.text();
                 accumulated.push({
@@ -136,6 +104,7 @@ export const RAGConnector = ({
                   content: text,
                   size: file.size
                 });
+                accumulatedBytes += file.size;
               } catch (e) {
                 console.warn(`Could not read file ${entry.name}`, e);
               }
@@ -176,7 +145,7 @@ export const RAGConnector = ({
 
       // Store in IndexedDB and state
       for (const rf of newRagFiles) {
-        await saveRagFileToDB(rf);
+        await saveRagFileToDB(rf, storageScope);
       }
 
       setRagFiles(prev => {
@@ -215,8 +184,21 @@ export const RAGConnector = ({
   const processUploadedFiles = async (files: File[]) => {
     setIsScanning(true);
     let count = 0;
+    let rejected = 0;
+    let totalBytes = ragFiles.reduce(
+      (sum, file) => sum + Math.max(0, Number(file.size) || file.content.length),
+      0
+    );
     
     for (const file of files) {
+      if (
+        ragFiles.length + count >= MAX_RAG_FILES ||
+        file.size > MAX_RAG_FILE_BYTES ||
+        totalBytes + file.size > MAX_RAG_TOTAL_BYTES
+      ) {
+        rejected += 1;
+        continue;
+      }
       const ext = file.name.split('.').pop()?.toLowerCase() || '';
       const text = await file.text();
       
@@ -230,19 +212,30 @@ export const RAGConnector = ({
         isActive: true
       };
 
-      await saveRagFileToDB(ragFile);
-      setRagFiles(prev => {
-        if (prev.some(p => p.name === ragFile.name)) {
-          return prev.map(p => p.name === ragFile.name ? ragFile : p);
-        }
-        return [...prev, ragFile];
-      });
-      count++;
+      try {
+        await saveRagFileToDB(ragFile, storageScope);
+        setRagFiles(prev => {
+          if (prev.some(p => p.name === ragFile.name)) {
+            return prev.map(p => p.name === ragFile.name ? ragFile : p);
+          }
+          return [...prev, ragFile];
+        });
+        count++;
+        totalBytes += file.size;
+      } catch {
+        rejected += 1;
+      }
     }
 
     setIsScanning(false);
     if (onAddNotification && count > 0) {
       onAddNotification(`${count} arquivos manuais indexados no RAG local com sucesso!`, "success");
+    }
+    if (onAddNotification && rejected > 0) {
+      onAddNotification(
+        `${rejected} arquivo(s) ignorado(s): limite de 1 MB por arquivo, 200 arquivos ou 20 MB por perfil.`,
+        'info'
+      );
     }
   };
 
@@ -251,7 +244,9 @@ export const RAGConnector = ({
     setRagFiles(prev => prev.map(f => {
       if (f.id === id) {
         const updated = { ...f, isActive: !f.isActive };
-        saveRagFileToDB(updated);
+        void saveRagFileToDB(updated, storageScope).catch(() => {
+          onAddNotification?.('Não foi possível salvar a alteração no RAG local.', 'error');
+        });
         return updated;
       }
       return f;
@@ -260,7 +255,7 @@ export const RAGConnector = ({
 
   // Delete specific file
   const handleDeleteFile = async (id: string) => {
-    await deleteRagFileFromDB(id);
+    await deleteRagFileFromDB(id, storageScope);
     setRagFiles(prev => prev.filter(f => f.id !== id));
     if (onAddNotification) {
       onAddNotification("Documento desvinculado do cérebro local.", "info");
@@ -270,10 +265,10 @@ export const RAGConnector = ({
   // Disconnect all
   const handleDisconnectAll = async () => {
     if (confirm("Deseja desconectar absolutamente todos os documentos vinculados da sua máquina local?")) {
-      await clearRagDB();
+      await clearRagDB(storageScope);
       setRagFiles([]);
       setSelectedDirectoryName('');
-      localStorage.removeItem('osone_rag_directory_name');
+      localStorage.removeItem(`osone_rag_directory_name_${storageScope}`);
       if (onAddNotification) {
         onAddNotification("Todos os documentos locais foram desvinculados com sucesso.", "success");
       }

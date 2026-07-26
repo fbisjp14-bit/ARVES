@@ -8,6 +8,7 @@ import {
 import { cn, safeJsonParse } from '../lib/utils';
 import { SoundEffect } from '../types';
 import { saveAudio } from '../lib/audioDb';
+import { readLocalStorageJson } from '../lib/safeStorage';
 
 export interface GalleryItem {
   id: string;
@@ -198,12 +199,11 @@ export const SoundLibrary = ({
   
   // Playlist State
   const [playlists, setPlaylists] = useState<Playlist[]>(() => {
-    try {
-      const saved = localStorage.getItem('osone_playlists_musica');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
+    return readLocalStorageJson<Playlist[]>(
+      'osone_playlists_musica',
+      [],
+      (value): value is Playlist[] => Array.isArray(value)
+    );
   });
 
   const [isPlaylistModalOpen, setIsPlaylistModalOpen] = useState(false);

@@ -32,8 +32,7 @@ export const shouldUseApiFallback = (
 
   return (
     response.status === 404 ||
-    response.status >= 500 ||
     Boolean(vercelError) ||
-    (!response.ok && !expectedJson)
+    (response.status >= 500 && !expectedJson)
   );
 };

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Timestamp } from '../firebase';
+import { normalizeLocalProfile } from '../lib/localProfiles';
+import { LocalTimestamp } from '../lib/localTimestamp';
 
 export interface ImportantDate {
   label: string;
@@ -17,7 +18,7 @@ export interface SemanticFact {
 export interface ConversationSummary {
   summary: string;
   topics: string[];
-  createdAt: Timestamp;
+  createdAt: LocalTimestamp;
   embedding?: number[];
 }
 
@@ -25,7 +26,7 @@ export interface DiaryEntry {
   id?: string;
   content: string;
   mood: string;
-  createdAt: Timestamp;
+  createdAt: LocalTimestamp;
   userId: string;
 }
 
@@ -47,11 +48,11 @@ function deserializeMemory(data: any): UserMemory {
     importantDates: data.importantDates || [],
     semanticMemory: data.semanticMemory || [],
     summaries: (data.summaries || []).map((s: any) => {
-      let ts = Timestamp.now();
+      let ts = LocalTimestamp.now();
       if (s.createdAt) {
         const sec = typeof s.createdAt.seconds === 'number' ? s.createdAt.seconds : (s.createdAt._seconds || 0);
         const nano = typeof s.createdAt.nanoseconds === 'number' ? s.createdAt.nanoseconds : (s.createdAt._nanoseconds || 0);
-        ts = new Timestamp(sec, nano);
+        ts = new LocalTimestamp(sec, nano);
       }
       return {
         ...s,
@@ -64,11 +65,11 @@ function deserializeMemory(data: any): UserMemory {
 function deserializeDiary(entries: any[]): DiaryEntry[] {
   if (!entries) return [];
   return entries.map((e: any) => {
-    let ts = Timestamp.now();
+    let ts = LocalTimestamp.now();
     if (e.createdAt) {
       const sec = typeof e.createdAt.seconds === 'number' ? e.createdAt.seconds : (e.createdAt._seconds || 0);
       const nano = typeof e.createdAt.nanoseconds === 'number' ? e.createdAt.nanoseconds : (e.createdAt._nanoseconds || 0);
-      ts = new Timestamp(sec, nano);
+      ts = new LocalTimestamp(sec, nano);
     }
     return {
       ...e,
@@ -82,8 +83,7 @@ export function useUserMemory() {
     try {
       const savedUserStr = localStorage.getItem('osone_last_active_user');
       if (savedUserStr) {
-        const parsed = JSON.parse(savedUserStr);
-        return parsed?.uid || 'guest';
+        return normalizeLocalProfile(JSON.parse(savedUserStr))?.uid || 'guest';
       }
     } catch {}
     return 'guest';
@@ -105,8 +105,8 @@ export function useUserMemory() {
       try {
         const savedUserStr = localStorage.getItem('osone_last_active_user');
         if (savedUserStr) {
-          const parsed = JSON.parse(savedUserStr);
-          const currentUid = parsed?.uid || 'guest';
+          const currentUid =
+            normalizeLocalProfile(JSON.parse(savedUserStr))?.uid || 'guest';
           if (currentUid !== userId) {
             setUserId(currentUid);
           }
@@ -215,7 +215,7 @@ export function useUserMemory() {
       id: Math.random().toString(36).substring(7),
       content,
       mood: mood || 'neutral',
-      createdAt: Timestamp.now(),
+      createdAt: LocalTimestamp.now(),
       userId
     };
 
@@ -294,7 +294,7 @@ export function useUserMemory() {
     const memoryKey = `nash_memory_${userId}`;
 
     setMemory(prev => {
-      const newSummary: any = { summary, topics, createdAt: Timestamp.now() };
+      const newSummary: any = { summary, topics, createdAt: LocalTimestamp.now() };
       if (embedding) newSummary.embedding = embedding;
       const updated = {
         ...prev,

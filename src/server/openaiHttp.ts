@@ -4,6 +4,7 @@ import {
   openAIResponseToGemini
 } from '../lib/openaiCompatibility.js';
 import { redactSecrets } from '../lib/redaction.js';
+import { runOpenAIImage } from './providerOrchestrator.js';
 
 const OPENAI_API_ROOT = 'https://api.openai.com/v1';
 const REQUEST_TIMEOUT_MS = 55_000;
@@ -141,21 +142,6 @@ const readOpenAIError = async (
   }
 };
 
-const aspectRatioToSize = (aspectRatio: unknown): string => {
-  switch (aspectRatio) {
-    case '16:9':
-    case '4:3':
-    case '3:2':
-      return '1536x1024';
-    case '9:16':
-    case '3:4':
-    case '2:3':
-      return '1024x1536';
-    default:
-      return '1024x1024';
-  }
-};
-
 const handleOpenAIAction = async (
   action: OpenAIHttpAction,
   body: Record<string, any>,
@@ -199,42 +185,8 @@ const handleOpenAIAction = async (
       return;
     }
 
-    const response = await openAIFetch('/images/generations', apiKey, {
-      method: 'POST',
-      body: JSON.stringify({
-        model: 'gpt-image-2',
-        prompt: prompt.slice(0, 32_000),
-        n: 1,
-        quality: body.openaiImageQuality === 'medium' ? 'medium' : 'high',
-        size: aspectRatioToSize(body.config?.aspectRatio),
-        output_format: 'png',
-        moderation: 'auto'
-      })
-    });
-    if (!response.ok) {
-      sendJson(res, response.status, {
-        error: await readOpenAIError(response, apiKey)
-      });
-      return;
-    }
-
-    const imageResponse = await response.json();
-    const imageBytes = imageResponse?.data?.[0]?.b64_json;
-    if (!imageBytes) {
-      sendJson(res, 502, {
-        error: 'A OpenAI concluiu a solicitação, mas não retornou os dados da imagem.'
-      });
-      return;
-    }
-
-    sendJson(res, 200, {
-      provider: 'openai',
-      model: 'gpt-image-2',
-      outputMimeType: 'image/png',
-      generatedImages: [{
-        image: { imageBytes }
-      }]
-    });
+    const image = await runOpenAIImage(body, apiKey);
+    sendJson(res, 200, image);
     return;
   }
 
@@ -296,7 +248,11 @@ export const createOpenAIHttpHandler = (
     await handleOpenAIAction(action, body, res);
   } catch (error: any) {
     const status =
-      error?.name === 'AbortError'
+      Number.isInteger(error?.status) &&
+      error.status >= 400 &&
+      error.status <= 599
+        ? error.status
+        : error?.name === 'AbortError'
         ? 504
         : /JSON|4 MB|Corpo/.test(String(error?.message || ''))
           ? 400

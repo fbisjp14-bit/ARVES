@@ -5,6 +5,7 @@ import {
   openAIResponseToGemini
 } from '../lib/openaiCompatibility.js';
 import { redactSecrets } from '../lib/redaction.js';
+import { runOpenAIImage } from './providerOrchestrator.js';
 
 const OPENAI_API_ROOT = 'https://api.openai.com/v1';
 const REQUEST_TIMEOUT_MS = 55_000;
@@ -67,21 +68,6 @@ const openAIFetch = async (
     });
   } finally {
     clearTimeout(timeout);
-  }
-};
-
-const aspectRatioToSize = (aspectRatio: unknown): string => {
-  switch (aspectRatio) {
-    case '16:9':
-    case '4:3':
-    case '3:2':
-      return '1536x1024';
-    case '9:16':
-    case '3:4':
-    case '2:3':
-      return '1024x1536';
-    default:
-      return '1024x1024';
   }
 };
 
@@ -180,38 +166,15 @@ export const createOpenAIRouter = (): express.Router => {
     }
 
     try {
-      const response = await openAIFetch('/images/generations', apiKey, {
-        method: 'POST',
-        body: JSON.stringify({
-          model: 'gpt-image-2',
-          prompt: prompt.slice(0, 32_000),
-          n: 1,
-          quality: req.body?.openaiImageQuality === 'medium' ? 'medium' : 'high',
-          size: aspectRatioToSize(req.body?.config?.aspectRatio),
-          output_format: 'png',
-          moderation: 'auto'
-        })
-      });
-      if (!response.ok) return sendOpenAIError(res, response);
-
-      const imageResponse = await response.json();
-      const imageBytes = imageResponse?.data?.[0]?.b64_json;
-      if (!imageBytes) {
-        return res.status(502).json({
-          error: 'A OpenAI concluiu a solicitação, mas não retornou os dados da imagem.'
-        });
-      }
-
-      return res.json({
-        provider: 'openai',
-        model: 'gpt-image-2',
-        outputMimeType: 'image/png',
-        generatedImages: [{
-          image: { imageBytes }
-        }]
-      });
+      return res.json(await runOpenAIImage(req.body, apiKey));
     } catch (error: any) {
-      return res.status(error?.name === 'AbortError' ? 504 : 502).json({
+      return res.status(
+        typeof error?.status === 'number'
+          ? error.status
+          : error?.name === 'AbortError'
+            ? 504
+            : 502
+      ).json({
         error: safeOpenAIError(error?.message)
       });
     }

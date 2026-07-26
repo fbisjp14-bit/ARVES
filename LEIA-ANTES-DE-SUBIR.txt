@@ -1,0 +1,23 @@
+ARVES — PACOTE MANUAL PARA GITHUB
+
+Este pacote possui menos de 100 arquivos e foi preparado para o limite
+de envio pelo navegador do GitHub.
+
+IMPORTANTE:
+
+1. Extraia o ZIP no celular ou computador.
+2. Abra a pasta ARVES que foi extraída.
+3. No GitHub, entre no repositório ARVES.
+4. Clique em Add file > Upload files.
+5. Selecione TODO o conteúdo que está dentro da pasta ARVES.
+6. Aguarde todos os arquivos aparecerem.
+7. Escreva "Atualiza ARVES Gemini e GPT-5.6 Sol" no commit.
+8. Clique em Commit changes.
+
+NÃO envie o próprio ZIP ao repositório. O GitHub não extrai o código e
+a Vercel não conseguirá construir o projeto se ele continuar compactado.
+
+Os testes internos foram retirados somente para manter este pacote abaixo
+do limite de 100 arquivos. Eles não são necessários para o funcionamento
+ou para o deploy na Vercel. O código já havia passado por 57 testes, build
+de produção, simulação multiusuário e auditoria de dependências.

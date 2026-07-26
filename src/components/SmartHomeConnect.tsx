@@ -7,6 +7,7 @@ import {
   Globe, Folder, Terminal, Download, ArrowRight, Server, Copy, Check
 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { readLocalStorageJson } from '../lib/safeStorage';
 import { SmartDevice, SmartHomeConfig, SmartRoutine } from '../types';
 
 const DEFAULT_CONFIG: SmartHomeConfig = {
@@ -125,27 +126,31 @@ export const SmartHomeConnect: React.FC<{
   const [selectedRoom, setSelectedRoom] = useState<string>('Todos');
 
   const [devices, setDevices] = useState<SmartDevice[]>(() => {
-    try {
-      const saved = localStorage.getItem('osone_smarthome_devices');
-      if (saved) return JSON.parse(saved);
-    } catch (e) {}
-    return DEFAULT_DEVICES;
+    return readLocalStorageJson<SmartDevice[]>(
+      'osone_smarthome_devices',
+      DEFAULT_DEVICES,
+      (value): value is SmartDevice[] => Array.isArray(value)
+    );
   });
 
   const [config, setConfig] = useState<SmartHomeConfig>(() => {
-    try {
-      const saved = localStorage.getItem('osone_smarthome_config');
-      if (saved) return JSON.parse(saved);
-    } catch (e) {}
-    return DEFAULT_CONFIG;
+    return readLocalStorageJson<SmartHomeConfig>(
+      'osone_smarthome_config',
+      DEFAULT_CONFIG,
+      (value): value is SmartHomeConfig => {
+        if (!value || typeof value !== 'object') return false;
+        const candidate = value as Partial<SmartHomeConfig>;
+        return Boolean(candidate.tuya && candidate.hue && candidate.smartthings);
+      }
+    );
   });
 
   const [routines, setRoutines] = useState<SmartRoutine[]>(() => {
-    try {
-      const saved = localStorage.getItem('osone_smarthome_routines');
-      if (saved) return JSON.parse(saved);
-    } catch (e) {}
-    return DEFAULT_ROUTINES;
+    return readLocalStorageJson<SmartRoutine[]>(
+      'osone_smarthome_routines',
+      DEFAULT_ROUTINES,
+      (value): value is SmartRoutine[] => Array.isArray(value)
+    );
   });
 
   const [tuyaEmail, setTuyaEmail] = useState<string>(config.tuya.linkedAccountEmail || '');

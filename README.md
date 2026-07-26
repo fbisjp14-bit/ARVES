@@ -1,101 +1,89 @@
-# OSONE AI 3.2 — GPT‑5.6 Sol, pesquisa Gemini e voz limpa
+# OSONE AI — Gemini + GPT‑5.6 Sol
 
-Esta entrega atualiza o OSONE Copilot para a interface atual, preserva a
-integração de API que funcionava na versão antiga e acrescenta OpenAI,
-pesquisa web, geração de imagens e exportação de documentos.
+Esta versão mantém o visual e os recursos da base `OSONE-AI-main(5)`, com uma camada de provedores mais estável:
 
-## Principais recursos
+- Gemini continua sendo o provedor principal.
+- GPT‑5.6 Sol entra automaticamente como segunda opção quando o Gemini estiver indisponível, sem chave ou sem cota.
+- Erros de autenticação, pedido inválido ou bloqueio de segurança não são desviados para outro provedor.
+- Pesquisa usa Google Search Grounding pelo Gemini e Web Search pelo GPT‑5.6 Sol, com fontes clicáveis.
+- Imagens usam Gemini primeiro e a ferramenta de geração de imagens do GPT‑5.6 Sol como contingência.
+- PDFs, DOCX e planilhas são gerados localmente pelo aplicativo.
+- A voz TTS do navegador foi removida. O áudio usa somente a rota neural `/api/tts`.
+- Chaves salvas pela interface ficam separadas por perfil neste navegador e não entram em snapshots.
 
-- Gemini com autenticação correta por `x-goog-api-key`.
-- OpenAI como provedor opcional para chat, análise de arquivos, pesquisa web
-  com fontes e geração de imagens.
-- Funções OpenAI, TTS e health isoladas no Vercel para que uma falha da função
-  Express legada não derrube a validação da chave.
-- Voz simples do navegador removida; a leitura usa apenas Gemini TTS ou
-  ElevenLabs.
-- GPT‑5.6 Sol como único modelo de texto da OpenAI.
-- Google Search Grounding nativo com a própria chave Gemini e fontes.
-- Saída de voz sem distorção artificial, com filtragem, proteção contra
-  clipping e retorno do microfone silenciado.
-- GPT Image 2 para imagens pela OpenAI.
-- Gemini 3.1 Flash Image para imagens pelo Gemini.
-- Exportação da conversa para PDF com texto e imagens.
-- Exportação para DOCX e XLSX.
-- RAG local separado por perfil.
-- Perfis, conversas, memórias e chaves de API separados por perfil local.
-- Limites de concorrência, tamanho de requisição e taxa contra abuso.
-- Segredos removidos de logs e respostas.
+## Publicar rapidamente no GitHub
 
-## Executar localmente
+1. Extraia o ZIP.
+2. Crie um repositório vazio no GitHub.
+3. No repositório, escolha **Add file → Upload files**.
+4. Abra a pasta `OSONE-AI-main` extraída, selecione todo o conteúdo e arraste para a página.
+5. Clique em **Commit changes**.
 
-Requisitos: Node.js 22 e npm.
+Não envie a pasta `node_modules`, a pasta `dist` nem um arquivo `.env`. Elas já estão ignoradas pelo Git.
+
+Também é possível publicar pelo terminal:
 
 ```bash
-npm ci
-npm run dev
-```
-
-O endereço local é mostrado no terminal. Para validar a entrega completa:
-
-```bash
-npm run check
-npm run test:smoke
+git init
+git add .
+git commit -m "OSONE AI Gemini e GPT-5.6 Sol"
+git branch -M main
+git remote add origin URL_DO_SEU_REPOSITORIO
+git push -u origin main
 ```
 
 ## Publicar na Vercel
 
-1. Importe este diretório como projeto na Vercel.
-2. Use o preset Vite; o `vercel.json` já contém build, rotas e cabeçalhos.
-3. Faça um novo deploy sem reaproveitar o cache da versão anterior.
-4. Publique sem colocar uma chave global se cada pessoa usará a própria chave.
-5. No OSONE, abra **Configurações > Chaves**, selecione Gemini ou OpenAI,
-   informe a chave e clique para consolidar os parâmetros.
+1. Importe o repositório do GitHub na Vercel.
+2. Mantenha o framework **Vite**.
+3. O projeto já define `npm run vercel-build`, saída `dist` e Node.js 22.
+4. Em **Settings → Environment Variables**, configure:
 
-Depois do deploy, `/api/health` deve responder com
-`"runtime":"isolated-vercel-function"`.
+```text
+GEMINI_API_KEY=sua_chave_gemini
+OPENAI_API_KEY=sua_chave_openai
+```
 
-As variáveis de `.env.example` são alternativas globais e opcionais. Uma chave
-global na Vercel será usada como fallback e o consumo dela será compartilhado
-por todos os visitantes. A assinatura do ChatGPT e os créditos da API OpenAI
-são produtos separados; é necessária uma chave da plataforma da API.
+Opcionalmente:
 
-## Consumo de API
+```text
+ELEVENLABS_API_KEY=sua_chave_elevenlabs
+ELEVENLABS_VOICE_ID=id_da_voz
+```
 
-- Toda solicitação OpenAI usa `gpt-5.6-sol`, conforme solicitado. Esse modelo
-  pode custar mais que as versões Mini/Nano removidas.
-- O modo de pesquisa aprofundada é opcional; o modo padrão não ativa pesquisa
-  web em todas as mensagens.
-- No Gemini, o botão **Web ON** ativa o Grounding com Google Search usando
-  somente a chave Gemini.
-- Geração de imagem só é executada quando solicitada.
-- O servidor valida diretamente se a chave OpenAI tem acesso ao GPT‑5.6 Sol,
-  sem gastar uma geração apenas para realizar o handshake.
+Depois faça um novo deploy. As chaves também podem ser informadas em **Ajustes → Chaves**, mas variáveis da Vercel são mais adequadas para uma instalação privada. Nunca use prefixo `VITE_` em chaves secretas.
 
-## Privacidade e multiusuário
+## Como funciona a contingência
 
-O modo multiusuário desta versão isola perfis **dentro do mesmo navegador**:
-chaves, chat, memória, livro de memórias, saúde, dossiê e documentos RAG usam
-um escopo por perfil. Cada aba também recebe uma identidade de sessão distinta.
-As chaves enviadas pelo navegador são usadas somente durante a requisição e não
-são persistidas pelo servidor.
+O fallback para GPT‑5.6 Sol é acionado somente em falhas recuperáveis do Gemini:
 
-Esses perfis locais não substituem autenticação com senha e banco de dados.
-Em computador compartilhado com pessoas não confiáveis, use contas de navegador
-ou dispositivos separados. Para login remoto real, será necessário adicionar
-um provedor de autenticação e armazenamento externo.
+- chave Gemini ausente;
+- limite/cota (`429`);
+- timeout;
+- modelo ou serviço temporariamente indisponível;
+- resposta vazia.
 
-## Limites técnicos
+Uma chave inválida (`401/403`), solicitação incorreta (`4xx`) ou bloqueio de segurança é exibido ao usuário e não tenta contornar a decisão usando outro provedor.
 
-- RAG: até 1 MB por arquivo, 200 arquivos por perfil e 20 MB totais por perfil.
-- Requisições grandes e anexos fora dos limites são recusados de forma segura.
-- A integração Evolution API funciona por HTTPS e bloqueia destinos locais ou
-  privados. Webhook persistente exige um serviço dedicado, não uma função
-  serverless efêmera.
-- O TikTok incluído permanece em modo simulador. Automação real com sessão de
-  navegador e o conector Puppeteer também exigem um worker dedicado.
-- O editor automático em `scripts/auto_editor.py` é opcional e requer as
-  dependências Python apropriadas no computador em que for executado.
+## Verificação local
 
-Nenhum sistema pode garantir ausência absoluta de bugs futuros. A entrega foi
-testada nas rotas e cenários descritos em `AUDITORIA.md`, incluindo concorrência,
-isolamento de perfis, segurança, exportação e execução de produção.
+Requer Node.js 22:
+
+```bash
+npm install
+npm run check
+npm audit --omit=dev
+```
+
+Para iniciar:
+
+```bash
+npm run dev
+```
+
+## Observações importantes
+
+- A assinatura do ChatGPT e os créditos da API da OpenAI são produtos separados.
+- O modelo OpenAI foi fixado em `gpt-5.6-sol`; versões antigas não aparecem na interface.
+- A contingência depende de a chave possuir acesso ao modelo e saldo/cota disponível.
+- Pesquisa e geração de imagens podem ter custo nos provedores.

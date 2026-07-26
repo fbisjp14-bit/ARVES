@@ -1,43 +1,38 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
-import path from 'path';
-import fs from 'fs';
-import {defineConfig, loadEnv} from 'vite';
+import path from 'node:path';
+import { defineConfig } from 'vite';
 
-// Automatically generate a placeholder configuration file if it is missing
-// (e.g. during Vercel builds or GitHub workflows where the .gitignored file does not exist)
-const configPath = path.resolve(__dirname, 'firebase-applet-config.json');
-if (!fs.existsSync(configPath)) {
-  const dummyConfig = {
-    projectId: "",
-    appId: "",
-    apiKey: "",
-    authDomain: "",
-    firestoreDatabaseId: "",
-    storageBucket: "",
-    messagingSenderId: "",
-    measurementId: ""
-  };
-  fs.writeFileSync(configPath, JSON.stringify(dummyConfig, null, 2), 'utf-8');
-  console.log('firebase-applet-config.json was missing (e.g. on Vercel/GitHub). Generated a placeholder dummy file.');
-}
-
-export default defineConfig(({mode}) => {
-  const env = loadEnv(mode, '.', '');
-  return {
-    plugins: [react(), tailwindcss()],
-    define: {
-      'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-    },
-    resolve: {
-      alias: {
-        '@': path.resolve(__dirname, '.'),
-      },
-    },
-    server: {
-      // HMR is disabled in AI Studio via DISABLE_HMR env var.
-      // Do not modifyâfile watching is disabled to prevent flickering during agent edits.
-      hmr: process.env.DISABLE_HMR !== 'true',
-    },
-  };
+export default defineConfig({
+  plugins: [react(), tailwindcss()],
+  define: {
+    // Never inject a server credential into the browser bundle. The app obtains
+    // user-provided keys from its own settings and sends them only per request.
+    'process.env.GEMINI_API_KEY': JSON.stringify('')
+  },
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, '.')
+    }
+  },
+  build: {
+    sourcemap: false,
+    chunkSizeWarningLimit: 1_500,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('@google/genai')) return 'ai-provider';
+          if (id.includes('three')) return 'three';
+          if (id.includes('jspdf') || id.includes('html2canvas')) return 'documents';
+          if (id.includes('leaflet') || id.includes('d3-geo')) return 'maps';
+          if (id.includes('node_modules')) return 'vendor';
+          return undefined;
+        }
+      }
+    }
+  },
+  server: {
+    host: '0.0.0.0',
+    hmr: process.env.DISABLE_HMR !== 'true'
+  }
 });

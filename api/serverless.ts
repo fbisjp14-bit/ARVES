@@ -1,11 +1,13 @@
 import express from 'express';
 import {
-  enrichGeminiResponse,
-  geminiApiFetch,
   normalizeGeminiApiKey,
   verifyGeminiApiKey
 } from '../src/lib/geminiApi.js';
 import { createOpenAIRouter } from '../src/server/openaiRouter.js';
+import {
+  runImageWithFallback,
+  runTextWithFallback
+} from '../src/server/providerOrchestrator.js';
 import ttsHttpHandler from '../src/server/ttsHttp.js';
 import {
   fetchExternalWithRedirectGuard,
@@ -114,123 +116,6 @@ app.use('/api', (req, res, next) => {
 });
 app.use('/api/openai', createOpenAIRouter());
 
-const textFromGemini = (response: any): string => {
-  return enrichGeminiResponse(response).text || '';
-};
-
-const normalizeContents = (contents: any): any[] => {
-  if (typeof contents === 'string') {
-    return [{ role: 'user', parts: [{ text: contents }] }];
-  }
-
-  if (Array.isArray(contents)) return contents;
-
-  if (contents?.parts) {
-    return [{ role: contents.role || 'user', parts: contents.parts }];
-  }
-
-  return [];
-};
-
-const normalizeSystemInstruction = (instruction: any): any => {
-  if (!instruction) return undefined;
-  if (typeof instruction === 'string') {
-    return { parts: [{ text: instruction }] };
-  }
-  return instruction;
-};
-
-const buildGenerateRequest = (contents: any, config: any = {}): any => {
-  const requestBody: any = {
-    contents: normalizeContents(contents)
-  };
-
-  const {
-    systemInstruction,
-    tools,
-    toolConfig,
-    safetySettings,
-    cachedContent,
-    abortSignal: _abortSignal,
-    httpOptions: _httpOptions,
-    ...generationConfig
-  } = config || {};
-
-  const normalizedInstruction = normalizeSystemInstruction(systemInstruction);
-  if (normalizedInstruction) requestBody.systemInstruction = normalizedInstruction;
-  if (tools) requestBody.tools = tools;
-  if (toolConfig) requestBody.toolConfig = toolConfig;
-  if (safetySettings) requestBody.safetySettings = safetySettings;
-  if (cachedContent) requestBody.cachedContent = cachedContent;
-  if (Object.keys(generationConfig).length > 0) {
-    requestBody.generationConfig = generationConfig;
-  }
-
-  return requestBody;
-};
-
-class GeminiRequestError extends Error {
-  status: number;
-
-  constructor(status: number, message: string) {
-    super(message);
-    this.status = status;
-  }
-}
-
-const readApiError = async (response: Response): Promise<string> => {
-  try {
-    const data = await response.json();
-    return redactSecrets(data?.error?.message || data?.message || `HTTP ${response.status}`);
-  } catch {
-    return `HTTP ${response.status}`;
-  }
-};
-
-const generateGeminiContent = async (
-  apiKey: string,
-  model: string,
-  contents: any,
-  config: any = {}
-): Promise<any> => {
-  const isImageRequest = String(model || '').includes('image');
-  const models = Array.from(new Set(
-    isImageRequest
-      ? [model || 'gemini-3.1-flash-image', 'gemini-3.1-flash-image']
-      : [
-          model || 'gemini-3.5-flash',
-          'gemini-3.5-flash',
-          'gemini-3.1-flash-lite',
-          'gemini-2.5-flash'
-        ]
-  ));
-
-  let lastError: GeminiRequestError | null = null;
-
-  for (const candidate of models) {
-    const response = await geminiApiFetch(
-      `/models/${encodeURIComponent(candidate)}:generateContent`,
-      apiKey,
-      {
-        method: 'POST',
-        body: JSON.stringify(buildGenerateRequest(contents, config))
-      }
-    );
-
-    if (response.ok) return response.json();
-
-    const error = new GeminiRequestError(
-      response.status,
-      await readApiError(response)
-    );
-    lastError = error;
-
-    if (![404, 429, 503].includes(response.status)) throw error;
-  }
-
-  throw lastError || new GeminiRequestError(500, 'A API do Gemini não respondeu.');
-};
-
 const getGeminiKey = (body: any): string => {
   return normalizeGeminiApiKey(
     body?.clientApiKey ||
@@ -274,21 +159,7 @@ app.post('/api/gemini/verify', async (req, res) => {
 
 app.post('/api/gemini/generateContent', async (req, res) => {
   try {
-    const apiKey = getGeminiKey(req.body);
-    if (!apiKey) {
-      return res.status(400).json({
-        error: 'Chave API do Gemini não definida. Insira uma chave válida nos Ajustes.'
-      });
-    }
-
-    const response = await generateGeminiContent(
-      apiKey,
-      req.body?.model || 'gemini-3.5-flash',
-      req.body?.contents,
-      req.body?.config
-    );
-
-    return res.json(enrichGeminiResponse(response));
+    return res.json(await runTextWithFallback(req.body || {}));
   } catch (error) {
     return sendError(res, error);
   }
@@ -296,16 +167,11 @@ app.post('/api/gemini/generateContent', async (req, res) => {
 
 app.post('/api/generate', async (req, res) => {
   try {
-    const apiKey = getGeminiKey(req.body);
-    if (!apiKey) {
-      return res.status(400).json({ error: 'Chave API do Gemini não definida.' });
-    }
-
-    const response = await generateGeminiContent(
-      apiKey,
-      req.body?.model || 'gemini-3.5-flash',
-      req.body?.prompt || '',
-      {
+    const response = await runTextWithFallback({
+      ...req.body,
+      contents: req.body?.prompt || '',
+      config: {
+        ...(req.body?.config || {}),
         ...(req.body?.systemInstruction
           ? { systemInstruction: req.body.systemInstruction }
           : {}),
@@ -313,9 +179,8 @@ app.post('/api/generate', async (req, res) => {
           ? { responseMimeType: req.body.responseMimeType }
           : {})
       }
-    );
-
-    return res.json({ text: textFromGemini(response) });
+    });
+    return res.json(response);
   } catch (error) {
     return sendError(res, error);
   }
@@ -323,23 +188,17 @@ app.post('/api/generate', async (req, res) => {
 
 app.post('/api/chat-intel', async (req, res) => {
   try {
-    const apiKey = getGeminiKey(req.body);
-    if (!apiKey) {
-      return res.status(400).json({ error: 'Chave API do Gemini não definida.' });
-    }
-
-    const response = await generateGeminiContent(
-      apiKey,
-      req.body?.model || 'gemini-3.5-flash',
-      req.body?.historyContents || req.body?.contents,
-      {
+    const response = await runTextWithFallback({
+      ...req.body,
+      contents: req.body?.historyContents || req.body?.contents,
+      config: {
+        ...(req.body?.config || {}),
         maxOutputTokens: 250,
         temperature: 0.7,
         systemInstruction: req.body?.systemInstruction
       }
-    );
-
-    return res.json({ text: textFromGemini(response) });
+    });
+    return res.json(response);
   } catch (error) {
     return sendError(res, error);
   }
@@ -347,70 +206,38 @@ app.post('/api/chat-intel', async (req, res) => {
 
 app.post('/api/chat-intel-stream', async (req, res) => {
   try {
-    const apiKey = getGeminiKey(req.body);
-    if (!apiKey) {
-      return res.status(400).json({ error: 'Chave API do Gemini não definida.' });
-    }
-
-    const response = await generateGeminiContent(
-      apiKey,
-      req.body?.model || 'gemini-3.5-flash',
-      req.body?.historyContents || req.body?.contents,
-      {
+    const response = await runTextWithFallback({
+      ...req.body,
+      contents: req.body?.historyContents || req.body?.contents,
+      config: {
+        ...(req.body?.config || {}),
         maxOutputTokens: 250,
         temperature: 0.7,
         systemInstruction: req.body?.systemInstruction
       }
-    );
+    });
 
     res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
     res.setHeader('Cache-Control', 'no-cache, no-transform');
-    res.write(`data: ${JSON.stringify({ text: textFromGemini(response) })}\n\n`);
+    res.write(`data: ${JSON.stringify({
+      text: response?.text || '',
+      provider: response?.provider,
+      fallbackUsed: response?.fallbackUsed
+    })}\n\n`);
     res.write('data: [DONE]\n\n');
     return res.end();
   } catch (error: any) {
     res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
-    res.write(`data: ${JSON.stringify({ error: error?.message || 'Falha na geração.' })}\n\n`);
+    res.write(`data: ${JSON.stringify({
+      error: redactSecrets(error?.message || 'Falha na geração.')
+    })}\n\n`);
     return res.end();
   }
 });
 
 app.post('/api/gemini/generateImages', async (req, res) => {
   try {
-    const apiKey = getGeminiKey(req.body);
-    if (!apiKey) {
-      return res.status(400).json({ error: 'Chave API do Gemini não definida.' });
-    }
-
-    const requestedModel = String(req.body?.model || '');
-    const imageModel = requestedModel.includes('image')
-      ? requestedModel
-      : 'gemini-3.1-flash-image';
-    const response = await generateGeminiContent(
-      apiKey,
-      imageModel,
-      { parts: [{ text: req.body?.prompt || '' }] },
-      {
-        imageConfig: {
-          aspectRatio: req.body?.config?.aspectRatio || '1:1',
-          imageSize: req.body?.config?.imageSize || '1K'
-        }
-      }
-    );
-
-    const parts = response?.candidates?.[0]?.content?.parts || [];
-    const imagePart = parts.find((part: any) => part?.inlineData?.data);
-    if (!imagePart) {
-      throw new GeminiRequestError(502, 'O Gemini não retornou dados de imagem.');
-    }
-
-    return res.json({
-      generatedImages: [{
-        image: {
-          imageBytes: imagePart.inlineData.data
-        }
-      }]
-    });
+    return res.json(await runImageWithFallback(req.body || {}));
   } catch (error) {
     return sendError(res, error);
   }
@@ -549,18 +376,16 @@ app.post('/api/scrape', async (req, res) => {
 
 app.post('/api/lens/query', async (req, res) => {
   try {
-    const apiKey = getGeminiKey(req.body);
     const image = String(req.body?.image || '');
-    if (!apiKey) return res.status(400).json({ error: 'Chave Gemini não definida.' });
     if (!image) return res.status(400).json({ error: 'A imagem é obrigatória.' });
 
     const match = image.match(/^data:([^;]+);base64,(.+)$/);
     const mimeType = match?.[1] || 'image/jpeg';
     const base64Data = match?.[2] || image;
-    const response = await generateGeminiContent(
-      apiKey,
-      'gemini-3.5-flash',
-      {
+    const response = await runTextWithFallback({
+      ...req.body,
+      model: req.body?.model || 'gemini-3.6-flash',
+      contents: {
         parts: [
           { inlineData: { mimeType, data: base64Data } },
           {
@@ -568,24 +393,23 @@ app.post('/api/lens/query', async (req, res) => {
           }
         ]
       },
-      {
+      config: {
         responseMimeType: 'application/json',
         ...(req.body?.internetSearch ? { tools: [{ googleSearch: {} }] } : {})
       }
-    );
+    });
 
-    const rawText = textFromGemini(response)
+    const rawText = String(response?.text || '')
+      .split('### Fontes consultadas')[0]
       .replace(/```json/gi, '')
       .replace(/```/g, '')
       .trim();
     const result = JSON.parse(rawText || '{}');
-    const grounding = response?.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
-    result.citations = grounding
-      .filter((chunk: any) => chunk?.web?.uri)
-      .map((chunk: any) => ({
-        title: chunk.web.title || 'Resultado da Web',
-        uri: chunk.web.uri
-      }));
+    result.citations = Array.isArray(response?.citations)
+      ? response.citations
+      : [];
+    result.provider = response?.provider;
+    result.fallbackUsed = Boolean(response?.fallbackUsed);
 
     return res.json(result);
   } catch (error) {
@@ -1054,35 +878,51 @@ app.post('/api/whatsapp/simulate-incoming', async (req, res) => {
     return res.status(409).json({ error: 'O chatbot está pausado.' });
   }
 
-  const apiKey = normalizeGeminiApiKey(
+  const geminiApiKey = normalizeGeminiApiKey(
+    req.body?.clientApiKey ||
     req.body?.geminiApiKey ||
     runtimeConfig.geminiApiKey ||
     process.env.GEMINI_API_KEY
   );
-  if (!apiKey) {
+  const openaiApiKey = String(
+    req.body?.openaiApiKey ||
+    process.env.OPENAI_API_KEY ||
+    ''
+  ).trim();
+  if (!geminiApiKey && !openaiApiKey) {
     addWhatsAppLog(state, {
       type: 'error',
       sender: 'Sistema',
-      message: 'Chave Gemini ausente para o simulador.'
+      message: 'Nenhuma chave de IA foi configurada para o simulador.'
     });
-    return res.status(400).json({ error: 'Configure uma chave Gemini para o simulador.' });
+    return res.status(400).json({
+      error: 'Configure uma chave Gemini ou OpenAI para o simulador.'
+    });
   }
 
   try {
-    const generated = await generateGeminiContent(
-      apiKey,
-      'gemini-3.5-flash',
-      `Responda como atendente de WhatsApp, em português, de forma útil e breve.\n\n${senderName}: ${text}`,
-      { maxOutputTokens: 350, temperature: 0.6 }
-    );
-    const reply = textFromGemini(generated).trim();
+    const generated = await runTextWithFallback({
+      ...req.body,
+      clientApiKey: geminiApiKey,
+      openaiApiKey,
+      openaiModel: 'gpt-5.6-sol',
+      contents:
+        `Responda como atendente de WhatsApp, em português, de forma útil e breve.\n\n${senderName}: ${text}`,
+      config: { maxOutputTokens: 350, temperature: 0.6 }
+    });
+    const reply = String(generated?.text || '').trim();
     addWhatsAppLog(state, {
       type: 'sent',
       sender: 'OSONE',
       message: reply,
       response: reply
     });
-    return res.json({ status: 'success', reply });
+    return res.json({
+      status: 'success',
+      reply,
+      provider: generated?.provider,
+      fallbackUsed: Boolean(generated?.fallbackUsed)
+    });
   } catch (error: any) {
     addWhatsAppLog(state, {
       type: 'error',

@@ -19,6 +19,17 @@ export interface User {
 
 export interface ApiKeys {
   gemini: string;
+  /**
+   * Gemini stays the primary provider. OpenAI is used only as an automatic
+   * fallback for recoverable provider failures.
+   */
+  openaiApiKey?: string;
+  openaiFallbackEnabled?: boolean;
+  openaiModel?: 'gpt-5.6-sol';
+  openaiResearchMode?: 'standard' | 'deep';
+  openaiImageQuality?: 'medium' | 'high';
+  /** Kept only to migrate older saved settings. */
+  aiProvider?: 'gemini' | 'openai';
   googleHomeId?: string;
   googleHomeToken?: string;
   elevenLabsApiKey?: string;
@@ -223,6 +234,5 @@ export interface ChatSession {
   createdAt: number;
   messages: Message[];
 }
-
 
 
