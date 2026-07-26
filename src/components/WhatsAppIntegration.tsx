@@ -24,24 +24,14 @@ interface WhatsAppConfig {
   geminiApiKey: string;
 }
 
-type WhatsAppConnectionState = 'DISCONNECTED' | 'CONNECTED' | 'CONNECTING' | 'WAITING_QR';
-
 export function WhatsAppIntegration({ defaultGeminiKey }: { defaultGeminiKey: string }) {
   // Config state
-  const [config, setConfig] = useState<WhatsAppConfig>(() => {
-    const fallback: WhatsAppConfig = {
-      apiUrl: '',
-      apiKey: '',
-      instanceName: 'osone_assistant',
-      enabled: false,
-      geminiApiKey: ''
-    };
-    try {
-      const stored = localStorage.getItem('osone_whatsapp_config_v2');
-      return stored ? { ...fallback, ...JSON.parse(stored) } : fallback;
-    } catch {
-      return fallback;
-    }
+  const [config, setConfig] = useState<WhatsAppConfig>({
+    apiUrl: 'https://demo.evolution-api.com',
+    apiKey: '',
+    instanceName: 'osone_assistant',
+    enabled: false,
+    geminiApiKey: ''
   });
 
   // Connection mode: Sensus Virtual (express scan-and-use) or standard Evolution API
@@ -72,10 +62,13 @@ export function WhatsAppIntegration({ defaultGeminiKey }: { defaultGeminiKey: st
   // Persistence methods for virtual connection mode
   const fetchVirtualState = async () => {
     try {
-      const saved = (localStorage.getItem('osone_whatsapp_virtual_state') || 'DISCONNECTED') as WhatsAppConnectionState;
-      setVirtualState(saved);
-      if (connectionMode === 'sensus_virtual') {
-        setConnectionState(saved);
+      const res = await fetch('/api/whatsapp/virtual-state');
+      if (res.ok) {
+        const data = await res.json();
+        setVirtualState(data.state);
+        if (connectionMode === 'sensus_virtual') {
+          setConnectionState(data.state);
+        }
       }
     } catch (e) {
       console.error("Erro ao carregar estado de conexão virtual:", e);
@@ -84,11 +77,17 @@ export function WhatsAppIntegration({ defaultGeminiKey }: { defaultGeminiKey: st
 
   const saveVirtualState = async (state: string) => {
     try {
-      const normalized = state as WhatsAppConnectionState;
-      localStorage.setItem('osone_whatsapp_virtual_state', normalized);
-      setVirtualState(normalized);
-      if (connectionMode === 'sensus_virtual') {
-        setConnectionState(normalized);
+      const res = await fetch('/api/whatsapp/virtual-state', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ state })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setVirtualState(data.state);
+        if (connectionMode === 'sensus_virtual') {
+          setConnectionState(data.state);
+        }
       }
     } catch (e) {
       console.error("Erro ao salvar estado de conexão virtual:", e);
@@ -113,16 +112,19 @@ export function WhatsAppIntegration({ defaultGeminiKey }: { defaultGeminiKey: st
   const [isSendingTest, setIsSendingTest] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
 
-  // Rehydrate the current serverless invocation without making server memory
-  // the source of truth. Configuration remains isolated in this browser.
+  // Auto configure webhook
+  const [isConfiguringWebhook, setIsConfiguringWebhook] = useState(false);
+  const [webhookResult, setWebhookResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [autoWebhookTriggered, setAutoWebhookTriggered] = useState(false);
+
+  // Load backend configurations and logs
   const fetchConfig = async () => {
     try {
-      localStorage.setItem('osone_whatsapp_config_v2', JSON.stringify(config));
-      await fetch('/api/whatsapp/config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(config)
-      });
+      const res = await fetch('/api/whatsapp/config');
+      if (res.ok) {
+        const data = await res.json();
+        setConfig(data);
+      }
     } catch (e) {
       console.error("Erro ao carregar configuração do WhatsApp:", e);
     }
@@ -155,8 +157,6 @@ export function WhatsAppIntegration({ defaultGeminiKey }: { defaultGeminiKey: st
   const handleSaveConfig = async (updatedConfig?: Partial<WhatsAppConfig>) => {
     setIsSaving(true);
     const toSave = { ...config, ...updatedConfig };
-    setConfig(toSave);
-    localStorage.setItem('osone_whatsapp_config_v2', JSON.stringify(toSave));
     try {
       const res = await fetch('/api/whatsapp/config', {
         method: 'POST',
@@ -164,7 +164,8 @@ export function WhatsAppIntegration({ defaultGeminiKey }: { defaultGeminiKey: st
         body: JSON.stringify(toSave),
       });
       if (res.ok) {
-        setConfig(toSave);
+        const data = await res.json();
+        setConfig(data.config);
         fetchLogs();
       }
     } catch (e) {
@@ -203,7 +204,6 @@ export function WhatsAppIntegration({ defaultGeminiKey }: { defaultGeminiKey: st
         body: JSON.stringify({
           endpoint: `/instance/connectionState/${config.instanceName}`,
           method: 'GET',
-          config,
           headers: config.apiKey ? { 'apikey': config.apiKey } : {}
         })
       });
@@ -237,8 +237,8 @@ export function WhatsAppIntegration({ defaultGeminiKey }: { defaultGeminiKey: st
       
       // Simulate high-speed connection QR generation
       setTimeout(async () => {
-        const simulatorCode = `OSONE-VIRTUAL-${crypto.randomUUID?.() || Date.now()}`;
-        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=350x350&data=${encodeURIComponent(simulatorCode)}&color=059669&bgcolor=ffffff`;
+        const webhookUrl = `${window.location.origin}/api/whatsapp/webhook?instance=${config.instanceName}`;
+        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=350x350&data=${encodeURIComponent(webhookUrl)}&color=059669&bgcolor=ffffff`;
         setQrCodeData(qrUrl);
         await saveVirtualState('WAITING_QR');
         setStatusLoading(false);
@@ -257,7 +257,6 @@ export function WhatsAppIntegration({ defaultGeminiKey }: { defaultGeminiKey: st
         body: JSON.stringify({
           endpoint: `/instance/connect/${config.instanceName}`,
           method: 'GET',
-          config,
           headers: config.apiKey ? { 'apikey': config.apiKey } : {}
         })
       });
@@ -300,9 +299,7 @@ export function WhatsAppIntegration({ defaultGeminiKey }: { defaultGeminiKey: st
         body: JSON.stringify({
           senderName: "Suporte OSONE",
           text: "Olá! Seu dispositivo celular foi conectado com sucesso ao cérebro inteligente OSONE G5. A partir de agora, estou pronto para gerenciar suas conversas e responder aos seus clientes com inteligência de ponta! 🧠✨",
-          remoteJid: "sistema@s.whatsapp.net",
-          config,
-          geminiApiKey: config.geminiApiKey || defaultGeminiKey
+          remoteJid: "sistema@s.whatsapp.net"
         })
       });
       fetchLogs();
@@ -324,9 +321,7 @@ export function WhatsAppIntegration({ defaultGeminiKey }: { defaultGeminiKey: st
         body: JSON.stringify({
           senderName: simulatedName,
           text: simulatedMessage,
-          remoteJid: `${Math.floor(100000000 + Math.random() * 900000000)}@s.whatsapp.net`,
-          config,
-          geminiApiKey: config.geminiApiKey || defaultGeminiKey
+          remoteJid: `${Math.floor(100000000 + Math.random() * 900000000)}@s.whatsapp.net`
         })
       });
 
@@ -357,7 +352,6 @@ export function WhatsAppIntegration({ defaultGeminiKey }: { defaultGeminiKey: st
         body: JSON.stringify({
           endpoint: '/instance/create',
           method: 'POST',
-          config,
           headers: config.apiKey ? { 'apikey': config.apiKey } : {},
           body: {
             instanceName: config.instanceName,
@@ -392,7 +386,6 @@ export function WhatsAppIntegration({ defaultGeminiKey }: { defaultGeminiKey: st
         body: JSON.stringify({
           endpoint: `/message/sendText/${config.instanceName}`,
           method: 'POST',
-          config,
           headers: config.apiKey ? { 'apikey': config.apiKey } : {},
           body: {
             number: cleanNumber,
@@ -413,6 +406,58 @@ export function WhatsAppIntegration({ defaultGeminiKey }: { defaultGeminiKey: st
       setTestResult({ success: false, message: `Erro ao enviar: ${e?.message || e}` });
     } finally {
       setIsSendingTest(false);
+    }
+  };
+
+  const handleAutoConfigureWebhook = async () => {
+    setIsConfiguringWebhook(true);
+    setWebhookResult(null);
+
+    // Get current OSONE origin to build the webhook destination
+    const osoneOrigin = window.location.origin;
+    const webhookUrl = `${osoneOrigin}/api/whatsapp/webhook`;
+
+    try {
+      const res = await fetch('/api/whatsapp/proxy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          endpoint: `/webhook/set/${config.instanceName}`,
+          method: 'POST',
+          headers: config.apiKey ? { 'apikey': config.apiKey } : {},
+          body: {
+            enabled: true,
+            url: webhookUrl,
+            by: "default",
+            events: [
+              "MESSAGES_UPSERT",
+              "MESSAGES_CREATE"
+            ]
+          }
+        })
+      });
+
+      if (res.ok) {
+        setWebhookResult({ 
+          success: true, 
+          message: `Webhook registrado com êxito! As mensagens enviadas para o WhatsApp da instância '${config.instanceName}' agora serão interceptadas e respondidas pelo cérebro OSONE!` 
+        });
+        // Save chatbot activate state
+        handleSaveConfig({ enabled: true });
+      } else {
+        const errText = await res.text();
+        setWebhookResult({ 
+          success: false, 
+          message: `A API da Evolution rejeitou a configuração do webhook: ${errText}. Certifique-se de que a instância esteja criada.` 
+        });
+      }
+    } catch (e: any) {
+      setWebhookResult({ 
+        success: false, 
+        message: `Houve um erro: ${e?.message || e}. Você também pode configurar o webhook manualmente no gerenciador da Evolution apontando para: ${webhookUrl}` 
+      });
+    } finally {
+      setIsConfiguringWebhook(false);
     }
   };
 
@@ -440,7 +485,6 @@ export function WhatsAppIntegration({ defaultGeminiKey }: { defaultGeminiKey: st
           body: JSON.stringify({
             endpoint: `/instance/connectionState/${config.instanceName}`,
             method: 'GET',
-            config,
             headers: config.apiKey ? { 'apikey': config.apiKey } : {}
           })
         });
@@ -453,6 +497,14 @@ export function WhatsAppIntegration({ defaultGeminiKey }: { defaultGeminiKey: st
           if (normalizedState === 'connected') {
             setConnectionState('CONNECTED');
             setQrCodeData(null);
+            
+            // Auto-trigger webhook registration when connection is active
+            if (!autoWebhookTriggered) {
+              setAutoWebhookTriggered(true);
+              setTimeout(() => {
+                handleAutoConfigureWebhook();
+              }, 800);
+            }
           } else if (normalizedState === 'connecting') {
             setConnectionState('CONNECTING');
           } else if (normalizedState === 'waiting_qr') {
@@ -464,6 +516,7 @@ export function WhatsAppIntegration({ defaultGeminiKey }: { defaultGeminiKey: st
               }
               return 'DISCONNECTED';
             });
+            setAutoWebhookTriggered(false);
           }
         }
       } catch (err) {
@@ -472,7 +525,7 @@ export function WhatsAppIntegration({ defaultGeminiKey }: { defaultGeminiKey: st
     }, 3000);
 
     return () => clearInterval(interval);
-  }, [config.apiUrl, config.apiKey, config.instanceName, qrCodeData, connectionMode, virtualState]);
+  }, [config.apiUrl, config.apiKey, config.instanceName, qrCodeData, autoWebhookTriggered, connectionMode, virtualState]);
 
   return (
     <div className="w-full flex-1 flex flex-col min-h-0 bg-[#030303] text-her-ink/90 font-sans">
@@ -486,7 +539,7 @@ export function WhatsAppIntegration({ defaultGeminiKey }: { defaultGeminiKey: st
             </div>
             <div>
               <h1 className="text-xl font-light font-serif italic tracking-wide">Integração WhatsApp Evolution</h1>
-              <p className="text-[10px] text-her-muted tracking-wider uppercase mt-0.5">Simule conversas ou opere uma instância Evolution por HTTPS</p>
+              <p className="text-[10px] text-her-muted tracking-wider uppercase mt-0.5">Automatize respostas em tempo real usando inteligência artificial de elite</p>
             </div>
           </div>
         </div>
@@ -494,7 +547,7 @@ export function WhatsAppIntegration({ defaultGeminiKey }: { defaultGeminiKey: st
         {/* Global status pill */}
         <div className="flex items-center gap-3 self-start md:self-center">
           <div className="flex items-center gap-2 rounded-2xl bg-white/[0.02] border border-white/[0.05] p-1.5 px-3">
-            <span className="text-[10px] text-her-muted uppercase tracking-wider">IA NOS TESTES:</span>
+            <span className="text-[10px] text-her-muted uppercase tracking-wider">CÉREBRO CHATBOT:</span>
             <button
               onClick={() => handleSaveConfig({ enabled: !config.enabled })}
               className={`text-[9px] font-bold px-2.5 py-1 rounded-lg uppercase tracking-wider transition-all duration-300 ${
@@ -665,15 +718,13 @@ export function WhatsAppIntegration({ defaultGeminiKey }: { defaultGeminiKey: st
                       <CheckCircle size={36} />
                     </div>
                     <div>
-                      <h4 className="text-white text-sm font-medium uppercase tracking-wider">Conexão Confirmada</h4>
+                      <h4 className="text-white text-sm font-medium uppercase tracking-wider">Sincronização Concluída</h4>
                       <p className="text-xs text-her-muted mt-2 leading-relaxed max-w-[280px] mx-auto">
-                        {connectionMode === 'sensus_virtual'
-                          ? 'O simulador está pronto para testar mensagens e respostas da IA.'
-                          : 'A instância Evolution está acessível para QR, status e envios. Recebimento automático exige um serviço persistente de webhook fora da Function da Vercel.'}
+                        Seu WhatsApp foi pareado com sucesso! O cérebro OSONE já está ativo, processando e respondendo suas mensagens de forma automática.
                       </p>
                     </div>
                     <div className="p-2.5 px-4 rounded-xl bg-emerald-500/10 text-emerald-400 text-[9.5px] font-mono border border-emerald-500/20 uppercase tracking-widest mt-1">
-                      {connectionMode === 'sensus_virtual' ? 'Simulador: Ativado' : 'Gateway: Conectado'}
+                      Robô Inteligente: Ativado
                     </div>
 
                     {connectionMode === 'sensus_virtual' && (
@@ -724,7 +775,7 @@ export function WhatsAppIntegration({ defaultGeminiKey }: { defaultGeminiKey: st
                     <div>
                       <h5 className="text-[11px] font-semibold text-white uppercase tracking-wider">Como Funciona a Integração?</h5>
                       <p className="text-[10.5px] text-her-muted leading-relaxed mt-1">
-                        O modo virtual testa o fluxo completo sem enviar mensagens reais. O modo Evolution permite criar a instância, obter QR, consultar status e fazer envios; webhooks de entrada contínuos precisam de um worker persistente com armazenamento seguro.
+                        Diferente de sistemas complexos de webhook manual, ao escanear o QR code acima, o OSONE **vincula automaticamente** as mensagens recebidas ao cérebro e responde imediatamente usando inteligência artificial Gemini 3.5.
                       </p>
                     </div>
                   </div>
@@ -976,7 +1027,7 @@ export function WhatsAppIntegration({ defaultGeminiKey }: { defaultGeminiKey: st
                 Configurar Gateway Evolution
               </h3>
               <p className="text-[11px] text-her-muted mt-2 leading-relaxed">
-                Insira as credenciais HTTPS do seu servidor Evolution API. Endereços locais e redes privadas são bloqueados na versão publicada por segurança.
+                Insira as credenciais do seu servidor Evolution API. Se estiver rodando localmente, indique o endereço público temporário (ngrok/localtonet) ou endereço IP absoluto necessário para webhook.
               </p>
             </div>
 
@@ -1190,8 +1241,8 @@ export function WhatsAppIntegration({ defaultGeminiKey }: { defaultGeminiKey: st
                 <div>
                   <h4 className="font-semibold text-white mb-1">Passo 4: Sincronizar o Webhook</h4>
                   <p className="text-her-muted flex flex-col gap-1">
-                    <span>Na Vercel, use este painel para conexão, QR, estado e envios. Para receber mensagens continuamente, execute um worker de webhook persistente com banco de dados e autenticação por instância.</span>
-                    <span className="text-[10px] text-amber-400 mt-1">Não coloque chaves Gemini, Evolution ou cookies em URLs de webhook.</span>
+                    <span>Para que o OSONE saiba quando novas mensagens são recebidas de modo a respondê-las em frações de segundo, você só precisa clicar no botão <strong>Vincular Cérebro OSONE ao WhatsApp</strong> na nossa página principal para registrar automaticamente.</span>
+                    <span className="text-[10px] text-amber-400 mt-1">Nota: Se seu servidor OSONE estiver rodando localmente (sem HTTPS público), use canais ngrok ou configure manualmente a webhook da Evolution apontando para a URL exibida no console de sincronização automática.</span>
                   </p>
                 </div>
               </div>

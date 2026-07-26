@@ -9,19 +9,9 @@ interface IntimateMissionModalProps {
   intimateAnswers: { [id: number]: string };
   onUpdateAnswer: (id: number, val: string) => void;
   onUpdateBulkAnswers?: (answers: { [id: number]: string }) => void;
-  geminiApiKey?: string;
-  geminiModel?: string;
 }
 
-export function IntimateMissionModal({
-  isOpen,
-  onClose,
-  intimateAnswers,
-  onUpdateAnswer,
-  onUpdateBulkAnswers,
-  geminiApiKey = '',
-  geminiModel = 'gemini-3.5-flash'
-}: IntimateMissionModalProps) {
+export function IntimateMissionModal({ isOpen, onClose, intimateAnswers, onUpdateAnswer, onUpdateBulkAnswers }: IntimateMissionModalProps) {
   const [selectedCategory, setSelectedCategory] = useState<string | null>("Informações Básicas e Identidade");
   const [filterType, setFilterType] = useState<'all' | 'answered' | 'pending'>('all');
   
@@ -37,81 +27,6 @@ export function IntimateMissionModal({
   const [referenceText, setReferenceText] = useState("");
   const [dictatingQuestionId, setDictatingQuestionId] = useState<number | null>(null);
   const recognitionInstanceRef = useRef<any>(null);
-
-  const analyzeDossierDocument = async (
-    fileData: string,
-    mimeType: string
-  ): Promise<{ status: string; answers: Record<string, string> }> => {
-    const questionList = INTIMATE_QUESTIONS.map((question) => (
-      `${question.id}. [${question.category}] ${question.question}`
-    )).join('\n');
-    const currentAnswerList = Object.entries(intimateAnswers)
-      .filter(([, answer]) => String(answer || '').trim())
-      .map(([id, answer]) => `${id}: ${String(answer).trim()}`)
-      .join('\n');
-    const instruction = `Analise a referência fornecida e preencha somente respostas explicitamente sustentadas pelo conteúdo.
-Não invente, não faça diagnóstico e não deduza dados sensíveis sem evidência direta.
-Responda apenas com JSON válido no formato {"answers":{"1":"resposta"}}.
-Omita IDs sem evidência. Perguntas:
-${questionList}
-
-Respostas atuais, que só devem ser alteradas se a referência trouxer informação mais clara:
-${currentAnswerList || '(nenhuma)'}`;
-
-    const parts: any[] = [{ text: instruction }];
-    if (mimeType.startsWith('text/')) {
-      const binary = window.atob(fileData);
-      const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
-      parts.push({
-        text: `\n\nREFERÊNCIA:\n${new TextDecoder().decode(bytes).slice(0, 120_000)}`
-      });
-    } else {
-      parts.push({
-        inlineData: {
-          mimeType,
-          data: fileData
-        }
-      });
-    }
-
-    const response = await fetch('/api/gemini/generateContent', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        clientApiKey: geminiApiKey,
-        model: geminiModel,
-        contents: [{ role: 'user', parts }],
-        config: {
-          responseMimeType: 'application/json',
-          maxOutputTokens: 4_000,
-          temperature: 0.1
-        }
-      })
-    });
-
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      throw new Error(payload.error || 'Falha na análise automatizada do dossiê.');
-    }
-
-    const rawText = String(
-      payload.text ||
-      payload.candidates?.[0]?.content?.parts?.[0]?.text ||
-      ''
-    )
-      .trim()
-      .replace(/^```json\s*/i, '')
-      .replace(/\s*```$/, '');
-    const parsed = JSON.parse(rawText || '{}');
-    const answers = parsed?.answers && typeof parsed.answers === 'object'
-      ? parsed.answers
-      : parsed;
-    if (!answers || typeof answers !== 'object' || Array.isArray(answers)) {
-      throw new Error('A IA retornou um formato inválido para o dossiê.');
-    }
-
-    return { status: 'success', answers };
-  };
 
   const startVoiceDictation = (qId: number) => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -194,8 +109,24 @@ ${currentAnswerList || '(nenhuma)'}`;
       
       setAnalysisStatus("Mapeando respostas com o Cérebro OSONE...");
       
+      const response = await fetch('/api/dossier/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fileData: base64,
+          mimeType: "text/plain",
+          questions: INTIMATE_QUESTIONS,
+          currentAnswers: intimateAnswers
+        })
+      });
+      
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || "Falha na análise automatizada do dossiê.");
+      }
+      
       setAnalysisStatus("Inserindo sinapses...");
-      const data = await analyzeDossierDocument(base64, 'text/plain');
+      const data = await response.json();
       
       if (data.status === "success" && data.answers) {
         const returnedAnswers = data.answers;
@@ -263,9 +194,6 @@ ${currentAnswerList || '(nenhuma)'}`;
     setAnalysisStatus("Decodificando arquivo biográfico...");
     
     try {
-      if (file.size > 2_500_000) {
-        throw new Error('O arquivo deve ter no máximo 2,5 MB para análise segura.');
-      }
       const reader = new FileReader();
       
       const filePromise = new Promise<{ base64: string; mimeType: string }>((resolve, reject) => {
@@ -298,8 +226,24 @@ ${currentAnswerList || '(nenhuma)'}`;
       
       setAnalysisStatus("Sincronizando com as engrenagens neurais...");
       
+      const response = await fetch('/api/dossier/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fileData: base64,
+          mimeType,
+          questions: INTIMATE_QUESTIONS,
+          currentAnswers: intimateAnswers
+        })
+      });
+      
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || "Falha na análise automatizada do dossiê.");
+      }
+      
       setAnalysisStatus("Mapeando sinapses novas no OSONE local...");
-      const data = await analyzeDossierDocument(base64, mimeType);
+      const data = await response.json();
       
       if (data.status === "success" && data.answers) {
         const returnedAnswers = data.answers;

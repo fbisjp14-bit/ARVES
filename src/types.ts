@@ -19,12 +19,6 @@ export interface User {
 
 export interface ApiKeys {
   gemini: string;
-  openaiApiKey?: string;
-  aiProvider?: 'gemini' | 'openai';
-  openaiModel?: 'gpt-5.6-sol';
-  openaiImageModel?: 'gpt-image-2';
-  openaiImageQuality?: 'medium' | 'high';
-  openaiResearchMode?: 'standard' | 'deep';
   googleHomeId?: string;
   googleHomeToken?: string;
   elevenLabsApiKey?: string;
@@ -229,4 +223,6 @@ export interface ChatSession {
   createdAt: number;
   messages: Message[];
 }
+
+
 

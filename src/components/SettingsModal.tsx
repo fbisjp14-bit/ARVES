@@ -4,12 +4,6 @@ import { X, Cpu, Palette, Key, Smartphone, Info, Power, Activity, CheckCircle2, 
 import { cn } from '../lib/utils';
 import { ApiKeys, OrbStyle, AppTheme, AIProfile, VoiceModulation } from '../types';
 import { googleHomeService } from '../services/googleHomeService';
-import {
-  createLocalSnapshotId,
-  LOCAL_SNAPSHOT_ID_PATTERN,
-  LOCAL_SNAPSHOT_PREFIX,
-  sanitizeSnapshotPayload
-} from '../lib/localSnapshot';
 
 const VOICE_DETAILS = [
   { id: 'Kore', name: 'Kore', desc: 'Feminina • Doce, expressiva e natural', category: 'Femininas' },
@@ -84,8 +78,6 @@ export const SettingsModal = ({
   const [elVerificationMessage, setElVerificationMessage] = useState('');
   const [geminiVerificationStatus, setGeminiVerificationStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
   const [geminiVerificationMessage, setGeminiVerificationMessage] = useState('');
-  const [openAIVerificationStatus, setOpenAIVerificationStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
-  const [openAIVerificationMessage, setOpenAIVerificationMessage] = useState('');
 
   // ====== NEURAL CONNECTION MEMORY SYNC STATES ======
   const [syncLinkId, setSyncLinkId] = useState<string>(() => {
@@ -97,64 +89,70 @@ export const SettingsModal = ({
   const [syncMessage, setSyncMessage] = useState('');
   const [isCopied, setIsCopied] = useState(false);
 
-  // Browser-local snapshot. Credentials are recursively excluded.
-  const handleBackupLocal = async () => {
+  // Backup state to Cloud Sync
+  const handleBackupToCloud = async (customId?: string) => {
     setIsSyncing(true);
     setSyncStatus('testing');
-    setSyncMessage('Criando snapshot seguro neste navegador...');
+    setSyncMessage('Codificando e blindando perfil de canais neurais...');
     try {
-      const currentState: Record<string, string> = {};
+      // Gather all local storage keys starting with 'osone_'
+      const payload: Record<string, string> = {};
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
-        if (key?.startsWith('osone_')) {
+        if (key && key.startsWith('osone_')) {
           const val = localStorage.getItem(key);
-          if (val !== null) currentState[key] = val;
+          if (val) {
+            payload[key] = val;
+          }
         }
       }
 
-      const payload = sanitizeSnapshotPayload({
-        ...currentState,
-        osone_voice_engine: voiceEngine,
-        osone_selected_voice: selectedVoice,
-        osone_chat_auto_speak: String(isChatAutoSpeakActive),
-        osone_voice_modulation: JSON.stringify(voiceModulation),
-        osone_orb_style: orbStyle,
-        osone_orb_size: String(orbSize),
-        osone_orb_center_mode: String(orbCenterMode),
-        osone_app_theme: appTheme,
-        osone_ai_profile: JSON.stringify(aiProfile)
-      });
+      // Hot-override with current live state props to guarantee zero latency on input values
+      payload['osone_api_keys'] = JSON.stringify(keys);
+      payload['osone_voice_engine'] = voiceEngine;
+      payload['osone_selected_voice'] = selectedVoice;
+      payload['osone_chat_auto_speak'] = String(isChatAutoSpeakActive);
+      payload['osone_voice_modulation'] = JSON.stringify(voiceModulation);
+      payload['osone_orb_style'] = orbStyle;
+      payload['osone_orb_size'] = String(orbSize);
+      payload['osone_orb_center_mode'] = String(orbCenterMode);
+      payload['osone_app_theme'] = appTheme;
+      payload['osone_ai_profile'] = JSON.stringify(aiProfile);
 
-      const id = LOCAL_SNAPSHOT_ID_PATTERN.test(syncLinkId)
-        ? syncLinkId
-        : createLocalSnapshotId();
-      localStorage.setItem(
-        `${LOCAL_SNAPSHOT_PREFIX}${id}`,
-        JSON.stringify({
-          version: 1,
-          createdAt: new Date().toISOString(),
+      const response = await fetch('/api/memory-sync/save', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          syncId: customId || syncLinkId || undefined,
           payload
         })
-      );
-      localStorage.setItem('osone_sync_link_id', id);
-      setSyncLinkId(id);
-      setSyncStatus('success');
-      setSyncMessage(`Snapshot local concluído. ID ativo neste navegador: ${id}`);
-      onAddNotification?.(`Snapshot local salvo sob o ID: ${id}`, 'success');
+      });
+
+      const data = await response.json();
+      if (response.ok && data.status === 'success') {
+        setSyncLinkId(data.syncId);
+        localStorage.setItem('osone_sync_link_id', data.syncId);
+        setSyncStatus('success');
+        setSyncMessage(`Sincronização concluída! Link de Conexão Neural ativo: ${data.syncId}`);
+        if (onAddNotification) {
+          onAddNotification(`Conexão salva sob o ID: ${data.syncId}`, 'success');
+        }
+      } else {
+        setSyncStatus('error');
+        setSyncMessage(data.error || 'Erro ao sincronizar dados com o canal neural.');
+      }
     } catch (err: any) {
       setSyncStatus('error');
-      setSyncMessage(
-        err?.name === 'QuotaExceededError'
-          ? 'O navegador não tem espaço suficiente para duplicar este estado.'
-          : 'Não foi possível salvar o snapshot local.'
-      );
+      setSyncMessage('Erro de rede: canal de comunicação offline.');
     } finally {
       setIsSyncing(false);
     }
   };
 
-  // Restore a browser-local snapshot and reboot.
-  const handleRestoreLocal = async (id: string) => {
+  // Restore state from Cloud Sync and reboot
+  const handleRestoreFromCloud = async (id: string) => {
     if (!id.trim()) {
       setSyncStatus('error');
       setSyncMessage('Insira um ID de Conexão Neural válido.');
@@ -162,36 +160,50 @@ export const SettingsModal = ({
     }
     setIsSyncing(true);
     setSyncStatus('testing');
-    setSyncMessage('Restaurando o snapshot salvo neste navegador...');
+    setSyncMessage('Baixando dados e restabelecendo sinapses do OSONE...');
     try {
       const cleanedId = id.trim().toUpperCase();
-      if (!LOCAL_SNAPSHOT_ID_PATTERN.test(cleanedId)) {
-        throw new Error('ID_INVALIDO');
+      const response = await fetch(`/api/memory-sync/load/${cleanedId}`);
+      const data = await response.json();
+      
+      if (response.ok && data.status === 'success') {
+        const payload = data.payload;
+        
+        // Save all keys back into localStorage
+        Object.keys(payload).forEach(key => {
+          if (key.startsWith('osone_')) {
+            localStorage.setItem(key, payload[key]);
+          }
+        });
+        
+        // Propagate current fields/state values to parent app state immediately
+        if (onRestoreState) {
+          onRestoreState(payload);
+        }
+        
+        setSyncLinkId(cleanedId);
+        localStorage.setItem('osone_sync_link_id', cleanedId);
+        setSyncStatus('success');
+        setSyncMessage('Sincronia concluída com sucesso! Todos os campos foram preenchidos e a sessão foi restabelecida.');
+        
+        if (onAddNotification) {
+          onAddNotification(`Perfil restaurado! Todas as sinapses e chaves foram preenchidas com sucesso.`, 'success');
+        }
+        
+        // Instead of reloading immediately, let the user see the updated states. 
+        // We can reload after a longer delay or not reload at all (giving a seamless experience).
+        // Let's reload after 3 seconds so the user can verify the fully populated inputs first!
+        setTimeout(() => {
+          window.location.reload();
+        }, 3000);
+
+      } else {
+        setSyncStatus('error');
+        setSyncMessage(data.error || 'ID de sincronização inválido ou expirado.');
       }
-      const stored = localStorage.getItem(`${LOCAL_SNAPSHOT_PREFIX}${cleanedId}`);
-      if (!stored) throw new Error('SNAPSHOT_AUSENTE');
-      const parsed = JSON.parse(stored);
-      const payload = sanitizeSnapshotPayload(parsed?.payload || {});
-
-      Object.entries(payload).forEach(([key, value]) => {
-        localStorage.setItem(key, value);
-      });
-      onRestoreState?.(payload);
-
-      setSyncLinkId(cleanedId);
-      localStorage.setItem('osone_sync_link_id', cleanedId);
-      setSyncStatus('success');
-      setSyncMessage('Snapshot local restaurado. Credenciais não fazem parte do backup.');
-      onAddNotification?.('Perfil local restaurado sem copiar credenciais.', 'success');
     } catch (err) {
       setSyncStatus('error');
-      setSyncMessage(
-        err instanceof Error && err.message === 'ID_INVALIDO'
-          ? 'O ID informado não possui um formato válido.'
-          : err instanceof Error && err.message === 'SNAPSHOT_AUSENTE'
-            ? 'Este snapshot não existe neste navegador.'
-            : 'O snapshot está corrompido ou não pôde ser restaurado.'
-      );
+      setSyncMessage('Erro de rede: sem resposta do canal neural.');
     } finally {
       setIsSyncing(false);
     }
@@ -222,8 +234,6 @@ export const SettingsModal = ({
       setGeminiVerificationMessage('Por favor, configure sua chave de API Gemini nos ajustes antes de validar.');
       return;
     }
-    const normalizedGeminiKey = keys.gemini.trim();
-    setKeys({ ...keys, gemini: normalizedGeminiKey });
     setGeminiVerificationStatus('testing');
     setGeminiVerificationMessage('Handshake ativo. Testando cognição do Gemini...');
     try {
@@ -233,7 +243,7 @@ export const SettingsModal = ({
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          geminiApiKey: normalizedGeminiKey
+          geminiApiKey: keys.gemini
         })
       });
       const data = await response.json();
@@ -253,65 +263,6 @@ export const SettingsModal = ({
     } catch (err: any) {
       setGeminiVerificationStatus('error');
       setGeminiVerificationMessage('Erro de rede: sem resposta dos servidores do Gemini.');
-    }
-  };
-
-  const handleVerifyOpenAI = async () => {
-    const openAIKey = keys.openaiApiKey?.trim() || '';
-    if (!openAIKey) {
-      setOpenAIVerificationStatus('error');
-      setOpenAIVerificationMessage('Insira uma chave da OpenAI antes de validar.');
-      return;
-    }
-
-    setKeys({ ...keys, openaiApiKey: openAIKey });
-    setOpenAIVerificationStatus('testing');
-    setOpenAIVerificationMessage('Validando acesso à plataforma OpenAI...');
-    try {
-      const response = await fetch('/api/openai/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ openaiApiKey: openAIKey })
-      });
-      const rawBody = await response.text();
-      let data: Record<string, any> = {};
-      try {
-        data = rawBody ? JSON.parse(rawBody) : {};
-      } catch {
-        data = {};
-      }
-      if (response.ok && data.success) {
-        setKeys({
-          ...keys,
-          openaiApiKey: openAIKey,
-          aiProvider: 'openai'
-        });
-        setOpenAIVerificationStatus('success');
-        setOpenAIVerificationMessage(data.message);
-        onAddNotification?.('OpenAI conectada ao OSONE com sucesso!', 'success');
-      } else {
-        const vercelError = response.headers.get('x-vercel-error');
-        const message =
-          data.message ||
-          data.error ||
-          (vercelError
-            ? `A função OpenAI falhou no Vercel (${vercelError}). Faça um novo deploy deste pacote.`
-            : response.status === 401
-              ? 'A OpenAI recusou esta chave. Confirme se ela pertence à plataforma de API.'
-              : response.status === 429
-                ? 'A chave foi reconhecida, mas a conta de API está sem cota ou faturamento disponível.'
-                : `A função OpenAI respondeu com HTTP ${response.status}.`);
-        setOpenAIVerificationStatus('error');
-        setOpenAIVerificationMessage(message);
-        onAddNotification?.(message, 'error');
-      }
-    } catch (error: any) {
-      setOpenAIVerificationStatus('error');
-      setOpenAIVerificationMessage(
-        error?.name === 'AbortError'
-          ? 'A validação da OpenAI excedeu o tempo de resposta.'
-          : 'Não foi possível alcançar a função OpenAI. Faça o deploy deste pacote corrigido e tente novamente.'
-      );
     }
   };
 
@@ -429,42 +380,6 @@ export const SettingsModal = ({
                     exit={{ opacity: 0, x: 10 }}
                     className="space-y-6"
                   >
-                    <div className="p-4 rounded-2xl bg-white/[0.015] border border-white/[0.06]">
-                      <div className="flex items-center gap-2 mb-3">
-                        <Activity size={12} className="text-her-accent" />
-                        <label className="block text-[9px] uppercase tracking-[0.2em] text-her-muted font-bold">Provedor principal de IA</label>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setKeys({ ...keys, aiProvider: 'gemini' })}
-                          className={cn(
-                            "py-3 rounded-xl text-[10px] font-bold uppercase tracking-widest border transition-all",
-                            (keys.aiProvider || 'gemini') === 'gemini'
-                              ? "bg-her-accent/15 text-her-accent border-her-accent/30"
-                              : "bg-white/[0.02] text-her-muted/60 border-white/[0.05]"
-                          )}
-                        >
-                          Google Gemini
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setKeys({ ...keys, aiProvider: 'openai' })}
-                          className={cn(
-                            "py-3 rounded-xl text-[10px] font-bold uppercase tracking-widest border transition-all",
-                            keys.aiProvider === 'openai'
-                              ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
-                              : "bg-white/[0.02] text-her-muted/60 border-white/[0.05]"
-                          )}
-                        >
-                          OpenAI / ChatGPT
-                        </button>
-                      </div>
-                      <p className="mt-3 text-[10px] text-her-muted/45 leading-relaxed">
-                        O provedor ativo processa chat, pesquisa e imagens. Nenhuma chave é compartilhada entre sessões.
-                      </p>
-                    </div>
-
                     <div>
                       <div className="flex items-center gap-2 mb-3">
                         <Key size={12} className="text-her-accent" />
@@ -607,7 +522,7 @@ export const SettingsModal = ({
                       <div className="p-3 rounded-2xl bg-white/[0.01] border border-white/[0.05] flex items-center justify-between gap-4">
                         <div className="min-w-0">
                           <p className="text-xs font-bold text-white">Nano Banana 2</p>
-                          <p className="text-[10px] text-her-muted/60 font-mono">gemini-3.1-flash-image</p>
+                          <p className="text-[10px] text-her-muted/60 font-mono">gemini-2.5-flash</p>
                         </div>
                         <span className="p-1 px-2.5 rounded-full bg-emerald-500/10 text-emerald-400 text-[9px] font-bold uppercase tracking-widest border border-emerald-500/25 flex items-center gap-1.5 shrink-0">
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
@@ -619,133 +534,57 @@ export const SettingsModal = ({
                       </p>
                     </div>
 
-                    <div className="mt-6 border-t border-white/10 pt-6 space-y-5">
-                      <div>
-                        <div className="flex items-center justify-between gap-3 mb-3">
-                          <div className="flex items-center gap-2">
-                            <Key size={12} className="text-emerald-400" />
-                            <label className="block text-[9px] uppercase tracking-[0.2em] text-her-muted font-bold">OpenAI API Key</label>
-                          </div>
-                          {keys.aiProvider === 'openai' && (
-                            <span className="text-[8px] font-bold uppercase tracking-widest text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-full px-2 py-1">
-                              Provedor ativo
-                            </span>
-                          )}
-                        </div>
-                        <input
-                          type="password"
-                          value={keys.openaiApiKey || ''}
-                          onChange={(e) => setKeys({ ...keys, openaiApiKey: e.target.value })}
-                          className="w-full bg-white/[0.02] border border-white/[0.05] rounded-2xl px-5 py-4 focus:outline-none focus:border-emerald-500/30 transition-all text-base md:text-sm font-light text-her-ink/80 placeholder:text-her-muted/20"
-                          placeholder="sk-..."
-                          autoComplete="off"
-                        />
-                        <button
-                          type="button"
-                          onClick={handleVerifyOpenAI}
-                          disabled={openAIVerificationStatus === 'testing'}
-                          className={cn(
-                            "w-full mt-3 py-3.5 rounded-2xl text-[10px] uppercase tracking-[0.15em] font-bold transition-all flex items-center justify-center gap-2",
-                            openAIVerificationStatus === 'testing' ? "bg-white/5 text-her-muted cursor-wait" :
-                            openAIVerificationStatus === 'success' ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" :
-                            openAIVerificationStatus === 'error' ? "bg-red-500/10 text-red-500 border border-red-500/20" :
-                            "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20"
-                          )}
-                        >
-                          {openAIVerificationStatus === 'testing' ? (
-                            <><Loader2 size={13} className="animate-spin" /> Validando OpenAI...</>
-                          ) : openAIVerificationStatus === 'success' ? (
-                            <><CheckCircle2 size={13} /> OpenAI conectada</>
-                          ) : openAIVerificationStatus === 'error' ? (
-                            <><AlertCircle size={13} /> Tentar novamente</>
-                          ) : (
-                            <><RefreshCw size={13} /> Testar chave OpenAI</>
-                          )}
-                        </button>
-                        {openAIVerificationMessage && (
-                          <p className={cn(
-                            "mt-2 text-[10px] font-mono leading-relaxed p-3 rounded-xl border",
-                            openAIVerificationStatus === 'success'
-                              ? "bg-emerald-500/5 text-emerald-400/80 border-emerald-500/10"
-                              : "bg-red-500/5 text-red-400/80 border-red-500/10"
-                          )}>
-                            {openAIVerificationMessage}
-                          </p>
-                        )}
-                        <p className="mt-3 text-[10px] text-her-muted/40 italic leading-relaxed">
-                          A API possui cobrança própria; assinatura do ChatGPT não inclui créditos de API.
-                        </p>
+                    {/* Google Custom Search Section */}
+                    <div className="mt-5 border-t border-white/5 pt-4 space-y-4">
+                      <div className="flex items-center gap-2">
+                        <Key size={12} className="text-purple-400" />
+                        <label className="block text-[9px] uppercase tracking-[0.2em] text-her-muted font-bold">Google Custom Search API</label>
                       </div>
-
-                      <div>
-                        <div className="flex items-center gap-2 mb-3">
-                          <Cpu size={12} className="text-emerald-400" />
-                          <label className="block text-[9px] uppercase tracking-[0.2em] text-her-muted font-bold">Modelo OpenAI</label>
+                      <p className="text-[10px] text-her-muted/60 leading-relaxed font-sans">
+                        Configure o Custom Search para habilitar buscas na web em tempo real localmente sem depender exclusivamente da pesquisa geradora padrão do Gemini.
+                      </p>
+                      <div className="space-y-3">
+                        <div>
+                          <label className="block text-[9px] uppercase tracking-wider text-her-muted/60 mb-1.5 font-bold">Developer Key</label>
+                          <input 
+                            type="password"
+                            value={keys.googleCustomSearchApiKey || ''}
+                            onChange={(e) => setKeys({ ...keys, googleCustomSearchApiKey: e.target.value })}
+                            className="w-full bg-white/[0.02] border border-white/[0.05] rounded-2xl px-5 py-3 focus:outline-none focus:border-purple-500/30 transition-all text-xs font-mono text-white placeholder:text-her-muted/20"
+                            placeholder="Ex: AIzaSyD..."
+                          />
                         </div>
-                        <div className="flex items-center justify-between gap-4 bg-emerald-500/[0.06] border border-emerald-500/20 px-4 py-3 rounded-2xl">
-                          <div>
-                            <p className="text-xs font-bold text-emerald-300">GPT‑5.6 Sol</p>
-                            <p className="text-[9px] text-her-muted/60 font-mono">gpt-5.6-sol</p>
-                          </div>
-                          <span className="text-[8px] font-bold uppercase tracking-widest text-emerald-400">
-                            Único modelo
-                          </span>
+                        <div>
+                          <label className="block text-[9px] uppercase tracking-wider text-her-muted/60 mb-1.5 font-bold">Search Engine ID (CX)</label>
+                          <input 
+                            type="text"
+                            value={keys.googleCustomSearchCx || ''}
+                            onChange={(e) => setKeys({ ...keys, googleCustomSearchCx: e.target.value })}
+                            className="w-full bg-white/[0.02] border border-white/[0.05] rounded-2xl px-5 py-3 focus:outline-none focus:border-purple-500/30 transition-all text-xs font-mono text-white placeholder:text-her-muted/20"
+                            placeholder="Ex: d18bde89..."
+                          />
                         </div>
-                        <p className="mt-2 text-[9px] leading-relaxed text-her-muted/50">
-                          As versões antigas foram removidas. Toda solicitação OpenAI usa GPT‑5.6 Sol.
-                        </p>
-                      </div>
-
-                      <div>
-                        <div className="flex items-center gap-2 mb-3">
-                          <Activity size={12} className="text-sky-400" />
-                          <label className="block text-[9px] uppercase tracking-[0.2em] text-her-muted font-bold">Pesquisa na web</label>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setKeys({ ...keys, openaiResearchMode: 'standard' })}
-                            className={cn(
-                              "py-3 rounded-xl text-[10px] font-bold border transition-all",
-                              (keys.openaiResearchMode || 'standard') === 'standard'
-                                ? "bg-sky-500/10 text-sky-300 border-sky-500/20"
-                                : "bg-white/[0.02] text-her-muted/60 border-white/5"
-                            )}
-                          >
-                            Padrão
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setKeys({ ...keys, openaiResearchMode: 'deep' })}
-                            className={cn(
-                              "py-3 rounded-xl text-[10px] font-bold border transition-all",
-                              (keys.openaiResearchMode || 'standard') === 'deep'
-                                ? "bg-sky-500/10 text-sky-300 border-sky-500/20"
-                                : "bg-white/[0.02] text-her-muted/60 border-white/5"
-                            )}
-                          >
-                            Aprofundada + fontes
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="p-3 rounded-2xl bg-white/[0.01] border border-white/[0.05]">
-                        <p className="text-xs font-bold text-white">GPT Image 2</p>
-                        <p className="text-[10px] text-her-muted/60 font-mono">gpt-image-2 • PNG • alta fidelidade</p>
                       </div>
                     </div>
 
-                    <div className="mt-5 border-t border-white/5 pt-4">
-                      <div className="p-4 rounded-2xl bg-sky-500/[0.05] border border-sky-500/15">
-                        <div className="flex items-center gap-2">
-                          <Activity size={12} className="text-sky-400" />
-                          <p className="text-[9px] uppercase tracking-[0.2em] text-sky-300 font-bold">
-                            Pesquisa web nativa
-                          </p>
-                        </div>
-                        <p className="mt-2 text-[10px] text-her-muted/65 leading-relaxed">
-                          Com Gemini ativo, o botão “Web ON” usa o Google Search Grounding pela própria chave Gemini. Com OpenAI ativa, “Aprofundada + fontes” usa Web Search no GPT‑5.6 Sol. Não é necessária chave Google Custom Search, CX ou Tavily.
-                        </p>
+                    {/* Tavily Search Section */}
+                    <div className="mt-5 border-t border-white/5 pt-4 space-y-4">
+                      <div className="flex items-center gap-2">
+                        <Key size={12} className="text-cyan-400" />
+                        <label className="block text-[9px] uppercase tracking-[0.2em] text-her-muted font-bold">Tavily Search Agent Web API</label>
+                      </div>
+                      <p className="text-[10px] text-her-muted/60 leading-relaxed font-sans">
+                        Habilite o Tavily Search para respostas dinâmicas focadas em agentes de IA. Perfeito para pesquisas técnicas rápidas e busca em tempo real.
+                      </p>
+                      <div>
+                        <label className="block text-[9px] uppercase tracking-wider text-her-muted/60 mb-1.5 font-bold">Tavily API Key (Opcional)</label>
+                        <input 
+                          type="password"
+                          value={keys.tavilyApiKey || ''}
+                          onChange={(e) => setKeys({ ...keys, tavilyApiKey: e.target.value })}
+                          className="w-full bg-white/[0.02] border border-white/[0.05] rounded-2xl px-5 py-3 focus:outline-none focus:border-cyan-500/30 transition-all text-xs font-mono text-white placeholder:text-her-muted/20"
+                          placeholder="Ex: tvly-..."
+                        />
                       </div>
                     </div>
                   </motion.div>
@@ -795,7 +634,7 @@ export const SettingsModal = ({
                           <label className="block text-[9px] uppercase tracking-[0.2em] text-her-muted font-bold">Chave de API ElevenLabs</label>
                           <span 
                             className="text-[9.5px] text-her-accent font-medium hover:underline cursor-pointer flex items-center gap-1"
-                            onClick={() => window.open('https://elevenlabs.io', '_blank', 'noopener,noreferrer')}
+                            onClick={() => window.open('https://elevenlabs.io', '_blank')}
                           >
                             Obter Chave <Info size={10} />
                           </span>
@@ -1224,7 +1063,7 @@ export const SettingsModal = ({
 
                     <div className="p-6 bg-white/[0.01] border border-white/[0.03] rounded-3xl space-y-6">
                       <div className="flex items-center justify-between">
-                        <label className="block text-[9px] uppercase tracking-[0.2em] text-her-muted font-bold">Modulador de Voz Limpa</label>
+                        <label className="block text-[9px] uppercase tracking-[0.2em] text-her-muted font-bold">Modulador de Voz</label>
                         <button 
                           onClick={() => setVoiceModulation({ pitch: 1.0, rate: 1.0, distortion: 0 })}
                           className="text-[8px] uppercase tracking-widest text-her-accent hover:underline"
@@ -1240,7 +1079,7 @@ export const SettingsModal = ({
                             <span className="text-her-accent">{voiceModulation.pitch.toFixed(2)}x</span>
                           </div>
                           <input 
-                            type="range" min="0.75" max="1.35" step="0.05"
+                            type="range" min="0.5" max="2.0" step="0.05"
                             value={voiceModulation.pitch}
                             onChange={(e) => setVoiceModulation({ ...voiceModulation, pitch: parseFloat(e.target.value) })}
                             className="w-full h-1 bg-white/5 rounded-lg appearance-none cursor-pointer accent-her-accent"
@@ -1253,16 +1092,25 @@ export const SettingsModal = ({
                             <span className="text-her-accent">{voiceModulation.rate.toFixed(2)}x</span>
                           </div>
                           <input 
-                            type="range" min="0.75" max="1.35" step="0.05"
+                            type="range" min="0.5" max="2.0" step="0.05"
                             value={voiceModulation.rate}
                             onChange={(e) => setVoiceModulation({ ...voiceModulation, rate: parseFloat(e.target.value) })}
                             className="w-full h-1 bg-white/5 rounded-lg appearance-none cursor-pointer accent-her-accent"
                           />
                         </div>
 
-                        <p className="text-[9px] leading-relaxed text-her-muted/50">
-                          Distorção e retorno do microfone foram desativados. A saída usa filtragem anti-ruído e proteção contra clipping.
-                        </p>
+                        <div className="space-y-3">
+                          <div className="flex justify-between text-[10px] text-her-muted/60 uppercase font-medium">
+                            <span>Distorção / Ruído</span>
+                            <span className="text-her-accent">{Math.round(voiceModulation.distortion * 100)}%</span>
+                          </div>
+                          <input 
+                            type="range" min="0" max="1" step="0.01"
+                            value={voiceModulation.distortion}
+                            onChange={(e) => setVoiceModulation({ ...voiceModulation, distortion: parseFloat(e.target.value) })}
+                            className="w-full h-1 bg-white/5 rounded-lg appearance-none cursor-pointer accent-her-accent"
+                          />
+                        </div>
                       </div>
                     </div>
                   </motion.div>
@@ -1378,7 +1226,7 @@ export const SettingsModal = ({
                         </div>
                         <div>
                           <h3 className="text-sm font-bold text-her-ink">Google Home</h3>
-                          <p className="text-[10px] text-her-muted uppercase tracking-widest">Snapshot seguro do navegador</p>
+                          <p className="text-[10px] text-her-muted uppercase tracking-widest">Sincronização Cloud-to-Cloud</p>
                         </div>
                       </div>
                       <p className="text-xs text-her-muted leading-relaxed font-light">
@@ -1508,7 +1356,7 @@ export const SettingsModal = ({
                       </div>
                       
                       <p className="text-xs text-her-muted leading-relaxed font-light">
-                        Salve neste navegador um snapshot de conversas, perfil, memória e personalizações. <strong>Chaves de API, tokens, cookies e senhas são removidos</strong>. O ID funciona somente neste navegador; não é um backup em nuvem.
+                        Vincule toda a sua experiência OSONE — incluindo <strong>chaves de API</strong>, <strong>histórico total de conversas</strong>, <strong>perfil mental</strong> de IA, <strong>memória de longo prazo</strong> e personalizações — a um único token na nuvem. Use este token em qualquer navegador ou ambiente para restabelecer suas sinapses instantaneamente.
                       </p>
                     </div>
 
@@ -1542,7 +1390,7 @@ export const SettingsModal = ({
                           </div>
                           
                           <p className="text-[9.5px] text-her-muted/40 italic text-center">
-                            Este ID restaura o snapshot somente neste navegador. Chaves de API nunca entram no backup.
+                            Compartilhe ou guarde este ID para carregar toda a sua experiência instantaneamente em outro computador ou navegador.
                           </p>
                         </div>
                       ) : (
@@ -1553,7 +1401,7 @@ export const SettingsModal = ({
                       )}
 
                       <button
-                        onClick={() => handleBackupLocal()}
+                        onClick={() => handleBackupToCloud()}
                         disabled={isSyncing}
                         className={cn(
                           "w-full py-3.5 rounded-2xl text-[10px] uppercase tracking-[0.2em] font-bold transition-all flex items-center justify-center gap-2 cursor-pointer",
@@ -1568,7 +1416,7 @@ export const SettingsModal = ({
                         ) : (
                           <>
                             <RefreshCw size={13} />
-                            {syncLinkId ? 'Atualizar Snapshot Local' : 'Gerar ID e Salvar Localmente'}
+                            {syncLinkId ? 'Sincronizar Atualizações na Nuvem' : 'Gerar ID e Salvar na Nuvem'}
                           </>
                         )}
                       </button>
@@ -1578,7 +1426,7 @@ export const SettingsModal = ({
                     <div className="p-5 bg-white/[0.01] border border-white/[0.03] rounded-3xl space-y-4">
                       <span className="block text-[9px] uppercase tracking-[0.2em] text-her-muted font-bold">Resgatar Conexão Existente</span>
                       <p className="text-[11px] text-her-muted/70 leading-relaxed font-light">
-                        Cole um ID criado neste mesmo navegador para restaurar mensagens e preferências. As chaves precisam ser configuradas novamente.
+                        Mudou de navegador ou dispositivo comercial? Cole seu ID de Conexão Neural existente para reviver todas as suas mensagens e chaves.
                       </p>
 
                       <div className="space-y-2">
@@ -1592,7 +1440,7 @@ export const SettingsModal = ({
                       </div>
 
                       <button
-                        onClick={() => handleRestoreLocal(inputId)}
+                        onClick={() => handleRestoreFromCloud(inputId)}
                         disabled={isSyncing || !inputId.trim()}
                         className={cn(
                           "w-full py-3.5 rounded-2xl text-[10px] uppercase tracking-[0.2em] font-bold transition-all flex items-center justify-center gap-2 cursor-pointer",
@@ -1658,3 +1506,5 @@ export const SettingsModal = ({
     </AnimatePresence>
   );
 };
+
+

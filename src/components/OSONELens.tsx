@@ -6,8 +6,6 @@ import {
   Eye, CornerRightDown, ExternalLink, Tag, Info, List, Compass
 } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { MAX_AI_FILE_BYTES } from '../lib/requestLimits';
-import { normalizeExternalHttpUrl } from '../lib/externalUrl';
 
 interface LensResult {
   name: string;
@@ -164,11 +162,6 @@ export const OSONELens = ({ onClose, onAddNotification }: {
       onAddNotification("Arquivo inválido. Por favor envie apenas imagens.", "rose");
       return;
     }
-    if (file.size > MAX_AI_FILE_BYTES) {
-      onAddNotification("A imagem deve ter no máximo 2,5 MB.", "rose");
-      e.target.value = '';
-      return;
-    }
 
     const reader = new FileReader();
     reader.onload = (event) => {
@@ -197,34 +190,14 @@ export const OSONELens = ({ onClose, onAddNotification }: {
     setIsPlayingAudio(true);
     try {
       const explainText = `Sintonizando objeto identificado. ${result.name}. Categoria: ${result.category}. Confiança estimada de ${result.confidence} por cento. Descrição: ${result.description}. Característica marcante: ${result.details.caracteristicaPrincipal}.`;
-      let scopedKeys: Record<string, any> = {};
-      try {
-        scopedKeys = JSON.parse(
-          sessionStorage.getItem('osone_active_api_keys_v1') || '{}'
-        );
-      } catch (_) {}
-      const engine =
-        localStorage.getItem('osone_voice_engine') === 'elevenlabs'
-          ? 'elevenlabs'
-          : 'gemini';
-      const activeElevenLabsVoice =
-        scopedKeys.elevenLabsActiveVoice === 'voice2'
-          ? scopedKeys.elevenLabsVoiceId2
-          : scopedKeys.elevenLabsActiveVoice === 'voice3'
-            ? scopedKeys.elevenLabsVoiceId3
-            : scopedKeys.elevenLabsVoiceId;
       
       const response = await fetch('/api/tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           text: explainText,
-          engine,
-          clientApiKey: scopedKeys.gemini || '',
-          voice: 'Kore',
-          elevenLabsApiKey: scopedKeys.elevenLabsApiKey || '',
-          elevenLabsVoiceId: activeElevenLabsVoice || '',
-          elevenLabsModel: scopedKeys.elevenLabsModel
+          engine: 'premium',
+          voice: 'Kore'
         })
       });
 
@@ -872,27 +845,23 @@ export const OSONELens = ({ onClose, onAddNotification }: {
                         
                         {result.citations && result.citations.length > 0 ? (
                           <div className="space-y-3">
-                            {result.citations.map((cite, idx) => {
-                              const safeUri = normalizeExternalHttpUrl(cite.uri);
-                              if (!safeUri) return null;
-                              return (
-                                <a
-                                  key={idx}
-                                  href={safeUri}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="block p-3.5 bg-cyan-500/[0.02] hover:bg-cyan-500/[0.05] border border-cyan-500/10 hover:border-cyan-500/30 rounded-2xl transition-all flex items-center justify-between group active:scale-[0.99]"
-                                >
-                                  <div className="flex-1 min-w-0 pr-3">
-                                    <h4 className="text-xs font-semibold text-zinc-200 group-hover:text-cyan-300 transition-colors truncate">
-                                      {cite.title}
-                                    </h4>
-                                    <p className="text-[9px] text-zinc-500 font-mono truncate mt-0.5">{safeUri}</p>
-                                  </div>
-                                  <ExternalLink size={13} className="text-zinc-500 group-hover:text-cyan-400 transition-colors shrink-0" />
-                                </a>
-                              );
-                            })}
+                            {result.citations.map((cite, idx) => (
+                              <a
+                                key={idx}
+                                href={cite.uri}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="block p-3.5 bg-cyan-500/[0.02] hover:bg-cyan-500/[0.05] border border-cyan-500/10 hover:border-cyan-500/30 rounded-2xl transition-all flex items-center justify-between group active:scale-[0.99]"
+                              >
+                                <div className="flex-1 min-w-0 pr-3">
+                                  <h4 className="text-xs font-semibold text-zinc-200 group-hover:text-cyan-300 transition-colors truncate">
+                                    {cite.title}
+                                  </h4>
+                                  <p className="text-[9px] text-zinc-500 font-mono truncate mt-0.5">{cite.uri}</p>
+                                </div>
+                                <ExternalLink size={13} className="text-zinc-500 group-hover:text-cyan-400 transition-colors shrink-0" />
+                              </a>
+                            ))}
                           </div>
                         ) : (
                           <div className="p-6 text-center border border-dashed border-white/5 rounded-2xl text-[11px] text-zinc-400 bg-white/[0.01]">

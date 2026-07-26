@@ -7,7 +7,6 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 import { ApiKeys } from '../types';
-import { MAX_AI_FILE_BYTES } from '../lib/requestLimits';
 
 interface ContentCreatorProps {
   apiKeys: ApiKeys;
@@ -168,11 +167,6 @@ export function ContentCreator({ apiKeys, addNotification, onSaveToVirtualWorksp
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > Math.min(MAX_AI_FILE_BYTES, 1_000_000)) {
-      addNotification('A base de conhecimento deve ter no máximo 1 MB.', 'error');
-      e.target.value = '';
-      return;
-    }
 
     setKbFileName(file.name);
     

@@ -1,7 +1,6 @@
-import { restoreVercelApiPath } from '../src/lib/vercelApiPath.js';
-import app from './serverless.js';
+import appPromise from "../server";
 
-export default function handler(req: any, res: any) {
-  restoreVercelApiPath(req);
+export default async function handler(req: any, res: any) {
+  const app = await appPromise;
   return app(req, res);
 }

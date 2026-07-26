@@ -92,49 +92,6 @@ export async function setMemoryItem<T>(key: string, value: T): Promise<void> {
   }
 }
 
-export async function deleteMemoryItemsByPrefix(prefix: string): Promise<void> {
-  if (!/^osone_user_local_[A-Za-z0-9_-]{8,64}_$/.test(prefix)) {
-    throw new Error('Prefixo de perfil local inválido.');
-  }
-  const userId = prefix.slice('osone_user_'.length, -1);
-  const exactLocalKeys = new Set([
-    `nash_memory_${userId}`,
-    `nash_diary_${userId}`
-  ]);
-
-  const localKeys = Array.from(
-    { length: localStorage.length },
-    (_, index) => localStorage.key(index)
-  ).filter(
-    (key): key is string =>
-      Boolean(key && (key.startsWith(prefix) || exactLocalKeys.has(key)))
-  );
-  localKeys.forEach((key) => localStorage.removeItem(key));
-
-  try {
-    const db = await getDB();
-    await new Promise<void>((resolve, reject) => {
-      const transaction = db.transaction(STORE_NAME, 'readwrite');
-      const store = transaction.objectStore(STORE_NAME);
-      const keysRequest = store.getAllKeys();
-      keysRequest.onsuccess = () => {
-        keysRequest.result.forEach((key) => {
-          if (typeof key === 'string' && key.startsWith(prefix)) {
-            store.delete(key);
-          }
-        });
-      };
-      keysRequest.onerror = () => reject(keysRequest.error);
-      transaction.oncomplete = () => resolve();
-      transaction.onerror = () => reject(transaction.error);
-      transaction.onabort = () => reject(transaction.error);
-    });
-  } catch (err) {
-    console.error('Error deleting profile memory:', err);
-    throw err;
-  }
-}
-
 export async function clearAllMemoryStores(): Promise<void> {
   try {
     const db = await getDB();

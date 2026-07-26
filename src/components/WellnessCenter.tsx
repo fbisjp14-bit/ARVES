@@ -22,7 +22,6 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { generatePDF } from '../lib/pdfUtils';
-import { readLocalStorageJson } from '../lib/safeStorage';
 
 interface HealthData {
   age: string;
@@ -32,30 +31,17 @@ interface HealthData {
   stylePreference: string;
 }
 
-const DEFAULT_HEALTH_DATA: HealthData = {
-  age: '',
-  weight: '',
-  height: '',
-  gender: 'masculino',
-  stylePreference: 'casual'
-};
-
-const isHealthData = (value: unknown): value is HealthData => {
-  if (!value || typeof value !== 'object') return false;
-  const candidate = value as Partial<HealthData>;
-  return ['age', 'weight', 'height', 'gender', 'stylePreference'].every(
-    (key) => typeof candidate[key as keyof HealthData] === 'string'
-  );
-};
-
 export function WellnessCenter({ externalData, onUpdate, apiKeys }: { externalData?: HealthData, onUpdate?: (data: HealthData) => void, apiKeys: { gemini: string } }) {
   const [data, setData] = useState<HealthData>(() => {
     if (externalData) return externalData;
-    return readLocalStorageJson(
-      'osone_health_data',
-      DEFAULT_HEALTH_DATA,
-      isHealthData
-    );
+    const saved = localStorage.getItem('osone_health_data');
+    return saved ? JSON.parse(saved) : {
+      age: '',
+      weight: '',
+      height: '',
+      gender: 'masculino',
+      stylePreference: 'casual'
+    };
   });
   useEffect(() => {
     if (externalData) {
@@ -72,13 +58,10 @@ export function WellnessCenter({ externalData, onUpdate, apiKeys }: { externalDa
       setData(externalData);
       return;
     }
-    setData(
-      readLocalStorageJson(
-        'osone_health_data',
-        DEFAULT_HEALTH_DATA,
-        isHealthData
-      )
-    );
+    const saved = localStorage.getItem('osone_health_data');
+    if (saved) {
+      setData(JSON.parse(saved));
+    }
   }, [externalData]);
 
   useEffect(() => {
@@ -92,6 +75,7 @@ export function WellnessCenter({ externalData, onUpdate, apiKeys }: { externalDa
   }, [refreshData]);
 
   useEffect(() => {
+    localStorage.setItem('osone_health_data', JSON.stringify(data));
     if (onUpdate) onUpdate(data);
   }, [data, onUpdate]);
 

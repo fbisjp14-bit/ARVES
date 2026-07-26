@@ -48,10 +48,9 @@ interface GroupedChapter {
 interface MemoryBookPanelProps {
   onBack: () => void;
   onAddNotification: (msg: string, type: 'success' | 'error' | 'info') => void;
-  storageKey: string;
 }
 
-export const MemoryBookPanel = ({ onBack, onAddNotification, storageKey }: MemoryBookPanelProps) => {
+export const MemoryBookPanel = ({ onBack, onAddNotification }: MemoryBookPanelProps) => {
   const [memories, setMemories] = useState<MemoryEntry[]>([]);
   const [chapters, setChapters] = useState<GroupedChapter[]>([]);
   const [activeChapterIndex, setActiveChapterIndex] = useState<number>(0);
@@ -91,12 +90,10 @@ export const MemoryBookPanel = ({ onBack, onAddNotification, storageKey }: Memor
 
   // Load conversation memories from localStorage (standard behavior)
   useEffect(() => {
-    setMemories([]);
-    const saved = localStorage.getItem(storageKey);
+    const saved = localStorage.getItem('osone_memory_book');
     if (saved) {
       try {
         const parsed = JSON.parse(saved) as MemoryEntry[];
-        if (!Array.isArray(parsed)) return;
         // Sort chronologically by date and creation time
         parsed.sort((a, b) => {
           if (a.date !== b.date) {
@@ -109,7 +106,7 @@ export const MemoryBookPanel = ({ onBack, onAddNotification, storageKey }: Memor
         console.error("Error reading memory book:", e);
       }
     }
-  }, [storageKey]);
+  }, []);
 
   // Process memories into chapters (grouped by date) and pages
   useEffect(() => {
@@ -201,7 +198,7 @@ export const MemoryBookPanel = ({ onBack, onAddNotification, storageKey }: Memor
 
     const updated = memories.filter(m => m.id !== id);
     setMemories(updated);
-    localStorage.setItem(storageKey, JSON.stringify(updated));
+    localStorage.setItem('osone_memory_book', JSON.stringify(updated));
     onAddNotification("Memória de conversação removida com sucesso.", "success");
   };
 

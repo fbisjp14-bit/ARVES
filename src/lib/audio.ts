@@ -7,7 +7,6 @@ export class AudioProcessor {
   private stream: MediaStream | null = null;
   private processor: ScriptProcessorNode | null = null;
   private source: MediaStreamAudioSourceNode | null = null;
-  private silentOutput: GainNode | null = null;
 
   async startRecording(onAudioData: (base64Data: string, rms: number) => void) {
     try {
@@ -19,9 +18,6 @@ export class AudioProcessor {
       this.audioContext = new AudioContextClass({ sampleRate: 16000 });
       this.stream = await navigator.mediaDevices.getUserMedia({
         audio: {
-          channelCount: 1,
-          sampleRate: 16000,
-          sampleSize: 16,
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: true
@@ -69,13 +65,7 @@ export class AudioProcessor {
       };
   
       this.source.connect(this.processor);
-      // O ScriptProcessor precisa estar conectado para emitir eventos. Um
-      // ganho zero impede que o microfone retorne aos alto-falantes e gere
-      // chiado, eco ou realimentação.
-      this.silentOutput = this.audioContext.createGain();
-      this.silentOutput.gain.value = 0;
-      this.processor.connect(this.silentOutput);
-      this.silentOutput.connect(this.audioContext.destination);
+      this.processor.connect(this.audioContext.destination);
       if (this.audioContext.state === 'suspended') {
         await this.audioContext.resume();
       }
@@ -101,13 +91,11 @@ export class AudioProcessor {
   stopRecording() {
     this.processor?.disconnect();
     this.source?.disconnect();
-    this.silentOutput?.disconnect();
     this.stream?.getTracks().forEach(track => track.stop());
     this.audioContext?.close();
     
     this.processor = null;
     this.source = null;
-    this.silentOutput = null;
     this.stream = null;
     this.audioContext = null;
   }
@@ -116,10 +104,6 @@ export class AudioProcessor {
 export class AudioPlayer {
   private audioContext: AudioContext | null = null;
   private analyserNode: AnalyserNode | null = null;
-  private outputGainNode: GainNode | null = null;
-  private highPassNode: BiquadFilterNode | null = null;
-  private lowPassNode: BiquadFilterNode | null = null;
-  private compressorNode: DynamicsCompressorNode | null = null;
   private nextStartTime: number = 0;
   private onActivityChange?: (active: boolean) => void;
   private activeSources: Set<AudioBufferSourceNode> = new Set();
@@ -138,28 +122,7 @@ export class AudioPlayer {
       this.analyserNode = this.audioContext.createAnalyser();
       this.analyserNode.fftSize = 64;
       this.analyserNode.smoothingTimeConstant = 0.8;
-      this.outputGainNode = this.audioContext.createGain();
-      this.outputGainNode.gain.value = 0.92;
-      this.highPassNode = this.audioContext.createBiquadFilter();
-      this.highPassNode.type = 'highpass';
-      this.highPassNode.frequency.value = 70;
-      this.highPassNode.Q.value = 0.7;
-      this.lowPassNode = this.audioContext.createBiquadFilter();
-      this.lowPassNode.type = 'lowpass';
-      this.lowPassNode.frequency.value = 11_000;
-      this.lowPassNode.Q.value = 0.7;
-      this.compressorNode = this.audioContext.createDynamicsCompressor();
-      this.compressorNode.threshold.value = -6;
-      this.compressorNode.knee.value = 6;
-      this.compressorNode.ratio.value = 4;
-      this.compressorNode.attack.value = 0.003;
-      this.compressorNode.release.value = 0.12;
-
-      this.analyserNode.connect(this.highPassNode);
-      this.highPassNode.connect(this.lowPassNode);
-      this.lowPassNode.connect(this.compressorNode);
-      this.compressorNode.connect(this.outputGainNode);
-      this.outputGainNode.connect(this.audioContext.destination);
+      this.analyserNode.connect(this.audioContext.destination);
     }
   }
 
@@ -197,6 +160,18 @@ export class AudioPlayer {
     }
   }
 
+  private createDistortionCurve(amount: number) {
+    const k = amount * 100;
+    const n_samples = 44100;
+    const curve = new Float32Array(n_samples);
+    const deg = Math.PI / 180;
+    for (let i = 0; i < n_samples; ++i) {
+      const x = (i * 2) / n_samples - 1;
+      curve[i] = ((3 + k) * x * 20 * deg) / (Math.PI + k * Math.abs(x));
+    }
+    return curve;
+  }
+
   playChunk(base64Data: string) {
     if (!this.audioContext || this.audioContext.state === 'closed') return;
 
@@ -211,13 +186,12 @@ export class AudioPlayer {
         bytes[i] = binary.charCodeAt(i);
       }
       
-      const sampleCount = Math.floor(bytes.byteLength / 2);
-      if (sampleCount === 0) return;
-      const pcmView = new DataView(bytes.buffer, bytes.byteOffset, sampleCount * 2);
+      const pcmData = new Int16Array(bytes.buffer);
+      if (pcmData.length === 0) return;
 
-      const floatData = new Float32Array(sampleCount);
-      for (let i = 0; i < sampleCount; i++) {
-        floatData[i] = pcmView.getInt16(i * 2, true) / 32768.0;
+      const floatData = new Float32Array(pcmData.length);
+      for (let i = 0; i < pcmData.length; i++) {
+        floatData[i] = pcmData[i] / 32768.0;
       }
   
       const buffer = this.audioContext.createBuffer(1, floatData.length, 24000);
@@ -233,10 +207,17 @@ export class AudioPlayer {
       // Anti-pop Gain Envelope Node
       const gainNode = this.audioContext.createGain();
 
-      // A versão anterior possuía WaveShaper configurável, que adicionava
-      // ruído audível. A saída agora permanece sempre limpa.
-      source.connect(gainNode);
-      gainNode.connect(this.analyserNode || this.audioContext.destination);
+      if (this.modulation.distortion > 0) {
+        const distort = this.audioContext.createWaveShaper();
+        distort.curve = this.createDistortionCurve(this.modulation.distortion);
+        distort.oversample = '4x';
+        source.connect(gainNode);
+        gainNode.connect(distort);
+        distort.connect(this.analyserNode || this.audioContext.destination);
+      } else {
+        source.connect(gainNode);
+        gainNode.connect(this.analyserNode || this.audioContext.destination);
+      }
   
       const currentTime = this.audioContext.currentTime;
       // Jitter buffer management: if nextStartTime is behind currentTime or starting fresh, add 50ms buffer

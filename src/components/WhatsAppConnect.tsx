@@ -70,10 +70,6 @@ export function WhatsAppConnect({ onStatusChange, className = '' }: WhatsAppConn
       if (res.ok) {
         const data = await res.json();
         setStatus(data.status || 'iniciando');
-      } else {
-        const data = await res.json().catch(() => ({}));
-        setStatus('erro');
-        setErrorMsg(data.error || 'Conector local indisponível. Use Evolution API.');
       }
     } catch (e: any) {
       setErrorMsg(e.message || "Erro ao conectar WhatsApp");
@@ -98,10 +94,13 @@ export function WhatsAppConnect({ onStatusChange, className = '' }: WhatsAppConn
     }
   };
 
-  // Do not start a Puppeteer session automatically. The removed legacy
-  // connector was incompatible with serverless and could crash the app.
+  // Connect automatically on component mount
   useEffect(() => {
-    checkStatus();
+    handleConnect();
+
+    // Setup status polling
+    const interval = setInterval(checkStatus, 3000);
+    return () => clearInterval(interval);
   }, [checkStatus]);
 
   return (
@@ -122,7 +121,7 @@ export function WhatsAppConnect({ onStatusChange, className = '' }: WhatsAppConn
                 Local Session
               </span>
             </h3>
-            <p className="text-xs text-zinc-400">Conector local legado desativado • use Evolution API</p>
+            <p className="text-xs text-zinc-400">whatsapp-web.js via Puppeteer local</p>
           </div>
         </div>
 
